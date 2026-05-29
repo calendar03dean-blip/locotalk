@@ -1,0 +1,57 @@
+{
+  "expo": {
+    "name": "Spotchat",
+    "slug": "spota-fresh",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ECFDF5"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.spota.fresh",
+      "buildNumber": "1",
+      "jsEngine": "hermes",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "내 동네를 자동으로 감지해요",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "내 동네를 자동으로 감지해요",
+        "NSMicrophoneUsageDescription": "음성 메시지 전송 시 사용돼요",
+        "NSCameraUsageDescription": "프로필 사진 설정 시 사용돼요",
+        "NSPhotoLibraryUsageDescription": "사진을 첨부할 때 사용돼요"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ECFDF5"
+      },
+      "package": "com.spota.fresh",
+      "versionCode": 1,
+      "jsEngine": "hermes",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-location",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1BAE84",
+          "sounds": []
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "f47228c8-a47b-451a-894b-804ed86da518"
+      }
+    }
+  }
+}

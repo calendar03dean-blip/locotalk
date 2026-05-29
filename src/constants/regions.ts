@@ -1,0 +1,150 @@
+// src/constants/regions.ts
+// SPOTA — Region monogram + romanization tables for typographic icons.
+
+export const KOREAN_MONOGRAM: Record<string, string> = {
+  // 시/도 (2-char short form)
+  seoul:        '서울',
+  gyeonggi:     '경기',
+  incheon:      '인천',
+  busan:        '부산',
+  daegu:        '대구',
+  gwangju:      '광주',
+  daejeon:      '대전',
+  ulsan:        '울산',
+  sejong:       '세종',
+  gangwon:      '강원',
+  chungbuk:     '충북',
+  chungnam:     '충남',
+  jeonbuk:      '전북',
+  jeonnam:      '전남',
+  gyeongbuk:    '경북',
+  gyeongnam:    '경남',
+  jeju:         '제주',
+  // 구 (2-char short form — drops "구")
+  gangnam:      '강남',
+  gangdong:     '강동',
+  gangbuk:      '강북',
+  gangseo:      '강서',
+  gwanak:       '관악',
+  gwangjin:     '광진',
+  guro:         '구로',
+  geumcheon:    '금천',
+  nowon:        '노원',
+  dobong:       '도봉',
+  dongdaemun:   '동대',
+  dongjak:      '동작',
+  mapo:         '마포',
+  seodaemun:    '서대',
+  seocho:       '서초',
+  seongdong:    '성동',
+  seongbuk:     '성북',
+  songpa:       '송파',
+  yangcheon:    '양천',
+  yeongdeungpo: '영등',
+  yongsan:      '용산',
+  eunpyeong:    '은평',
+  jongno:       '종로',
+  junggu:       '중구',
+  jungnang:     '중랑',
+};
+
+// Romanized name as single string (for accessibility / labels)
+export const ENGLISH_NAME: Record<string, string> = {
+  seoul: 'SEOUL', gyeonggi: 'GYEONGGI', incheon: 'INCHEON',
+  busan: 'BUSAN', daegu: 'DAEGU', gwangju: 'GWANGJU',
+  daejeon: 'DAEJEON', ulsan: 'ULSAN', sejong: 'SEJONG',
+  gangwon: 'GANGWON', chungbuk: 'CHUNGBUK', chungnam: 'CHUNGNAM',
+  jeonbuk: 'JEONBUK', jeonnam: 'JEONNAM',
+  gyeongbuk: 'GYEONGBUK', gyeongnam: 'GYEONGNAM', jeju: 'JEJU',
+  gangnam: 'GANGNAM', gangdong: 'GANGDONG', gangbuk: 'GANGBUK', gangseo: 'GANGSEO',
+  gwanak: 'GWANAK', gwangjin: 'GWANGJIN', guro: 'GURO', geumcheon: 'GEUMCHEON',
+  nowon: 'NOWON', dobong: 'DOBONG', dongdaemun: 'DONGDAEMUN', dongjak: 'DONGJAK',
+  mapo: 'MAPO', seodaemun: 'SEODAEMUN', seocho: 'SEOCHO',
+  seongdong: 'SEONGDONG', seongbuk: 'SEONGBUK', songpa: 'SONGPA',
+  yangcheon: 'YANGCHEON', yeongdeungpo: 'YEONGDEUNGPO', yongsan: 'YONGSAN',
+  eunpyeong: 'EUNPYEONG', jongno: 'JONGNO', junggu: 'JUNG-GU', jungnang: 'JUNGNANG',
+};
+
+// Romanized name broken into Korean syllable boundaries.
+// Used by RegionBadge to render long names on two lines without overflow.
+export const ENGLISH_SYLLABLES: Record<string, string[]> = {
+  // 시/도
+  seoul:        ['SEOUL'],
+  gyeonggi:     ['GYEONG', 'GI'],
+  incheon:      ['IN', 'CHEON'],
+  busan:        ['BUSAN'],
+  daegu:        ['DAEGU'],
+  gwangju:      ['GWANG', 'JU'],
+  daejeon:      ['DAE', 'JEON'],
+  ulsan:        ['ULSAN'],
+  sejong:       ['SEJONG'],
+  gangwon:      ['GANG', 'WON'],
+  chungbuk:     ['CHUNG', 'BUK'],
+  chungnam:     ['CHUNG', 'NAM'],
+  jeonbuk:      ['JEON', 'BUK'],
+  jeonnam:      ['JEON', 'NAM'],
+  gyeongbuk:    ['GYEONG', 'BUK'],
+  gyeongnam:    ['GYEONG', 'NAM'],
+  jeju:         ['JEJU'],
+  // 구
+  gangnam:      ['GANG', 'NAM'],
+  gangdong:     ['GANG', 'DONG'],
+  gangbuk:      ['GANG', 'BUK'],
+  gangseo:      ['GANG', 'SEO'],
+  gwanak:       ['GWANAK'],
+  gwangjin:     ['GWANG', 'JIN'],
+  guro:         ['GURO'],
+  geumcheon:    ['GEUM', 'CHEON'],
+  nowon:        ['NOWON'],
+  dobong:       ['DOBONG'],
+  dongdaemun:   ['DONG', 'DAEMUN'],
+  dongjak:      ['DONG', 'JAK'],
+  mapo:         ['MAPO'],
+  seodaemun:    ['SEO', 'DAEMUN'],
+  seocho:       ['SEOCHO'],
+  seongdong:    ['SEONG', 'DONG'],
+  seongbuk:     ['SEONG', 'BUK'],
+  songpa:       ['SONGPA'],
+  yangcheon:    ['YANG', 'CHEON'],
+  yeongdeungpo: ['YEONG', 'DEUNGPO'],
+  yongsan:      ['YONG', 'SAN'],
+  eunpyeong:    ['EUN', 'PYEONG'],
+  jongno:       ['JONGNO'],
+  junggu:       ['JUNG-GU'],
+  jungnang:     ['JUNG', 'NANG'],
+};
+
+// Korean region name → icon id
+export const REGION_ICON_MAP: Record<string, string> = {
+  // Sido
+  '서울특별시': 'seoul',   '서울': 'seoul',
+  '경기도':     'gyeonggi','경기': 'gyeonggi',
+  '인천광역시': 'incheon', '인천': 'incheon',
+  '부산광역시': 'busan',   '부산': 'busan',
+  '대구광역시': 'daegu',   '대구': 'daegu',
+  '광주광역시': 'gwangju', '광주': 'gwangju',
+  '대전광역시': 'daejeon', '대전': 'daejeon',
+  '울산광역시': 'ulsan',   '울산': 'ulsan',
+  '세종특별자치시': 'sejong', '세종': 'sejong',
+  '강원특별자치도': 'gangwon','강원': 'gangwon',
+  '충청북도': 'chungbuk', '충북': 'chungbuk',
+  '충청남도': 'chungnam', '충남': 'chungnam',
+  '전북특별자치도': 'jeonbuk', '전북': 'jeonbuk',
+  '전라남도': 'jeonnam',  '전남': 'jeonnam',
+  '경상북도': 'gyeongbuk','경북': 'gyeongbuk',
+  '경상남도': 'gyeongnam','경남': 'gyeongnam',
+  '제주특별자치도': 'jeju', '제주': 'jeju',
+  // Gu
+  '강남구': 'gangnam', '강동구': 'gangdong', '강북구': 'gangbuk', '강서구': 'gangseo',
+  '관악구': 'gwanak', '광진구': 'gwangjin', '구로구': 'guro', '금천구': 'geumcheon',
+  '노원구': 'nowon', '도봉구': 'dobong', '동대문구': 'dongdaemun', '동작구': 'dongjak',
+  '마포구': 'mapo', '서대문구': 'seodaemun', '서초구': 'seocho', '성동구': 'seongdong',
+  '성북구': 'seongbuk', '송파구': 'songpa', '양천구': 'yangcheon',
+  '영등포구': 'yeongdeungpo', '용산구': 'yongsan', '은평구': 'eunpyeong',
+  '종로구': 'jongno', '중구': 'junggu', '중랑구': 'jungnang',
+};
+
+/** Look up the icon id for a Korean region name (e.g. '마포구' → 'mapo'). */
+export function regionIconId(name: string): string {
+  return REGION_ICON_MAP[name] || 'pin';
+}

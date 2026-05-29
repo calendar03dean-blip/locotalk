@@ -1,0 +1,345 @@
+/**
+ * Spotchat i18n — Korean + English
+ *
+ * Usage (in a component):
+ *   const t    = useT();
+ *   const lang = useLang();
+ *
+ *   <Text>{t('home_hero_title')}</Text>
+ *   <Text>{t('home_searching_sub', { region: '마포구' })}</Text>
+ *   <Text>{interestLabel(interest, lang)}</Text>
+ *
+ * Usage (in a callback/handler, outside render):
+ *   const { lang } = useStore.getState();
+ *   const str = translate('home_just_now', lang);
+ */
+
+import { useStore, type Lang } from '../store';
+
+export type { Lang };
+
+// ─── Translations ─────────────────────────────────────────────────
+export const translations = {
+  ko: {
+    // Common
+    cancel: '취소',
+    close: '닫기',
+    save: '저장',
+    confirm: '확인',
+
+    // Onboarding — nick step
+    onboarding_preview: '미리보기',
+    onboarding_nick_title: '어떻게\n불릴까요?',
+    onboarding_nick_sub: '닉네임은 매칭된 이웃에게만 보여요',
+    onboarding_nick_input_placeholder: '닉네임을 입력하세요',
+    onboarding_nick_hint1: '최대 6자',
+    onboarding_nick_hint2: '완전 익명',
+    onboarding_nick_hint3: '언제든 변경 가능',
+    onboarding_nick_next: '다음으로',
+    onboarding_back_btn: '닉네임 수정',
+
+    // Onboarding — interest step
+    onboarding_interest_title: '관심사를\n골라주세요',
+    onboarding_interest_sub: '최대 3개 · 매칭 시 상대에게 표시돼요',
+    onboarding_start: '시작하기',
+    onboarding_interest_none: '없음',
+
+    // Onboarding — alerts
+    alert_profanity: '사용할 수 없는 단어가 포함되어 있어요',
+    alert_nick_empty: '닉네임을 입력해주세요',
+    alert_nick_bad: '사용할 수 없는 닉네임이에요',
+    alert_interest_max: '최대 3개까지 선택할 수 있어요',
+    alert_interest_min: '관심사를 1개 이상 골라주세요',
+
+    // Home
+    home_detecting_location: '위치 감지 중...',
+    home_nearby: '근처',
+    home_hero_title: '이웃과\n대화해볼까요?',
+    home_hero_desc: '채팅방을 나가면 대화 내역이 사라져요\n닉네임으로만 만나는 익명 채팅',
+    home_match_start: '매칭 시작하기',
+    home_match_checking_gps: 'GPS 위치 확인 중...',
+    home_info_anon: '완전 익명',
+    home_info_anon_desc: '닉네임만\n공개돼요',
+    home_info_once: '일회성',
+    home_info_once_desc: '나가면\n사라져요',
+    home_info_my_hood: '내 동네',
+    home_info_my_hood_desc: 'GPS 자동\n감지해요',
+    home_activity_title: '지금 우리 동네',
+    home_compose_placeholder: '우리 동네 이야기를 써보세요...',
+    home_compose_submit: '작성',
+    home_load_more: '이전 글 더 보기 ({{count}}개)',
+    home_searching_title: '이웃 탐색 중',
+    home_searching_sub: '{{region}} 주변을 살펴보고 있어요',
+    home_searching_cancel: '취소',
+    home_post_close: '닫기',
+    home_just_now: '방금 전',
+    home_my_hood: '내 동네',
+
+    // Home — GPS / server alerts
+    alert_gps_denied_title: 'GPS 권한 필요',
+    alert_gps_denied_msg: '매칭을 위해 위치 접근 권한이 필요해요.\n설정 → 개인 정보 보호 → 위치 서비스에서 허용해주세요.',
+    alert_gps_denied_cancel: '취소',
+    alert_gps_denied_settings: '설정 열기',
+    alert_gps_fail_title: 'GPS 신호 없음',
+    alert_gps_fail_msg: '현재 위치를 받지 못했어요.\nGPS가 켜져 있는지 확인하고 다시 시도해주세요.',
+    alert_gps_retry: '다시 시도',
+    alert_server_fail_title: '서버 연결 실패',
+    alert_server_fail_msg: '서버에 연결할 수 없어요.\n오프라인 모드로 진행합니다.',
+    alert_match_error: '매칭 오류',
+    alert_compose_blocked_title: '작성 불가',
+    alert_compose_blocked_msg: '사용할 수 없는 단어가 포함되어 있어요',
+
+    // Chat
+    chat_notice_no_save: '🔥 대화 내역은 저장되지 않아요',
+    chat_empty_title: '진행 중인 채팅 없음',
+    chat_empty_desc: '매칭을 시작하면\n이웃과 대화할 수 있어요',
+    chat_empty_btn: '매칭 시작하기',
+    chat_anon: '익명',
+    chat_leave_btn: '나가기',
+    chat_leave_title: '채팅 나가기',
+    chat_leave_msg: '나가면 대화 내역이 모두 사라져요',
+    chat_leave_confirm: '나가기',
+    chat_block_title: '차단',
+    chat_block_msg: '{{nick}}님을 차단할까요?',
+    chat_block_confirm: '차단',
+    chat_block_menu: '{{nick}} 차단하기',
+    chat_leave_menu: '채팅방 나가기',
+    chat_menu_cancel: '취소',
+    chat_input_placeholder: '메시지 입력',
+    chat_input_placeholder_gone: '상대방이 나갔어요',
+    chat_peer_left: '💨 상대방이 채팅방을 나갔어요',
+    chat_peer_long_gone: '💨 상대방이 오랫동안 자리를 비워 채팅이 종료됐어요',
+    chat_send_failed: '⚠️ 전송 실패 · 다시 보내기',
+    chat_region_unknown: '동네',
+    time_am: '오전',
+    time_pm: '오후',
+
+    // MyInfo
+    myinfo_title: '내 정보',
+    myinfo_settings_section: '설정',
+    myinfo_interests_change: '관심사 변경',
+    myinfo_blocked_list: '차단 목록',
+    myinfo_blocked_count: '{{count}}명',
+    myinfo_accepts_chat: '채팅 받기',
+    myinfo_accepts_chat_hint: '매칭 요청을 자동으로 받아요',
+    myinfo_notifications: '알림',
+    myinfo_language: '언어',
+    myinfo_language_value: '한국어',
+    myinfo_about_section: 'Spotchat은',
+    myinfo_reset_btn: '처음부터 다시 시작',
+    myinfo_reset_title: '처음부터',
+    myinfo_reset_msg: '닉네임과 관심사가 초기화돼요',
+    myinfo_reset_confirm: '초기화',
+    myinfo_location_unset: '위치 미설정',
+    myinfo_interest_unset: '미설정',
+    myinfo_info_anon: '완전 익명',
+    myinfo_info_anon_desc: '나이·성별·전화번호 모두 비공개예요',
+    myinfo_info_once: '일회성 채팅',
+    myinfo_info_once_desc: '채팅방 퇴장 시 모든 대화가 사라져요',
+    myinfo_info_gps: 'GPS 매칭',
+    myinfo_info_gps_desc: '내 동네 이웃과 자동으로 연결해요',
+    myinfo_int_modal_title: '관심사 변경',
+    myinfo_int_modal_sub: '최대 3개 선택 · 없음 선택 시 나머지 해제',
+    myinfo_int_modal_none: '없음',
+    myinfo_int_min: '관심사를 1개 이상 선택해주세요',
+    myinfo_int_max: '최대 3개까지 선택할 수 있어요',
+    myinfo_blocked_title: '차단 목록',
+    myinfo_blocked_empty: '차단한 사용자가 없어요',
+    myinfo_unblock: '해제',
+
+    // Navigation
+    tab_home: '홈',
+    tab_chat: '채팅',
+    tab_myinfo: '내정보',
+
+    // Match modal
+    match_request_title: '채팅 요청이 왔어요 ✨',
+    match_anon: '익명',
+    match_decline: '거절',
+    match_accept: '수락하기',
+    match_hint: '60초 안에 응답하지 않으면 자동으로 거절돼요',
+  },
+
+  en: {
+    // Common
+    cancel: 'Cancel',
+    close: 'Close',
+    save: 'Save',
+    confirm: 'OK',
+
+    // Onboarding — nick step
+    onboarding_preview: 'Preview',
+    onboarding_nick_title: "What's your\nnickname?",
+    onboarding_nick_sub: 'Only shown to your matched neighbor',
+    onboarding_nick_input_placeholder: 'Enter a nickname',
+    onboarding_nick_hint1: 'Up to 6 chars',
+    onboarding_nick_hint2: 'Fully anonymous',
+    onboarding_nick_hint3: 'Change anytime',
+    onboarding_nick_next: 'Next',
+    onboarding_back_btn: 'Edit nickname',
+
+    // Onboarding — interest step
+    onboarding_interest_title: 'Pick your\ninterests',
+    onboarding_interest_sub: 'Up to 3 · shown to your match',
+    onboarding_start: "Let's go!",
+    onboarding_interest_none: 'None',
+
+    // Onboarding — alerts
+    alert_profanity: 'This word is not allowed',
+    alert_nick_empty: 'Please enter a nickname',
+    alert_nick_bad: "This nickname isn't allowed",
+    alert_interest_max: 'You can select up to 3 interests',
+    alert_interest_min: 'Please pick at least 1 interest',
+
+    // Home
+    home_detecting_location: 'Detecting location...',
+    home_nearby: 'nearby',
+    home_hero_title: 'Chat with\na neighbor?',
+    home_hero_desc: 'History disappears when you leave\nAnonymous chat — nickname only',
+    home_match_start: 'Start Matching',
+    home_match_checking_gps: 'Checking GPS...',
+    home_info_anon: 'Anonymous',
+    home_info_anon_desc: 'Nickname\nonly',
+    home_info_once: 'One-time',
+    home_info_once_desc: 'Gone when\nyou leave',
+    home_info_my_hood: 'My Hood',
+    home_info_my_hood_desc: 'Auto GPS\ndetection',
+    home_activity_title: 'Neighborhood Feed',
+    home_compose_placeholder: 'Share something with your neighborhood...',
+    home_compose_submit: 'Post',
+    home_load_more: 'Load {{count}} more',
+    home_searching_title: 'Finding neighbors',
+    home_searching_sub: 'Looking around {{region}}',
+    home_searching_cancel: 'Cancel',
+    home_post_close: 'Close',
+    home_just_now: 'Just now',
+    home_my_hood: 'My hood',
+
+    // Home — GPS / server alerts
+    alert_gps_denied_title: 'Location Required',
+    alert_gps_denied_msg: 'Location access is needed for matching.\nGo to Settings → Privacy → Location Services to enable.',
+    alert_gps_denied_cancel: 'Cancel',
+    alert_gps_denied_settings: 'Open Settings',
+    alert_gps_fail_title: 'No GPS Signal',
+    alert_gps_fail_msg: "Couldn't get your location.\nMake sure GPS is on and try again.",
+    alert_gps_retry: 'Try Again',
+    alert_server_fail_title: 'Connection Failed',
+    alert_server_fail_msg: "Couldn't reach the server.\nContinuing in offline mode.",
+    alert_match_error: 'Match Error',
+    alert_compose_blocked_title: 'Cannot Post',
+    alert_compose_blocked_msg: 'This word is not allowed',
+
+    // Chat
+    chat_notice_no_save: '🔥 Chat history is not saved',
+    chat_empty_title: 'No active chat',
+    chat_empty_desc: 'Start matching to\nchat with a neighbor',
+    chat_empty_btn: 'Start Matching',
+    chat_anon: 'Anonymous',
+    chat_leave_btn: 'Leave',
+    chat_leave_title: 'Leave Chat',
+    chat_leave_msg: 'All messages will disappear when you leave',
+    chat_leave_confirm: 'Leave',
+    chat_block_title: 'Block User',
+    chat_block_msg: 'Block {{nick}}?',
+    chat_block_confirm: 'Block',
+    chat_block_menu: 'Block {{nick}}',
+    chat_leave_menu: 'Leave chat room',
+    chat_menu_cancel: 'Cancel',
+    chat_input_placeholder: 'Message',
+    chat_input_placeholder_gone: 'The other person has left',
+    chat_peer_left: '💨 The other person left the chat',
+    chat_peer_long_gone: '💨 Chat ended — the other person was away too long',
+    chat_send_failed: '⚠️ Failed to send · Tap to retry',
+    chat_region_unknown: 'Nearby',
+    time_am: 'AM',
+    time_pm: 'PM',
+
+    // MyInfo
+    myinfo_title: 'My Profile',
+    myinfo_settings_section: 'Settings',
+    myinfo_interests_change: 'Edit Interests',
+    myinfo_blocked_list: 'Blocked Users',
+    myinfo_blocked_count: '{{count}} blocked',
+    myinfo_accepts_chat: 'Accept Chats',
+    myinfo_accepts_chat_hint: 'Auto-accept incoming match requests',
+    myinfo_notifications: 'Notifications',
+    myinfo_language: 'Language',
+    myinfo_language_value: 'English',
+    myinfo_about_section: 'About Spotchat',
+    myinfo_reset_btn: 'Start Over',
+    myinfo_reset_title: 'Start Over',
+    myinfo_reset_msg: 'Your nickname and interests will be reset',
+    myinfo_reset_confirm: 'Reset',
+    myinfo_location_unset: 'Location not set',
+    myinfo_interest_unset: 'Not set',
+    myinfo_info_anon: 'Fully Anonymous',
+    myinfo_info_anon_desc: 'Age, gender & phone are all private',
+    myinfo_info_once: 'One-time Chat',
+    myinfo_info_once_desc: 'All messages disappear when you leave',
+    myinfo_info_gps: 'GPS Matching',
+    myinfo_info_gps_desc: 'Auto-connects you with nearby neighbors',
+    myinfo_int_modal_title: 'Edit Interests',
+    myinfo_int_modal_sub: 'Up to 3 · selecting None clears others',
+    myinfo_int_modal_none: 'None',
+    myinfo_int_min: 'Please select at least 1 interest',
+    myinfo_int_max: 'You can select up to 3 interests',
+    myinfo_blocked_title: 'Blocked Users',
+    myinfo_blocked_empty: 'No blocked users',
+    myinfo_unblock: 'Unblock',
+
+    // Navigation
+    tab_home: 'Home',
+    tab_chat: 'Chat',
+    tab_myinfo: 'Profile',
+
+    // Match modal
+    match_request_title: 'Chat request! ✨',
+    match_anon: 'Anonymous',
+    match_decline: 'Decline',
+    match_accept: 'Accept',
+    match_hint: "No response in 60 sec = auto-declined",
+  },
+} as const;
+
+export type TKey = keyof typeof translations.ko;
+
+// ─── Standalone translate (safe inside callbacks / effects) ───────
+
+/**
+ * Translate a key with optional template params — does NOT rely on
+ * React context so it can be called from event handlers and effects.
+ */
+export function translate(
+  key: TKey,
+  lang: Lang,
+  params?: Record<string, string | number>,
+): string {
+  const dict = (translations[lang] ?? translations.ko) as Record<string, string>;
+  let str: string = dict[key] ?? (translations.ko as Record<string, string>)[key] ?? key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      str = str.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v));
+    }
+  }
+  return str;
+}
+
+// ─── React hooks ─────────────────────────────────────────────────
+
+/** Returns the current language from the store (reactive). */
+export function useLang(): Lang {
+  return useStore(s => s.lang);
+}
+
+/**
+ * Returns a reactive `t(key, params?)` function.
+ * Re-renders the component when lang changes.
+ */
+export function useT() {
+  const lang = useLang();
+  return (key: TKey, params?: Record<string, string | number>): string =>
+    translate(key, lang, params);
+}
+
+// ─── Locale auto-detection ────────────────────────────────────────
+

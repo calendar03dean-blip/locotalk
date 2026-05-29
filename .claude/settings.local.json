@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"from PIL import Image, ImageDraw; print\\('PIL OK'\\)\")",
+      "Bash(python3 -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c \"from PIL import Image; print\\('OK'\\)\")",
+      "Bash(python3)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('scripts',{}\\)\\)\")",
+      "Bash(xcrun simctl *)",
+      "Bash(npx expo *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(tee /tmp/expo-spota.log)",
+      "Bash(kill 6966)",
+      "Bash(pkill -f \"expo start\")",
+      "Bash(echo \"Started PID $!\")",
+      "Bash(osascript)",
+      "Bash(brew list *)",
+      "Bash(python3 -c \"import Quartz; print\\('Quartz available'\\)\")",
+      "Bash(osascript -e 'tell application \"Simulator\" to get bounds of window 1')",
+      "Bash(screencapture -x /tmp/desktop-screenshot.png)",
+      "Bash(pip3 list *)",
+      "Bash(plutil -p /Users/deank/Library/Developer/CoreSimulator/Devices/B7963F40-B51F-4BA0-B0B5-6ACBBA7DFF3A/data/Containers/Data/Application/45941BF6-FA7A-434F-8B29-F912C5019EDF/Library/Preferences/host.exp.Exponent.plist)",
+      "Bash(sqlite3 '/Users/deank/Library/Developer/CoreSimulator/Devices/B7963F40-B51F-4BA0-B0B5-6ACBBA7DFF3A/data/Containers/Data/Application/45941BF6-FA7A-434F-8B29-F912C5019EDF/Library/Application Support/.expo-internal/expo-v10.db' .tables)",
+      "Bash(sqlite3 '/Users/deank/Library/Developer/CoreSimulator/Devices/B7963F40-B51F-4BA0-B0B5-6ACBBA7DFF3A/data/Containers/Data/Application/45941BF6-FA7A-434F-8B29-F912C5019EDF/Library/Application Support/.expo-internal/expo-v10.db' 'SELECT key, value FROM kv LIMIT 30;')",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 /tmp/click_simulator.py)",
+      "Bash(brew install *)",
+      "Bash(osascript -e 'tell application \"Simulator\" to activate')",
+      "Bash(cliclick c:205,835)",
+      "Bash(swift -)",
+      "Bash(EXPO_APP=\"/Users/deank/Library/Developer/CoreSimulator/Devices/B7963F40-B51F-4BA0-B0B5-6ACBBA7DFF3A/data/Containers/Bundle/Application/91489244-9A19-4681-B10C-26813BD86127/Exponent-2.31.6.tar.app/Expo Go\" *)"
+    ]
+  }
+}

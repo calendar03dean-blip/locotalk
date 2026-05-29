@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; echo \"$f\" | grep -q 'theme\\.ts$' && cd /Users/deank/Downloads/spota-fresh && node scripts/theme-to-tokens.js 2>/dev/null || true; }",
+            "statusMessage": "🎨 theme.ts 변경 감지 → tokens.json 동기화 중...",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | { read -r f; echo \"$f\" | grep -q 'tokens\\.json$' && cd /Users/deank/Downloads/spota-fresh && npx style-dictionary build --config sd.config.js 2>/dev/null || true; }",
+            "statusMessage": "🎨 tokens.json 변경 감지 → theme.ts 재생성 중...",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
