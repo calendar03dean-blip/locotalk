@@ -1,5 +1,5 @@
 /**
- * Spotchat i18n — Korean + English
+ * Locotalk i18n — Korean + English
  *
  * Usage (in a component):
  *   const t    = useT();
@@ -125,7 +125,7 @@ export const translations = {
     myinfo_notifications: '알림',
     myinfo_language: '언어',
     myinfo_language_value: '한국어',
-    myinfo_about_section: 'Spotchat은',
+    myinfo_about_section: 'Locotalk은',
     myinfo_reset_btn: '처음부터 다시 시작',
     myinfo_reset_title: '처음부터',
     myinfo_reset_msg: '닉네임과 관심사가 초기화돼요',
@@ -265,7 +265,7 @@ export const translations = {
     myinfo_notifications: 'Notifications',
     myinfo_language: 'Language',
     myinfo_language_value: 'English',
-    myinfo_about_section: 'About Spotchat',
+    myinfo_about_section: 'About Locotalk',
     myinfo_reset_btn: 'Start Over',
     myinfo_reset_title: 'Start Over',
     myinfo_reset_msg: 'Your nickname and interests will be reset',

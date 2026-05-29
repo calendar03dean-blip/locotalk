@@ -1,7 +1,7 @@
 {
-  "name": "spotchat-server",
+  "name": "locotalk-server",
   "version": "1.0.0",
-  "description": "Spotchat realtime matching & relay server",
+  "description": "Locotalk realtime matching & relay server",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

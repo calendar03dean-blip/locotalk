@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Spotchat",
+    "name": "Locotalk",
     "slug": "spota-fresh",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -13,7 +13,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.spota.fresh",
+      "bundleIdentifier": "com.palosanto.spotchat",
       "buildNumber": "1",
       "jsEngine": "hermes",
       "infoPlist": {
@@ -21,7 +21,8 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "내 동네를 자동으로 감지해요",
         "NSMicrophoneUsageDescription": "음성 메시지 전송 시 사용돼요",
         "NSCameraUsageDescription": "프로필 사진 설정 시 사용돼요",
-        "NSPhotoLibraryUsageDescription": "사진을 첨부할 때 사용돼요"
+        "NSPhotoLibraryUsageDescription": "사진을 첨부할 때 사용돼요",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -29,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ECFDF5"
       },
-      "package": "com.spota.fresh",
+      "package": "com.palosanto.spotchat",
       "versionCode": 1,
       "jsEngine": "hermes",
       "permissions": [

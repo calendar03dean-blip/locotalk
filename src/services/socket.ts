@@ -1,5 +1,5 @@
 /**
- * Spotchat Socket Service
+ * Locotalk Socket Service
  *
  * Dev URL 자동 감지:
  *   - Expo Go가 Metro 서버에 접속할 때 쓰는 호스트 IP를 Constants에서 읽어

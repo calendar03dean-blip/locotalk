@@ -1,5 +1,5 @@
 /**
- * Spotchat Push Notification Service
+ * Locotalk Push Notification Service
  *
  * - expo-notifications 로 Expo Push Token 취득
  * - 서버에 `register_push_token` 이벤트로 등록

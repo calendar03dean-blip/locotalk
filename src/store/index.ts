@@ -23,7 +23,7 @@ function detectLang(): Lang {
 }
 
 // ─── 채팅 세션 지속성 (앱 재시작 후 재진입용) ─────────────────────
-const SESSION_KEY = 'spotchat_session_v1';
+const SESSION_KEY = 'locotalk_session_v1';
 
 export interface SavedSession {
   peer  : Peer;

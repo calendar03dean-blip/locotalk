@@ -179,7 +179,7 @@ export default function OnboardingScreen() {
                 <Circle cx="54" cy="32" r="4.5" fill="#1BAE84" />
               </Svg>
             </View>
-            <Text style={s.logoTitle}>Spotchat</Text>
+            <Text style={s.logoTitle}>Locotalk</Text>
           </View>
 
           {step === 'nick' ? (

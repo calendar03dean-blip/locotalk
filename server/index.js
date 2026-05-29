@@ -1,5 +1,5 @@
 /**
- * Spotchat — Realtime Matching & Relay Server
+ * Locotalk — Realtime Matching & Relay Server
  * Stack : Express + Socket.io (in-memory, no DB)
  * Port  : 4000
  *
@@ -798,6 +798,6 @@ io.on('connection', (socket) => {
 // ─── Start ───────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🟢 Spotchat server  http://localhost:${PORT}`);
+  console.log(`\n🟢 Locotalk server  http://localhost:${PORT}`);
   console.log(`   Health check     http://localhost:${PORT}/health\n`);
 });

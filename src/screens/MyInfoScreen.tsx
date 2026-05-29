@@ -267,7 +267,7 @@ export default function MyInfoScreen() {
           </View>
         </View>
 
-        {/* ── Spotchat 안내 ─────────────────────────────── */}
+        {/* ── Locotalk 안내 ─────────────────────────────── */}
         <Text style={s.sectionLabel}>{t('myinfo_about_section')}</Text>
         <View style={s.infoCards}>
           {INFO_ITEMS.map((item, i) => (
@@ -296,7 +296,7 @@ export default function MyInfoScreen() {
           </View>
         </TouchableOpacity>
 
-        <Text style={s.version}>Spotchat Beta · v1.0</Text>
+        <Text style={s.version}>Locotalk Beta · v1.0</Text>
       </ScrollView>
 
       {/* ── 관심사 변경 모달 (최대 3개) ───────────────── */}
