@@ -75,6 +75,45 @@ export const translations = {
     home_just_now: '방금 전',
     home_my_hood: '내 동네',
 
+    // Login
+    login_sub: '내 동네 이웃과 익명으로 대화해요',
+    login_google: 'Google로 계속하기',
+    login_kakao: '카카오로 계속하기',
+    login_naver: '네이버로 계속하기',
+    login_email: '이메일로 계속하기',
+    login_divider: '또는',
+    login_terms: '계속하면 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.',
+    login_back: '뒤로',
+
+    // Email OTP
+    email_input_title: '이메일 주소',
+    email_input_placeholder: '이메일을 입력하세요',
+    email_invalid: '올바른 이메일 주소를 입력해주세요',
+    email_send_code: '인증코드 받기',
+    email_code_title: '인증코드 입력',
+    email_code_sub: '{{email}}로 보낸 6자리 코드를 입력해주세요',
+    email_code_invalid: '인증코드가 올바르지 않아요',
+    email_code_expired: '인증코드가 만료됐어요. 다시 받아주세요',
+    email_verify: '확인',
+    email_resend: '{{sec}}초 후 재발송',
+    email_resend_now: '인증코드 다시 받기',
+
+    // Home — match alerts
+    alert_repeat_match_title: '다시 만났어요',
+    alert_repeat_match_msg: '{{nick}}님과 이전에 대화한 적 있어요. 계속 진행할까요?',
+    alert_repeat_match_cancel: '다른 이웃 찾기',
+    alert_repeat_match_ok: '계속하기',
+    alert_no_match_title: '주변 이웃 없음',
+    alert_no_match_msg: '지금은 주변에 대화 가능한 이웃이 없어요. 잠시 후 다시 시도해보세요.',
+    alert_no_match_ok: '확인',
+    premium_match_count: '{{used}}/{{limit}}회 사용 · 한도 초과 시 잠김',
+
+    // MyInfo — region
+    myinfo_region_setting: '지역 설정',
+    myinfo_region_custom: '커스텀 지역',
+    myinfo_region_premium_only: '프리미엄 전용 기능',
+    myinfo_region_current: '현재 위치 사용',
+
     // Home — GPS / server alerts
     alert_gps_denied_title: 'GPS 권한 필요',
     alert_gps_denied_msg: '매칭을 위해 위치 접근 권한이 필요해요.\n설정 → 개인 정보 보호 → 위치 서비스에서 허용해주세요.',
@@ -214,6 +253,45 @@ export const translations = {
     home_post_close: 'Close',
     home_just_now: 'Just now',
     home_my_hood: 'My hood',
+
+    // Login
+    login_sub: 'Chat anonymously with neighbors',
+    login_google: 'Continue with Google',
+    login_kakao: 'Continue with Kakao',
+    login_naver: 'Continue with Naver',
+    login_email: 'Continue with Email',
+    login_divider: 'or',
+    login_terms: 'By continuing, you agree to our Terms of Service and Privacy Policy.',
+    login_back: 'Back',
+
+    // Email OTP
+    email_input_title: 'Email Address',
+    email_input_placeholder: 'Enter your email',
+    email_invalid: 'Please enter a valid email address',
+    email_send_code: 'Send Code',
+    email_code_title: 'Enter Code',
+    email_code_sub: 'Enter the 6-digit code sent to {{email}}',
+    email_code_invalid: 'Incorrect code. Please try again.',
+    email_code_expired: 'Code expired. Please request a new one.',
+    email_verify: 'Verify',
+    email_resend: 'Resend in {{sec}}s',
+    email_resend_now: 'Resend Code',
+
+    // Home — match alerts
+    alert_repeat_match_title: "You've met before",
+    alert_repeat_match_msg: "You've chatted with {{nick}} before. Continue?",
+    alert_repeat_match_cancel: 'Find someone else',
+    alert_repeat_match_ok: 'Continue',
+    alert_no_match_title: 'No neighbors nearby',
+    alert_no_match_msg: 'No one is available right now. Try again in a moment.',
+    alert_no_match_ok: 'OK',
+    premium_match_count: '{{used}}/{{limit}} used · Locked when over limit',
+
+    // MyInfo — region
+    myinfo_region_setting: 'Region Setting',
+    myinfo_region_custom: 'Custom Region',
+    myinfo_region_premium_only: 'Premium only',
+    myinfo_region_current: 'Use current location',
 
     // Home — GPS / server alerts
     alert_gps_denied_title: 'Location Required',

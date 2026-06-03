@@ -23,6 +23,8 @@ import {
   requestPurchase,
   ErrorCode,
   type ProductSubscription,
+  type Purchase,
+  type PurchaseError,
 } from 'react-native-iap';
 import { Platform } from 'react-native';
 import { useStore } from '../store';
@@ -48,7 +50,7 @@ export async function initIAP(): Promise<void> {
     isConnected = true;
 
     // 구매 완료 이벤트
-    purchaseUpdateSub = purchaseUpdatedListener(async (purchase) => {
+    purchaseUpdateSub = purchaseUpdatedListener(async (purchase: Purchase) => {
       if (purchase.transactionId) {
         try {
           // TODO: 서버에서 영수증 검증 (production)
@@ -61,7 +63,7 @@ export async function initIAP(): Promise<void> {
     });
 
     // 구매 오류 이벤트
-    purchaseErrorSub = purchaseErrorListener((error) => {
+    purchaseErrorSub = purchaseErrorListener((error: PurchaseError) => {
       if (error.code !== ErrorCode.Interrupted) {
         console.warn('[IAP] 구매 오류:', error.code, error.message);
       }
@@ -79,7 +81,7 @@ async function restoreExistingPurchases(): Promise<boolean> {
   if (!isConnected) return false;
   try {
     const purchases = await getAvailablePurchases();
-    const hasActive = purchases.some(p =>
+    const hasActive = purchases.some((p: Purchase) =>
       p.productId === PRODUCT_IDS.MONTHLY ||
       p.productId === PRODUCT_IDS.YEARLY
     );
