@@ -345,3 +345,18 @@ B: pull → 재테스트 → BUGS.md 결과 업데이트
 3. `server/index.js`는 인메모리 상태 — 재시작 시 큐/룸 초기화됨 (pushTokens/feeds는 data.json 유지)
 4. `react-native-iap` 구매 완료는 `purchaseUpdatedListener`에서 비동기 처리
 5. `initialRouteName`은 항상 `"홈"` 유지
+
+### ⛔ 절대 수정 금지 파일
+- **`src/navigation/RootNavigator.tsx`** — 앱 전체 네비게이션 흐름 핵심. 잘못 수정 시 전체 화면 전환 불가
+- **`App.tsx`** — 앱 진입점. 잘못 수정 시 앱 시작 불가
+
+### ✅ npm install 후 필수 확인 패키지
+```bash
+# 아래 패키지가 node_modules에 정상 존재하는지 반드시 확인
+node -e "require('react-native-iap')"
+node -e "require('@react-native-google-signin/google-signin')"
+node -e "require('@react-native-kakao/user')"
+
+# 없으면 설치
+npm install react-native-iap @react-native-google-signin/google-signin @react-native-kakao/user @react-native-kakao/core
+```
