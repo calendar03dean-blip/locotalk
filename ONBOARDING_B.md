@@ -100,7 +100,49 @@ curl http://localhost:4000/health
 
 ---
 
-## 6. 전체 프로젝트 맥락
+## 6. 텔레그램 알림 설정 (작업 완료 시 자동 알림)
+
+Claude Code 작업이 끝날 때마다 텔레그램으로 알림이 와요.
+아래 명령어를 터미널에서 실행해서 설정하세요:
+
+```bash
+cat > ~/.claude/settings.json << 'EOF'
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "pgrep caffeinate > /dev/null 2>&1 || { nohup caffeinate -d -i </dev/null >/dev/null 2>&1 & disown $!; }; exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 15,
+            "command": "pkill caffeinate 2>/dev/null; nohup curl -s --max-time 8 -X POST \"https://api.telegram.org/bot<BOT_TOKEN>/sendMessage\" -d \"chat_id=<CHAT_ID>&text=%E2%9C%85%20Claude+%EC%9E%91%EC%97%85+%EC%99%84%EB%A3%8C%0A%ED%99%95%EC%9D%B8%ED%95%B4%EC%A3%BC%EC%84%B8%EC%9A%94!\" </dev/null >/dev/null 2>&1 & disown $!; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+```
+
+> ✅ 설정 후 Claude Code 재시작하면 작업 완료 시 텔레그램 알림이 와요.
+
+---
+
+## 7. 전체 프로젝트 맥락
 
 👉 `CLAUDE.md` 파일에 모든 기술 스택, 구조, 규칙이 정리되어 있습니다.
 새 세션 시작 시 Claude Code가 자동으로 읽습니다.
