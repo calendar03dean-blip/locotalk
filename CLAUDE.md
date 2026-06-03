@@ -167,7 +167,10 @@ IAP 상품 ID:
 ## 서버 실행
 
 ```bash
-# 서버 시작
+# 프로덕션 서버 (Railway)
+https://locotalk-production.up.railway.app
+
+# 로컬 서버 시작
 node server/index.js  # port 4000
 
 # 헬스체크

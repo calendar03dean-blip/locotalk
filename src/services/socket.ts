@@ -13,7 +13,7 @@ import { io, Socket } from 'socket.io-client';
 import Constants from 'expo-constants';
 
 const SOCKET_PORT = 4000;
-const PROD_URL    = 'https://your-production-server.com'; // 출시 전 교체
+const PROD_URL    = 'https://locotalk-production.up.railway.app';
 
 // ─── 개발 서버 URL 자동 감지 ─────────────────────────────────────
 function getDevServerUrl(): string {
@@ -67,7 +67,7 @@ export function connectSocket(): Socket {
       } catch { /* onboarding 단계엔 무시 */ }
     });
     _socket.on('disconnect',    (r) => console.log('[socket] ❌ disconnected', r));
-    _socket.on('connect_error', (e) => console.warn('[socket] ⚠️  error', e.message));
+    _socket.on('connect_error', (e) => console.log('[socket] ⚠️  error', e.message));
   } else {
     // 기존 소켓 재연결 — removeAllListeners 없이 재사용 (리스너 보존)
     console.log('[socket] reconnecting (preserving listeners)');
