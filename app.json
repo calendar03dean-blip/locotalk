@@ -17,7 +17,9 @@
       "buildNumber": "6",
       "jsEngine": "hermes",
       "entitlements": {
-        "com.apple.developer.applesignin": ["Default"]
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "내 동네를 자동으로 감지해요",
@@ -63,10 +65,7 @@
       [
         "@react-native-kakao/core",
         {
-          "nativeAppKey": "3a28c2894d331f12450cec5f37c3c578",
-          "ios": {
-            "kakaoOpenSDKVersion": "2.23.0"
-          }
+          "nativeAppKey": "3a28c2894d331f12450cec5f37c3c578"
         }
       ]
     ],
