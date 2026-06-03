@@ -255,6 +255,52 @@ LANG=en_US.UTF-8 npx expo run:ios --device ...
 
 ---
 
+## Notion 로깅 프로토콜 (필수)
+
+> 작업 완료 시, 버그 수정 시, A↔B 메시지 전송 시 **반드시** 아래 명령어로 Notion에 기록할 것.
+
+### 작업 완료 후 — 작업로그 등록
+```bash
+node scripts/notion-log.js work \
+  "작업 제목" \
+  "분류" \
+  "무엇을 했는지 상세히" \
+  "왜 이 작업이 필요했는지" \
+  "소요 시간" \
+  "commitHash"
+
+# 분류: "✨ 기능" | "🚀 배포" | "🛠 도구" | "📋 협업" | "🎨 디자인" | "🔧 수정"
+```
+
+### 버그 수정 완료 후 — 버그 목록 업데이트
+```bash
+# 버그 수정 시
+node scripts/notion-bug.js fix "버그 제목" "수정 내용" "commitHash"
+
+# 재테스트 완료 시
+node scripts/notion-bug.js done "버그 제목" "테스트 결과"
+```
+
+### A↔B 메시지 전송 시 — AB 커뮤니케이션 보드 등록
+```bash
+node scripts/notion-log.js msg \
+  "메시지 제목" \
+  "유형" \
+  "수신자(클로드A 또는 클로드B)" \
+  "메시지 내용" \
+  "관련 commitHash(없으면 생략)"
+
+# 유형: "🐛 버그 보고" | "✅ 버그 수정 완료" | "🔔 작업 완료 알림" | "📌 작업 요청" | "❓ 확인 요청" | "📢 공지"
+```
+
+### 세션 시작 시 체크리스트 (클로드A)
+```bash
+git pull origin main                 # 최신 코드
+node scripts/notion-bug.js list      # 미수정 버그 확인
+```
+
+---
+
 ## A↔B 협업 프로토콜
 
 ### 클로드B (테스터) 역할
