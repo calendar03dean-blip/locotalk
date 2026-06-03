@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, KeyboardAvoidingView, Platform, Alert, AppState, AppStateStatus,
+  FlatList, KeyboardAvoidingView, Platform, Alert, AppState, AppStateStatus, Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
@@ -587,9 +587,8 @@ export default function ChatScreen() {
                   .join('\n');
                 Alert.alert('채팅 내보내기', chatText.length > 0 ? `총 ${messages.filter(m=>!m.isNotice).length}개 메시지\n\n(클립보드에 복사됩니다)` : '대화 내역이 없어요', [
                   { text: '취소', style: 'cancel' },
-                  { text: '복사', onPress: () => {
-                    const Clipboard = require('@react-native-clipboard/clipboard').default;
-                    Clipboard?.setString?.(chatText) || Alert.alert('복사 완료');
+                  { text: '내보내기', onPress: () => {
+                    Share.share({ message: chatText, title: 'Locotalk 채팅 내보내기' });
                   }},
                 ]);
               }}>
