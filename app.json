@@ -9,13 +9,16 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ECFDF5"
+      "backgroundColor": "#40D3B6"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.palosanto.spotchat",
-      "buildNumber": "1",
+      "buildNumber": "4",
       "jsEngine": "hermes",
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "내 동네를 자동으로 감지해요",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "내 동네를 자동으로 감지해요",
@@ -47,12 +50,34 @@
           "color": "#1BAE84",
           "sounds": []
         }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-apple-authentication",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd"
+        }
+      ],
+      [
+        "@react-native-kakao/core",
+        {
+          "nativeAppKey": "3a28c2894d331f12450cec5f37c3c578",
+          "ios": {
+            "kakaoOpenSDKVersion": "2.23.0"
+          }
+        }
       ]
     ],
     "extra": {
       "eas": {
         "projectId": "f47228c8-a47b-451a-894b-804ed86da518"
-      }
+      },
+      "googleClientId": "1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd.apps.googleusercontent.com",
+      "kakaoNativeAppKey": "3a28c2894d331f12450cec5f37c3c578",
+      "naverClientId": "4amvZv8LfW4vE277jo8n",
+      "naverClientSecret": "NddPIqKVfL"
     }
   }
 }

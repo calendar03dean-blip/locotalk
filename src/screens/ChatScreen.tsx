@@ -155,7 +155,7 @@ async function scheduleLocalNotif(title: string, body: string) {
 export default function ChatScreen() {
   const navigation = useNavigation<any>();
   const isFocused  = useIsFocused();
-  const { user, peer, setPeer, setRoomId, blockUser } = useStore();
+  const { user, peer, setPeer, setRoomId, blockUser, isPremium } = useStore();
   const t    = useT();
   const lang = useLang();
 
@@ -191,7 +191,7 @@ export default function ChatScreen() {
     };
   }, [isFocused]);
 
-  // ── 새 매칭 시작 → 대화 내역 초기화 ────────────────────────────
+  // ── 새 매칭 시작 → 대화 내역 초기화 + 프리미엄 히스토리 로드 ──
   useEffect(() => {
     if (!peer) { prevRoomId.current = null; return; }
     if (peer.roomId !== prevRoomId.current) {
@@ -202,6 +202,14 @@ export default function ChatScreen() {
       setMenuVisible(false);
       setPeerGone(false);
       setIsOffline(peer.roomId.startsWith('room-local-'));
+
+      // 프리미엄: 이전 대화 히스토리 요청
+      if (isPremium && !peer.roomId.startsWith('room-local-')) {
+        const socket = getSocket();
+        if (socket?.connected) {
+          socket.emit('get_chat_history', { roomId: peer.roomId });
+        }
+      }
     }
   }, [peer?.roomId]);
 
@@ -273,11 +281,29 @@ export default function ChatScreen() {
       setPeerGone(true);
     };
 
+    // 프리미엄 채팅 히스토리 수신
+    const onChatHistory = ({ messages: history }: { messages: Array<{id:string;senderNick:string;text:string;time:string}> }) => {
+      if (!history?.length) return;
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(m => m.id));
+        const historyMsgs = history.map(m => ({
+          id  : m.id,
+          text: m.text,
+          mine: m.senderNick === user?.nickname,
+          time: m.time,
+        })).filter(m => !existingIds.has(m.id));
+        return historyMsgs.length > 0
+          ? [prev[0], ...historyMsgs, ...prev.slice(1)] // 공지 다음에 히스토리 삽입
+          : prev;
+      });
+    };
+
     socket.on('receive_message',              onReceiveMessage);
     socket.on('peer_left',                    onPeerLeft);
     socket.on('peer_temporarily_disconnected', onPeerTemporarilyDisconnected);
     socket.on('peer_reconnected',             onPeerReconnected);
     socket.on('peer_disconnected',            onPeerDisconnected);
+    socket.on('chat_history',                 onChatHistory);
 
     return () => {
       socket.off('receive_message',              onReceiveMessage);
@@ -285,6 +311,7 @@ export default function ChatScreen() {
       socket.off('peer_temporarily_disconnected', onPeerTemporarilyDisconnected);
       socket.off('peer_reconnected',             onPeerReconnected);
       socket.off('peer_disconnected',            onPeerDisconnected);
+      socket.off('chat_history',                 onChatHistory);
     };
   }, [peer?.roomId, isOffline]);
 
@@ -293,9 +320,6 @@ export default function ChatScreen() {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <View style={s.empty}>
-          <View style={s.emptyIcon}>
-            <IcoSparkles color={Colors.g3} />
-          </View>
           <Text style={s.emptyTitle}>{t('chat_empty_title')}</Text>
           <Text style={s.emptyDesc}>{t('chat_empty_desc')}</Text>
           <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('홈')}>
@@ -379,6 +403,44 @@ export default function ChatScreen() {
     ]);
   };
 
+  const handleReport = () => {
+    setMenuVisible(false);
+    Alert.alert(
+      '신고',
+      `${peer?.nick || '이 유저'}를 신고하시겠어요?\n신고된 내용은 검토 후 처리됩니다.`,
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '욕설/비방',
+          onPress: () => submitReport('욕설/비방'),
+        },
+        {
+          text: '불쾌한 내용',
+          style: 'destructive',
+          onPress: () => submitReport('불쾌한 내용'),
+        },
+      ],
+    );
+  };
+
+  const submitReport = (reason: string) => {
+    // 서버에 신고 전송
+    const socket = getSocket();
+    if (socket?.connected && peer?.roomId) {
+      socket.emit('report_user', {
+        reportedNick: peer.nick,
+        roomId      : peer.roomId,
+        reason,
+        reporterNick: user?.nickname || '익명',
+      });
+    }
+    // 신고 후 차단 + 나가기
+    if (peer) blockUser(peer.nick);
+    Alert.alert('신고 완료', '신고가 접수됐어요. 검토 후 조치합니다.', [
+      { text: '확인', onPress: doLeave },
+    ]);
+  };
+
   // 상대가 이미 나간 상태(peerGone)에서 뒤로 가기 → 확인 없이 바로 나가기
   // 상대가 아직 있는 상태 → 홈으로만 이동 (방은 유지, 재매칭 방지)
   const handleBack = () => {
@@ -411,6 +473,12 @@ export default function ChatScreen() {
                 {peer?.region || t('chat_region_unknown')}{peerInts.length > 0 ? ` · ${peerInts.map(i => interestLabel(i!, lang)).join(' · ')}` : ''}
               </Text>
             </View>
+            {/* 프리미엄 전용: 상대방과의 거리 */}
+            {isPremium && peer?.distanceKm != null && (
+              <View style={s.distanceBadge}>
+                <Text style={s.distanceTxt}>📍 {peer.distanceKm}km 거리</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -508,6 +576,37 @@ export default function ChatScreen() {
         <TouchableOpacity style={s.overlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
           <View style={s.menuSheet}>
             <View style={s.handle} />
+
+            {/* 프리미엄 채팅 내보내기 */}
+            {isPremium && (
+              <TouchableOpacity style={s.menuItem} onPress={() => {
+                setMenuVisible(false);
+                const chatText = messages
+                  .filter(m => !m.isNotice)
+                  .map(m => `[${m.time}] ${m.mine ? user?.nickname : peer?.nick}: ${m.text}`)
+                  .join('\n');
+                Alert.alert('채팅 내보내기', chatText.length > 0 ? `총 ${messages.filter(m=>!m.isNotice).length}개 메시지\n\n(클립보드에 복사됩니다)` : '대화 내역이 없어요', [
+                  { text: '취소', style: 'cancel' },
+                  { text: '복사', onPress: () => {
+                    const Clipboard = require('@react-native-clipboard/clipboard').default;
+                    Clipboard?.setString?.(chatText) || Alert.alert('복사 완료');
+                  }},
+                ]);
+              }}>
+                <View style={s.menuItemInner}>
+                  <Text style={{ fontSize: 15 }}>💾</Text>
+                  <Text style={s.menuItemNormal}>채팅 내보내기 (프리미엄)</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={s.menuItem} onPress={handleReport}>
+              <View style={s.menuItemInner}>
+                <Text style={{ fontSize: 15 }}>🚨</Text>
+                <Text style={s.menuItemDanger}>신고하기</Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity style={s.menuItem} onPress={handleBlock}>
               <View style={s.menuItemInner}>
                 <IcoBlock color="#EF4444" />
@@ -540,7 +639,7 @@ const s = StyleSheet.create({
   emptyIcon:   { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   emptyTitle:  { fontSize: Typography.headline, fontWeight: '800', color: Colors.dark },
   emptyDesc:   { fontSize: Typography.footnote, color: Colors.g4, textAlign: 'center', lineHeight: 20 },
-  emptyBtn:    { marginTop: 8, backgroundColor: Colors.primary, borderRadius: Radius.pill, paddingVertical: 12, paddingHorizontal: 28 },
+  emptyBtn:    { marginTop: 8, backgroundColor: '#034A93', borderRadius: Radius.pill, paddingVertical: 12, paddingHorizontal: 28 },
   emptyBtnTxt: { fontSize: Typography.callout, fontWeight: '700', color: '#fff' },
 
   header:        { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.sf, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator, gap: 6 },
@@ -549,6 +648,8 @@ const s = StyleSheet.create({
   peerName:      { fontSize: Typography.footnote, fontWeight: '800', color: Colors.dark },
   peerSubRow:    { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   peerSub:       { fontSize: Typography.caption2, color: Colors.g3 },
+  distanceBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 3, backgroundColor: '#EFF6FF', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
+  distanceTxt:   { fontSize: 11, color: '#034A93', fontWeight: '600' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   iconBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center' },
   leaveBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: Radius.pill, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
@@ -579,7 +680,7 @@ const s = StyleSheet.create({
   inputBar:     { flexDirection: 'row', alignItems: 'flex-end', gap: 8, padding: Spacing.md, paddingBottom: 24, backgroundColor: Colors.sf, borderTopWidth: 0.5, borderTopColor: Colors.separator },
   inputBarGone: { opacity: 0.5 },
   textInput:    { flex: 1, borderWidth: 1, borderColor: Colors.separator, borderRadius: Radius.lg, paddingVertical: 10, paddingHorizontal: 14, fontSize: Typography.footnote, color: Colors.dark, backgroundColor: Colors.g1, maxHeight: 96 },
-  sendBtn:      { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  sendBtn:      { width: 40, height: 40, borderRadius: 20, backgroundColor: '#034A93', alignItems: 'center', justifyContent: 'center' },
   sendBtnOff:   { backgroundColor: Colors.g2 },
 
   overlay:        { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

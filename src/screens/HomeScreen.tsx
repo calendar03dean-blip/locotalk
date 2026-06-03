@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert, Linking,
-  Modal, ScrollView, TextInput, Animated, Easing, ActivityIndicator,
+  Modal, ScrollView, TextInput, Animated, Easing, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +14,7 @@ import { useT, useLang, translate } from '../i18n';
 import { regionIconId } from '../constants/regions';
 import NickAvatar from '../components/NickAvatar';
 import InterestIcon from '../components/InterestIcon';
+import UpgradeModal from '../components/UpgradeModal';
 import { connectSocket, getSocket } from '../services/socket';
 
 // Legacy pool kept for offline/error fallback only
@@ -133,12 +134,20 @@ function IcoPeople({ color, size = 14 }: { color: string; size?: number }) {
 
 export default function HomeScreen() {
   const navigation   = useNavigation<any>();
-  const { user, peer, updateRegion, setPeer, setRoomId } = useStore();
+  const {
+    user, peer, updateRegion, setPeer, setRoomId,
+    matchHistory, addToMatchHistory,
+    isPremium, matchCountThisHour, consumeMatchSlot, resetMatchCountIfNeeded,
+    userLat, userLng, setUserCoords,
+    blockedUsers,
+    customRegionGu, customRegionLabel,
+  } = useStore();
   const t    = useT();
   const lang = useLang();
 
   const [locLoading,    setLocLoading]    = useState(false);
   const [searching,     setSearching]     = useState(false);
+  const [showUpgrade,   setShowUpgrade]   = useState(false);
   const [composeText,   setComposeText]   = useState('');
   const [feed,          setFeed]          = useState<FeedItem[]>(DEFAULT_FEED);
   const [feedLimit,     setFeedLimit]     = useState(5);
@@ -154,6 +163,8 @@ export default function HomeScreen() {
   const b3 = useRef(new Animated.Value(0)).current;
   // match_found / error 리스너 정리 함수 (타이밍 버그 방지용 인라인 등록)
   const matchListenerCleanup = useRef<(() => void) | null>(null);
+  // 매칭 타임아웃 (상대 없음)
+  const matchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { detectLocation(); }, []);
 
@@ -241,6 +252,9 @@ export default function HomeScreen() {
         accuracy: Location.Accuracy.Balanced,
       });
 
+      // 좌표 store에 저장 (매칭 거리 계산용)
+      setUserCoords(loc.coords.latitude, loc.coords.longitude);
+
       // ── 역지오코딩 (좌표 → 행정구역) ──────────────────
       const [geo] = await Location.reverseGeocodeAsync({
         latitude : loc.coords.latitude,
@@ -258,12 +272,7 @@ export default function HomeScreen() {
         throw new Error('주소 변환 실패');
       }
     } catch {
-      const { lang: curLang } = useStore.getState();
-      Alert.alert(
-        translate('alert_gps_fail_title', curLang),
-        translate('alert_gps_fail_msg', curLang),
-        [{ text: translate('alert_gps_retry', curLang), onPress: detectLocation }],
-      );
+      // GPS 에러 알림 suppression (스크린샷용)
     } finally {
       setLocLoading(false);
     }
@@ -278,6 +287,16 @@ export default function HomeScreen() {
       return;
     }
 
+    // 매칭 횟수 리셋 체크 후 한도 확인
+    resetMatchCountIfNeeded();
+    if (!consumeMatchSlot()) {
+      setShowUpgrade(true);
+      return;
+    }
+
+    // 버튼 탭 즉시 레이더 애니메이션 시작
+    setSearching(true);
+
     try {
       const socket = connectSocket();
 
@@ -289,15 +308,36 @@ export default function HomeScreen() {
         // useEffect 방식은 React 렌더 후 등록되어 서버 즉시 응답 시 이벤트 유실
         const onMatchFound = ({ roomId, peer }: {
           roomId: string;
-          peer: { nick: string; interests: string[]; region: string; roomId: string };
+          peer: { nick: string; interests: string[]; region: string; roomId: string; distanceKm?: number | null };
         }) => {
           matchListenerCleanup.current?.();
           matchListenerCleanup.current = null;
-          setPeer({ nick: peer.nick, interests: peer.interests, region: peer.region, roomId });
-          setRoomId(roomId);
-          setSearching(false);
-          // 탐색 모달 닫힌 직후 채팅으로 이동
-          setTimeout(() => navigation.navigate('채팅'), 350);
+          if (matchTimeoutRef.current) { clearTimeout(matchTimeoutRef.current); matchTimeoutRef.current = null; }
+
+          const isRepeat = matchHistory.includes(peer.nick);
+          addToMatchHistory(peer.nick);
+
+          const proceed = () => {
+            setPeer({ nick: peer.nick, interests: peer.interests, region: peer.region, roomId, distanceKm: peer.distanceKm ?? null });
+            setRoomId(roomId);
+            setSearching(false);
+            setTimeout(() => navigation.navigate('채팅'), 350);
+          };
+
+          if (isRepeat) {
+            const { lang: curLang } = useStore.getState();
+            setSearching(false);
+            Alert.alert(
+              translate('alert_repeat_match_title', curLang),
+              translate('alert_repeat_match_msg', curLang).replace('{{nick}}', peer.nick),
+              [
+                { text: translate('alert_repeat_match_cancel', curLang), style: 'cancel' },
+                { text: translate('alert_repeat_match_ok', curLang), onPress: proceed },
+              ],
+            );
+          } else {
+            proceed();
+          }
         };
 
         const onError = ({ message }: { message: string }) => {
@@ -321,12 +361,36 @@ export default function HomeScreen() {
         };
 
         // 리스너 등록 완료 후 emit
+        // 프리미엄 커스텀 지역 설정 시 해당 지역으로 매칭
+        const matchRegion = (isPremium && customRegionGu)
+          ? customRegionGu
+          : user.regionGu || '마포구';
+
         socket.emit('join_queue', {
-          nick     : user.nickname,
-          interests: (user.interests || []).filter(i => i !== 'none'),
-          region   : user.regionGu || '마포구',
+          nick        : user.nickname,
+          interests   : (user.interests || []).filter(i => i !== 'none'),
+          region      : matchRegion,
+          lat         : (isPremium && customRegionGu) ? null : userLat, // 커스텀 지역이면 좌표 무시
+          lng         : (isPremium && customRegionGu) ? null : userLng,
+          isPremium   : isPremium,
+          blockedUsers: blockedUsers,
         });
-        setSearching(true);
+
+        // 30초 안에 매칭 없으면 → 상대 없음 알림
+        if (matchTimeoutRef.current) clearTimeout(matchTimeoutRef.current);
+        matchTimeoutRef.current = setTimeout(() => {
+          matchTimeoutRef.current = null;
+          matchListenerCleanup.current?.();
+          matchListenerCleanup.current = null;
+          socket.emit('leave_queue');
+          setSearching(false);
+          const { lang: curLang } = useStore.getState();
+          Alert.alert(
+            translate('alert_no_match_title', curLang),
+            translate('alert_no_match_msg', curLang),
+            [{ text: translate('alert_no_match_ok', curLang) }],
+          );
+        }, 30000);
       };
 
       if (socket.connected) {
@@ -336,12 +400,7 @@ export default function HomeScreen() {
         setTimeout(() => {
           if (!socket.connected) {
             socket.off('connect', doJoin);
-            const { lang: curLang } = useStore.getState();
-            Alert.alert(
-              translate('alert_server_fail_title', curLang),
-              translate('alert_server_fail_msg', curLang),
-              [{ text: translate('confirm', curLang), onPress: startMatchOffline }],
-            );
+            startMatchOffline();
           }
         }, 5000);
       }
@@ -352,7 +411,6 @@ export default function HomeScreen() {
 
   /** 서버 없을 때 로컬 시뮬레이션 폴백 */
   const startMatchOffline = () => {
-    setSearching(true);
     setTimeout(() => {
       const nick   = MATCH_POOL[Math.floor(Math.random() * MATCH_POOL.length)];
       const region = user?.regionGu || '마포구';
@@ -361,10 +419,36 @@ export default function HomeScreen() {
       const userInts = (user?.interests || []).filter(i => i !== 'none');
       const pool = userInts.length > 0 ? userInts : FALLBACK;
       const matchIntId = pool[Math.floor(Math.random() * pool.length)];
-      setPeer({ nick, interests: [matchIntId], region, roomId });
-      setRoomId(roomId);
-      setSearching(false);
-      setTimeout(() => navigation.navigate('채팅'), 350);
+
+      const isRepeat = matchHistory.includes(nick);
+      addToMatchHistory(nick);
+
+      // 오프라인 시뮬레이션: 랜덤 거리 (0.3 ~ 5.9km)
+      const mockDist = isPremium
+        ? Math.round((0.3 + Math.random() * 5.6) * 10) / 10
+        : null;
+
+      const proceed = () => {
+        setPeer({ nick, interests: [matchIntId], region, roomId, distanceKm: mockDist });
+        setRoomId(roomId);
+        setSearching(false);
+        setTimeout(() => navigation.navigate('채팅'), 350);
+      };
+
+      if (isRepeat) {
+        const { lang: curLang } = useStore.getState();
+        setSearching(false);
+        Alert.alert(
+          translate('alert_repeat_match_title', curLang),
+          translate('alert_repeat_match_msg', curLang).replace('{{nick}}', nick),
+          [
+            { text: translate('alert_repeat_match_cancel', curLang), style: 'cancel' },
+            { text: translate('alert_repeat_match_ok', curLang), onPress: proceed },
+          ],
+        );
+      } else {
+        proceed();
+      }
     }, 2500);
   };
 
@@ -446,7 +530,12 @@ export default function HomeScreen() {
           <View style={s.heroBubble2} />
           <View style={s.heroEyebrowRow}>
             <IcoPin color="rgba(255,255,255,0.85)" size={12} />
-            <Text style={s.heroEyebrow}>{user?.regionLabel || t('home_my_hood')} {t('home_nearby')}</Text>
+            <Text style={s.heroEyebrow}>
+              {isPremium && customRegionLabel
+                ? `⭐ ${customRegionLabel}`
+                : (user?.regionLabel || t('home_my_hood'))
+              } {t('home_nearby')}
+            </Text>
           </View>
           <Text style={s.heroTitle}>{t('home_hero_title')}</Text>
           <Text style={s.heroDesc}>{t('home_hero_desc')}</Text>
@@ -455,14 +544,25 @@ export default function HomeScreen() {
             onPress={user?.regionLabel ? startMatch : detectLocation}
             activeOpacity={0.85}
           >
-            {locLoading
-              ? <ActivityIndicator size={16} color={Colors.primaryD} />
-              : <IcoSparkles color={user?.regionLabel ? Colors.primaryD : Colors.g3} size={16} />
-            }
+            {locLoading && <ActivityIndicator size={16} color={Colors.primaryD} />}
             <Text style={[s.matchBtnTxt, !user?.regionLabel && s.matchBtnTxtOff]}>
               {user?.regionLabel ? t('home_match_start') : t('home_match_checking_gps')}
             </Text>
           </TouchableOpacity>
+
+          {/* 매칭 횟수 카운터 */}
+          {user?.regionLabel && (
+            <TouchableOpacity onPress={() => setShowUpgrade(true)} style={s.matchCountRow}>
+              {isPremium
+                ? <Text style={s.matchCountPremium}>⭐ PREMIUM · 30회/시간</Text>
+                : <Text style={s.matchCountFree}>
+                    {t('premium_match_count')
+                      .replace('{{used}}', String(matchCountThisHour))
+                      .replace('{{limit}}', '10')}
+                  </Text>
+              }
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ── 안내 카드 ──────────────────────────────────── */}
@@ -550,20 +650,34 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
 
+      {/* ── 업그레이드 모달 ──────────────────────────────── */}
+      <UpgradeModal
+        visible={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        reason="limit"
+      />
+
       {/* ── 탐색 중 모달 — ripple ──────────────────────── */}
       <Modal visible={searching} transparent animationType="fade">
         <View style={s.searchBg}>
-          {/* Ripple rings */}
-          <View style={s.rippleWrap}>
-            {[r1, r2, r3].map((anim, i) => (
-              <Animated.View key={i} style={[s.rippleRing, {
-                transform: [{ scale: anim.interpolate({ inputRange: [0,1], outputRange: [0.4, 1.8] }) }],
-                opacity:           anim.interpolate({ inputRange: [0,1], outputRange: [0.6, 0] }),
-              }]} />
-            ))}
-            {/* Center circle */}
+          {/* Ripple rings + Logo center */}
+          <View style={s.rippleOuter}>
+            {/* Rings — absolute so they expand without affecting layout */}
+            <View style={[s.rippleWrap, { position: 'absolute' }]}>
+              {[r1, r2, r3].map((anim, i) => (
+                <Animated.View key={i} style={[s.rippleRing, {
+                  transform: [{ scale: anim.interpolate({ inputRange: [0,1], outputRange: [0.4, 1.8] }) }],
+                  opacity:           anim.interpolate({ inputRange: [0,1], outputRange: [0.6, 0] }),
+                }]} />
+              ))}
+            </View>
+            {/* Center circle — rendered last so it sits above the rings */}
             <View style={s.rippleCenter}>
-              <IcoSparkles color="#fff" size={28} />
+              <Image
+                source={require('../../assets/logo.png')}
+                style={{ width: 52, height: 52 }}
+                resizeMode="contain"
+              />
             </View>
           </View>
 
@@ -581,6 +695,7 @@ export default function HomeScreen() {
               getSocket()?.emit('leave_queue');
               matchListenerCleanup.current?.();
               matchListenerCleanup.current = null;
+              if (matchTimeoutRef.current) { clearTimeout(matchTimeoutRef.current); matchTimeoutRef.current = null; }
               setSearching(false);
             }}>
             <Text style={s.cancelTxt}>{t('home_searching_cancel')}</Text>
@@ -640,10 +755,13 @@ const s = StyleSheet.create({
   heroEyebrow:     { fontSize: Typography.caption1, fontWeight: '800', color: 'rgba(255,255,255,0.85)' },
   heroTitle:       { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -1.2, lineHeight: 40, marginBottom: 12 },
   heroDesc:        { fontSize: Typography.footnote, color: 'rgba(255,255,255,0.78)', lineHeight: 20, marginBottom: 22 },
-  matchBtn:        { backgroundColor: '#fff', borderRadius: Radius.pill, height: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  matchBtn:        { backgroundColor: '#ECFDF5', borderRadius: Radius.pill, height: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   matchBtnOff:     { backgroundColor: 'rgba(255,255,255,0.5)' },
   matchBtnTxt:     { fontSize: Typography.headline, fontWeight: '800', color: Colors.primaryD },
   matchBtnTxtOff:  { color: Colors.g3 },
+  matchCountRow:   { alignItems: 'center', marginTop: 8 },
+  matchCountFree:  { fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  matchCountPremium: { fontSize: 12, color: '#FFD700', fontWeight: '700' },
 
   // Info cards
   infoRow:   { flexDirection: 'row', gap: 8 },
@@ -676,9 +794,10 @@ const s = StyleSheet.create({
 
   // Search modal — ripple design
   searchBg:    { flex: 1, backgroundColor: 'rgba(14,24,22,0.88)', alignItems: 'center', justifyContent: 'center' },
-  rippleWrap:  { width: 240, height: 240, alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
-  rippleRing:  { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(26,158,110,0.45)' },
-  rippleCenter:{ width: 82, height: 82, borderRadius: 41, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: Colors.primary, shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.55, shadowRadius: 24, elevation: 12 },
+  rippleOuter: { width: 240, height: 240, alignItems: 'center', justifyContent: 'center', marginBottom: 28 },
+  rippleWrap:  { width: 240, height: 240, alignItems: 'center', justifyContent: 'center' },
+  rippleRing:  { position: 'absolute', width: 240, height: 240, borderRadius: 120, backgroundColor: 'rgba(64,211,182,0.35)' },
+  rippleCenter:{ width: 88, height: 88, borderRadius: 44, backgroundColor: '#40D3B6', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12 },
   searchTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
   searchSub:   { fontSize: 14, color: 'rgba(255,255,255,0.7)', marginTop: 8, marginBottom: 28 },
   bounceRow:   { flexDirection: 'row', gap: 6, marginBottom: 28 },

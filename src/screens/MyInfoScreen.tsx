@@ -12,6 +12,8 @@ import { regionIconId } from '../constants/regions';
 import NickAvatar from '../components/NickAvatar';
 import InterestIcon from '../components/InterestIcon';
 import RegionIcon from '../components/RegionIcon';
+import UpgradeModal from '../components/UpgradeModal';
+import RegionPickerModal from '../components/RegionPickerModal';
 
 const SW = 1.8;
 
@@ -120,13 +122,20 @@ function IcoPin({ color, size = 12 }: { color: string; size?: number }) {
 }
 
 export default function MyInfoScreen() {
-  const { user, setLoggedOut, blockedUsers, updateInterests, acceptsChat, setAcceptsChat, lang, setLang } = useStore();
+  const {
+    user, setLoggedOut, blockedUsers, updateInterests,
+    acceptsChat, setAcceptsChat, lang, setLang,
+    isPremium, matchCountThisHour,
+    customRegionGu, customRegionLabel, setCustomRegion,
+  } = useStore();
   const t    = useT();
   const curLang = useLang();
   const [intModal,     setIntModal]     = useState(false);
   const [blockedModal, setBlockedModal] = useState(false);
   const [tmpInts,      setTmpInts]      = useState<string[]>([]);
   const [notifOn,      setNotifOn]      = useState(true);
+  const [showUpgrade,    setShowUpgrade]    = useState(false);
+  const [showRegionPick, setShowRegionPick] = useState(false);
 
   const myInts = (user?.interests || []).filter(i => i !== 'none');
   const myInt  = findInterest(myInts[0] || '');
@@ -188,6 +197,56 @@ export default function MyInfoScreen() {
           )}
         </View>
 
+        {/* ── 플랜 카드 ─────────────────────────────────── */}
+        <TouchableOpacity
+          style={[s.planCard, isPremium ? s.planCardPremium : s.planCardFree]}
+          onPress={() => !isPremium && setShowUpgrade(true)}
+          activeOpacity={isPremium ? 1 : 0.8}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[s.planBadge, isPremium ? s.planBadgePremium : s.planBadgeFree]}>
+              {isPremium ? '⭐ PREMIUM' : '무료 플랜'}
+            </Text>
+            <Text style={s.planMatchTxt}>
+              {isPremium
+                ? `매칭 ${matchCountThisHour}/30회 사용`
+                : `매칭 ${matchCountThisHour}/10회 사용`
+              }
+            </Text>
+          </View>
+          {!isPremium && (
+            <View style={s.upgradeChip}>
+              <Text style={s.upgradeChipTxt}>업그레이드 →</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* ── 지역 설정 (프리미엄 전용) ────────────────── */}
+        <Text style={s.sectionLabel}>{t('myinfo_region_setting')}</Text>
+        <View style={s.card}>
+          <TouchableOpacity
+            style={s.row}
+            onPress={() => isPremium ? setShowRegionPick(true) : setShowUpgrade(true)}
+            activeOpacity={0.7}
+          >
+            <View style={s.rowLeft}>
+              <Text style={{ fontSize: 15 }}>📍</Text>
+              <View>
+                <Text style={s.rowTitle}>{t('myinfo_region_custom')}</Text>
+                {!isPremium && (
+                  <Text style={s.premiumOnlyTxt}>{t('myinfo_region_premium_only')}</Text>
+                )}
+              </View>
+            </View>
+            <View style={s.rowRight}>
+              {isPremium
+                ? <Text style={s.rowValue}>{customRegionLabel || t('myinfo_region_current')}</Text>
+                : <View style={s.lockBadge}><Text style={s.lockTxt}>🔒</Text></View>
+              }
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* ── 설정 ──────────────────────────────────────── */}
         <Text style={s.sectionLabel}>{t('myinfo_settings_section')}</Text>
         <View style={s.card}>
@@ -230,8 +289,8 @@ export default function MyInfoScreen() {
             <Switch
               value={acceptsChat}
               onValueChange={setAcceptsChat}
-              trackColor={{ false: Colors.g2, true: tinted(Colors.primary, 0.45) }}
-              thumbColor={acceptsChat ? Colors.primary : Colors.g3}
+              trackColor={{ false: Colors.g2, true: '#034A93' }}
+              thumbColor={acceptsChat ? '#ECFDF5' : Colors.g3}
               ios_backgroundColor={Colors.g2}
             />
           </View>
@@ -245,8 +304,8 @@ export default function MyInfoScreen() {
             <Switch
               value={notifOn}
               onValueChange={setNotifOn}
-              trackColor={{ false: Colors.g2, true: tinted(Colors.primary, 0.45) }}
-              thumbColor={notifOn ? Colors.primary : Colors.g3}
+              trackColor={{ false: Colors.g2, true: '#034A93' }}
+              thumbColor={notifOn ? '#ECFDF5' : Colors.g3}
               ios_backgroundColor={Colors.g2}
             />
           </View>
@@ -298,6 +357,17 @@ export default function MyInfoScreen() {
 
         <Text style={s.version}>Locotalk Beta · v1.0</Text>
       </ScrollView>
+
+      {/* ── 업그레이드 모달 ──────────────────────────────── */}
+      <UpgradeModal visible={showUpgrade} onClose={() => setShowUpgrade(false)} reason="region" />
+
+      {/* ── 지역 선택 모달 (프리미엄) ────────────────────── */}
+      <RegionPickerModal
+        visible={showRegionPick}
+        currentGu={customRegionGu}
+        onSelect={(gu, label) => setCustomRegion(gu, label)}
+        onClose={() => setShowRegionPick(false)}
+      />
 
       {/* ── 관심사 변경 모달 (최대 3개) ───────────────── */}
       <Modal visible={intModal} transparent animationType="slide">
@@ -398,6 +468,22 @@ const s = StyleSheet.create({
   intBadgeTxt: { fontSize: Typography.footnote, fontWeight: '700', color: Colors.primaryD },
 
   sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: Colors.g4, paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, paddingBottom: Spacing.sm },
+
+  // 플랜 카드
+  planCard:         { marginHorizontal: Spacing.lg, marginTop: Spacing.lg, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center' },
+  planCardFree:     { backgroundColor: Colors.g1, borderWidth: 1, borderColor: Colors.g2 },
+  planCardPremium:  { backgroundColor: '#034A93' },
+  planBadge:        { fontSize: 13, fontWeight: '800', marginBottom: 4 },
+  planBadgeFree:    { color: Colors.g4 },
+  planBadgePremium: { color: '#FFD700' },
+  planMatchTxt:     { fontSize: 12, color: Colors.g4 },
+  upgradeChip:      { backgroundColor: '#034A93', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  upgradeChipTxt:   { color: '#fff', fontSize: 12, fontWeight: '700' },
+
+  // 지역 설정
+  premiumOnlyTxt: { fontSize: 11, color: Colors.primary, marginTop: 2 },
+  lockBadge:      { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center' },
+  lockTxt:        { fontSize: 14 },
   card:         { backgroundColor: Colors.sf, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 0.5, borderColor: Colors.separator },
   row:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.lg, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: Colors.separator, minHeight: 50 },
   rowLast:      { borderBottomWidth: 0 },
@@ -429,12 +515,12 @@ const s = StyleSheet.create({
   sheetTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
   sheetTitle:   { fontSize: Typography.title3, fontWeight: '800', color: Colors.dark },
   selBadge:     { fontSize: Typography.footnote, fontWeight: '800', color: Colors.g3, marginLeft: 4 },
-  selBadgeFull: { color: Colors.primary },
+  selBadgeFull: { color: '#034A93' },
   sheetSub:     { fontSize: Typography.footnote, color: Colors.g4, marginBottom: Spacing.md },
 
   intGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.lg },
   intChip:       { width: '100%', paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.g2, backgroundColor: Colors.sf, alignItems: 'center', gap: 4 },
-  intChipSel:    { borderColor: Colors.primary, backgroundColor: '#ECFDF5' },
+  intChipSel:    { borderColor: '#034A93', backgroundColor: '#ECFDF5' },
   intChipDim:    { opacity: 0.35 },
   intChipNone:   { borderStyle: 'dashed' as const, borderColor: Colors.g2 },
   intChipNoneSel:{ borderStyle: 'solid' as const, borderColor: Colors.g4 },
@@ -445,7 +531,7 @@ const s = StyleSheet.create({
   intLabelDim:   { color: Colors.g2 },
   intLabelNoneSel:{ color: Colors.dark },
 
-  saveBtn:     { backgroundColor: Colors.primary, borderRadius: Radius.pill, height: 50, justifyContent: 'center', ...Shadow.button },
+  saveBtn:     { backgroundColor: '#034A93', borderRadius: Radius.pill, height: 50, justifyContent: 'center', ...Shadow.button },
   saveBtnInner:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   saveBtnTxt:  { fontSize: Typography.headline, fontWeight: '700', color: '#fff' },
 
