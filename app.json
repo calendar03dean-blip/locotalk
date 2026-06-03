@@ -14,7 +14,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.palosanto.spotchat",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "jsEngine": "hermes",
       "entitlements": {
         "com.apple.developer.applesignin": ["Default"]
