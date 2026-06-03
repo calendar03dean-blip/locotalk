@@ -23,6 +23,7 @@ import NickAvatar from '../components/NickAvatar';
 export const navRef = createNavigationContainerRef<any>();
 (global as any).spotaNav = navRef;
 
+import LoginScreen      from '../screens/LoginScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import HomeScreen       from '../screens/HomeScreen';
 import MyInfoScreen     from '../screens/MyInfoScreen';
@@ -421,11 +422,14 @@ function AppTabs() {
 }
 
 export default function RootNavigator() {
+  const hasAuth    = useStore(s => s.hasAuth);
   const isLoggedIn = useStore(s => s.isLoggedIn);
   return (
     <NavigationContainer ref={navRef}>
       <Root.Navigator screenOptions={{ headerShown: false }}>
-        {isLoggedIn
+        {!hasAuth
+          ? <Root.Screen name="Login"      component={LoginScreen} />
+          : isLoggedIn
           ? <Root.Screen name="App"        component={AppTabs} />
           : <Root.Screen name="Onboarding" component={OnboardingScreen} />
         }
