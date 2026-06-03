@@ -61,12 +61,6 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd"
         }
-      ],
-      [
-        "@react-native-kakao/core",
-        {
-          "nativeAppKey": "3a28c2894d331f12450cec5f37c3c578"
-        }
       ]
     ],
     "extra": {
