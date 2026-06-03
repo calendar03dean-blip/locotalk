@@ -347,16 +347,18 @@ B: pull → 재테스트 → BUGS.md 결과 업데이트
 5. `initialRouteName`은 항상 `"홈"` 유지
 
 ### ⛔ 절대 수정 금지 파일
-- **`src/navigation/RootNavigator.tsx`** — 앱 전체 네비게이션 흐름 핵심. 잘못 수정 시 전체 화면 전환 불가
-- **`App.tsx`** — 앱 진입점. 잘못 수정 시 앱 시작 불가
+- **`App.tsx`** — 앱 진입점 (initIAP 라이프사이클 포함). 잘못 수정 시 앱 시작 불가
+- **`src/navigation/RootNavigator.tsx`** — 전체 네비게이션 흐름 핵심 (hasAuth → isLoggedIn 분기). 잘못 수정 시 로그인/온보딩/홈 흐름 붕괴
 
 ### ✅ npm install 후 필수 확인 패키지
 ```bash
-# 아래 패키지가 node_modules에 정상 존재하는지 반드시 확인
+# 아래 4가지 패키지 반드시 확인
 node -e "require('react-native-iap')"
 node -e "require('@react-native-google-signin/google-signin')"
+node -e "require('@react-native-kakao/core')"
 node -e "require('@react-native-kakao/user')"
+node -e "require('expo-apple-authentication')"
 
-# 없으면 설치
-npm install react-native-iap @react-native-google-signin/google-signin @react-native-kakao/user @react-native-kakao/core
+# 누락 시 설치
+npm install react-native-iap @react-native-google-signin/google-signin @react-native-kakao/core @react-native-kakao/user expo-apple-authentication
 ```
