@@ -44,7 +44,7 @@
     "@babel/core": "^7.20.0",
     "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
-    "eas-cli": "^19.0.8",
+    "eas-cli": "^20.0.0",
     "typescript": "~5.9.2"
   },
   "private": true
