@@ -34,10 +34,11 @@ GoogleSignin.configure({
 });
 
 // ── 소셜 로그인 설정 ────────────────────────────────────────────────
-const GOOGLE_CLIENT_ID = '1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd.apps.googleusercontent.com';
-const KAKAO_REST_KEY   = '3a28c2894d331f12450cec5f37c3c578';
-const NAVER_CLIENT_ID  = '4amvZv8LfW4vE277jo8n';
-const REDIRECT_URI     = 'com.palosanto.spotchat://oauth';
+const GOOGLE_CLIENT_ID  = '1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd.apps.googleusercontent.com';
+const KAKAO_REST_KEY    = '3a28c2894d331f12450cec5f37c3c578';
+const NAVER_CLIENT_ID   = '4amvZv8LfW4vE277jo8n';
+const REDIRECT_URI      = 'com.palosanto.spotchat://oauth';  // Google/Kakao용
+const NAVER_REDIRECT_URI = 'https://calendar03dean-blip.github.io/locotalk/oauth.html'; // 네이버 콘솔 등록 URL
 
 // OTP 만료 시간(초)
 const OTP_EXPIRE_SEC = 180;
@@ -199,9 +200,9 @@ export default function LoginScreen() {
       const authUrl =
         `https://nid.naver.com/oauth2.0/authorize` +
         `?client_id=${NAVER_CLIENT_ID}` +
-        `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+        `&redirect_uri=${encodeURIComponent(NAVER_REDIRECT_URI)}` +
         `&response_type=code&state=${state}`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, NAVER_REDIRECT_URI);
       if (result.type === 'success') {
         setAuth('naver');
       }

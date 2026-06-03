@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Locotalk 로그인 중...</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; display: flex; justify-content: center;
+           align-items: center; height: 100vh; margin: 0; background: #40D3B6; }
+    .box { text-align: center; color: #fff; }
+    h2 { font-size: 22px; margin-bottom: 8px; }
+    p  { font-size: 14px; opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>✅ 로그인 완료</h2>
+    <p>앱으로 돌아가는 중...</p>
+  </div>
+  <script>
+    // URL 파라미터 전체를 앱 딥링크로 전달
+    const params = window.location.search;
+    const deepLink = 'locotalk://oauth' + params;
+    window.location.href = deepLink;
+
+    // 앱이 안 열리면 안내
+    setTimeout(() => {
+      document.querySelector('p').textContent = 'Locotalk 앱을 설치 후 다시 시도해주세요.';
+    }, 3000);
+  </script>
+</body>
+</html>
