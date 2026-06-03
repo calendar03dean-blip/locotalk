@@ -252,6 +252,43 @@ LANG=en_US.UTF-8 npx expo run:ios --device ...
 
 ---
 
+## A↔B 협업 프로토콜
+
+### 클로드B (테스터) 역할
+```bash
+# 1. 최신 코드 가져오기
+git pull origin main
+
+# 2. 앱 실행 후 테스트
+
+# 3. 버그 발견 시 BUGS.md에 추가 후 push
+git add BUGS.md
+git commit -m "bug: [BUG-001] 버그 제목"
+git push
+```
+
+### 클로드A (개발자) 역할
+```bash
+# 1. BUGS.md 확인
+cat BUGS.md
+
+# 2. 버그 수정 후 상태 업데이트
+git add .
+git commit -m "fix: [BUG-001] 수정 내용"
+git push
+# → BUGS.md에 상태를 🟢 수정완료 로 변경 + commit hash 기록
+```
+
+### 사이클
+```
+B: 테스트 → BUGS.md 버그 등록 → push
+A: pull → 수정 → BUGS.md 업데이트 → push  
+B: pull → 재테스트 → BUGS.md 결과 업데이트
+반복 → 모든 버그 ✅ 확인됨 시 완료
+```
+
+---
+
 ## 주의사항
 
 1. `src/store/index.ts`의 `isLoggedIn`, `hasAuth` 초기값은 반드시 `false`/`false`
