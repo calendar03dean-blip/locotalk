@@ -4,8 +4,8 @@
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
-    "ios": "expo start --ios",
-    "android": "expo start --android",
+    "ios": "expo run:ios",
+    "android": "expo run:android",
     "server": "node server/index.js",
     "server:dev": "cd server && npx nodemon index.js",
     "tokens:export": "node scripts/theme-to-tokens.js",
