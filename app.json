@@ -19,7 +19,14 @@
         "NSMicrophoneUsageDescription": "음성 메시지 전송 시 사용돼요",
         "NSCameraUsageDescription": "프로필 사진 설정 시 사용돼요",
         "NSPhotoLibraryUsageDescription": "사진을 첨부할 때 사용돼요",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd"
+            ]
+          }
+        ]
       }
     },
     "plugins": [
@@ -34,13 +41,7 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-apple-authentication",
-      [
-        "@react-native-google-signin/google-signin",
-        {
-          "iosUrlScheme": "com.googleusercontent.apps.1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd"
-        }
-      ]
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {
