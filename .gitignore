@@ -26,3 +26,4 @@ Thumbs.db
 # EAS / Expo tokens
 tokens/
 .github/workflows/
+.env.notion
