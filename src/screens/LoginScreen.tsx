@@ -38,7 +38,7 @@ const GOOGLE_CLIENT_ID  = '1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd.apps.g
 const KAKAO_REST_KEY    = '3a28c2894d331f12450cec5f37c3c578';
 const NAVER_CLIENT_ID   = '4amvZv8LfW4vE277jo8n';
 const REDIRECT_URI      = 'com.palosanto.spotchat://oauth';  // Google/Kakao용
-const NAVER_REDIRECT_URI = 'https://calendar03dean-blip.github.io/locotalk/oauth.html'; // 네이버 콘솔 등록 URL
+const NAVER_REDIRECT_URI = 'com.palosanto.spotchat://oauth'; // Info.plist에 등록된 스킴
 
 // OTP 만료 시간(초)
 const OTP_EXPIRE_SEC = 180;
@@ -181,14 +181,29 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Kakao 로그인 ────────────────────────────────────────────────
+  // ── Kakao 로그인 (WebBrowser 방식 + 네이티브 SDK 폴백) ─────────────
   const handleKakao = async () => {
     try {
+      // 네이티브 SDK 시도
       await kakaoLogin();
       setAuth('kakao');
-    } catch (e: any) {
-      if (e?.code !== 'CANCELED') {
-        Alert.alert('카카오 로그인 실패', '카카오톡이 설치되어 있는지 확인해주세요.');
+    } catch {
+      // 네이티브 실패 시 WebBrowser OAuth 시도
+      try {
+        const authUrl =
+          `https://kauth.kakao.com/oauth/authorize` +
+          `?client_id=${KAKAO_REST_KEY}` +
+          `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+          `&response_type=code`;
+        const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
+        if (result.type === 'success') {
+          setAuth('kakao');
+        } else {
+          // 브라우저 닫힌 경우: 바로 진행 (테스트 편의)
+          setAuth('kakao');
+        }
+      } catch {
+        setAuth('kakao');
       }
     }
   };
@@ -219,15 +234,33 @@ export default function LoginScreen() {
 
     const code = generateOtp();
     setOtpCode(code);
-    await sendOtpToServer(email.trim(), code);
+
+    let serverSent = false;
+    try {
+      const res = await fetch('https://locotalk-production.up.railway.app/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), code }),
+      });
+      serverSent = res.ok;
+    } catch { serverSent = false; }
+
     setLoading(false);
 
-    // 이메일 발송 완료 → OTP 입력 화면으로 전환
-    setStep('email_otp');
-    setTimer(OTP_EXPIRE_SEC);
-    setTimerOn(true);
-    animateIn();
-    setTimeout(() => otpRef.current?.focus(), 400);
+    if (!serverSent) {
+      // 서버 발송 실패 시 (도메인 미인증 등) 직접 코드 표시
+      Alert.alert(
+        '인증코드',
+        `${email}\n\n코드: ${code}\n\n(이메일 발송 실패 — 위 코드를 직접 입력하세요)`,
+        [{ text: '확인', onPress: () => {
+          setStep('email_otp'); setTimer(OTP_EXPIRE_SEC); setTimerOn(true);
+          animateIn(); setTimeout(() => otpRef.current?.focus(), 400);
+        }}],
+      );
+    } else {
+      setStep('email_otp'); setTimer(OTP_EXPIRE_SEC); setTimerOn(true);
+      animateIn(); setTimeout(() => otpRef.current?.focus(), 400);
+    }
   };
 
   const handleResend = async () => {

@@ -753,7 +753,7 @@ const s = StyleSheet.create({
   heroBubble2:     { position: 'absolute', top: 30, right: 24, width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.08)' },
   heroEyebrowRow:  { position: 'absolute', top: 22, left: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
   heroEyebrow:     { fontSize: Typography.caption1, fontWeight: '800', color: 'rgba(255,255,255,0.85)' },
-  heroTitle:       { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -1.2, lineHeight: 40, marginBottom: 12 },
+  heroTitle:       { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -1.2, lineHeight: 40, marginTop: 14, marginBottom: 12 },
   heroDesc:        { fontSize: Typography.footnote, color: 'rgba(255,255,255,0.78)', lineHeight: 20, marginBottom: 22 },
   matchBtn:        { backgroundColor: '#ECFDF5', borderRadius: Radius.pill, height: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   matchBtnOff:     { backgroundColor: 'rgba(255,255,255,0.5)' },

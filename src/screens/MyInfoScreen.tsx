@@ -342,16 +342,16 @@ export default function MyInfoScreen() {
           ))}
         </View>
 
-        {/* ── 초기화 버튼 ───────────────────────────────── */}
+        {/* ── 로그아웃 버튼 ──────────────────────────────── */}
         <TouchableOpacity style={s.logoutBtn} onPress={() => {
-          Alert.alert(t('myinfo_reset_title'), t('myinfo_reset_msg'), [
-            { text: t('cancel'), style: 'cancel' },
-            { text: t('myinfo_reset_confirm'), style: 'destructive', onPress: setLoggedOut },
+          Alert.alert('로그아웃', '로그아웃 하시겠어요?', [
+            { text: '취소', style: 'cancel' },
+            { text: '로그아웃', style: 'destructive', onPress: setLoggedOut },
           ]);
         }}>
           <View style={s.logoutBtnInner}>
-            <IcoLogout color={Colors.g4} />
-            <Text style={s.logoutTxt}>{t('myinfo_reset_btn')}</Text>
+            <IcoLogout color="#EF4444" />
+            <Text style={[s.logoutTxt, { color: '#EF4444' }]}>로그아웃</Text>
           </View>
         </TouchableOpacity>
 

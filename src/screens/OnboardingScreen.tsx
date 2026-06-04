@@ -89,6 +89,16 @@ export default function OnboardingScreen() {
   const [nick,     setNick]   = useState('');
   const [selected, setSelected] = useState<string[]>([]);
 
+  // ── 관심사 ScrollView ref (자동 스크롤용) ───────────────────
+  const interestScrollRef = useRef<any>(null);
+
+  // ── 관심사 3개 선택 시 시작하기 버튼으로 자동 스크롤 ───────
+  React.useEffect(() => {
+    if (selected.length === 3) {
+      setTimeout(() => interestScrollRef.current?.scrollToEnd({ animated: true }), 150);
+    }
+  }, [selected.length]);
+
   // ── 관심사 칩 spring 애니메이션 ────────────────────────────
   const chipScales = useRef<Map<string, Animated.Value>>(new Map());
   function getChipScale(id: string) {
@@ -152,7 +162,7 @@ export default function OnboardingScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}>
-        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled"
+        <ScrollView ref={interestScrollRef} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
 
           {/* 로고 */}
@@ -324,10 +334,7 @@ export default function OnboardingScreen() {
                 onPress={handleStart}
                 disabled={selected.length === 0}
               >
-                <View style={s.btnInner}>
-                  <IcoStar color={selected.length > 0 ? '#fff' : Colors.g3} />
-                  <Text style={s.btnTxt}>{t('onboarding_start')}</Text>
-                </View>
+                <Text style={s.btnTxt}>{t('onboarding_start')}</Text>
               </TouchableOpacity>
             </View>
           )}
