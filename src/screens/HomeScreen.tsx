@@ -373,6 +373,9 @@ export default function HomeScreen() {
           lat         : (isPremium && customRegionGu) ? null : userLat, // 커스텀 지역이면 좌표 무시
           lng         : (isPremium && customRegionGu) ? null : userLng,
           isPremium   : isPremium,
+          isVerified  : user.isVerified || false,
+          gender      : user.gender || null,
+          birthYear   : user.birthYear || null,
           blockedUsers: blockedUsers,
         });
 

@@ -552,17 +552,39 @@ export default function ChatScreen() {
         <View style={s.peerRow}>
           <NickAvatar nick={peer?.nick || '?'} size={36} />
           <View style={{ marginLeft: 8 }}>
-            <Text style={s.peerName}>{peer?.nick || t('chat_anon')}</Text>
+            {/* 닉네임 + 인증배지 */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={s.peerName}>{peer?.nick || t('chat_anon')}</Text>
+              {peer?.isVerified && (
+                <View style={s.verifiedChip}>
+                  <Text style={s.verifiedChipTxt}>✓ 인증</Text>
+                </View>
+              )}
+            </View>
             <View style={s.peerSubRow}>
               <RegionIcon id={regionIconId(peer?.region || '')} size={11} color={Colors.g3} />
               <Text style={s.peerSub}>
                 {peer?.region || t('chat_region_unknown')}{peerInts.length > 0 ? ` · ${peerInts.map(i => interestLabel(i!, lang)).join(' · ')}` : ''}
               </Text>
             </View>
-            {/* 프리미엄 전용: 상대방과의 거리 */}
-            {isPremium && peer?.distanceKm != null && (
-              <View style={s.distanceBadge}>
-                <Text style={s.distanceTxt}>📍 {peer.distanceKm}km 거리</Text>
+            {/* 프리미엄 전용: 거리 + 성별/생년 */}
+            {isPremium && (
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+                {peer?.distanceKm != null && (
+                  <View style={s.distanceBadge}>
+                    <Text style={s.distanceTxt}>📍 {peer.distanceKm}km</Text>
+                  </View>
+                )}
+                {peer?.gender && (
+                  <View style={s.distanceBadge}>
+                    <Text style={s.distanceTxt}>{peer.gender === 'male' ? '👤 남성' : '👤 여성'}</Text>
+                  </View>
+                )}
+                {peer?.birthYear && (
+                  <View style={s.distanceBadge}>
+                    <Text style={s.distanceTxt}>🎂 {peer.birthYear}년생</Text>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -752,6 +774,8 @@ const s = StyleSheet.create({
   peerSub:       { fontSize: Typography.caption2, color: Colors.g3 },
   distanceBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 3, backgroundColor: '#EFF6FF', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
   distanceTxt:   { fontSize: 11, color: '#034A93', fontWeight: '600' },
+  verifiedChip:  { backgroundColor: '#034A93', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 },
+  verifiedChipTxt: { fontSize: 10, color: '#fff', fontWeight: '700' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   iconBtn:       { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center' },
   leaveBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: Radius.pill, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },

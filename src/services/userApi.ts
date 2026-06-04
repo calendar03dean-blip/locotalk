@@ -76,3 +76,23 @@ export async function syncPremiumStatus(userId: string, isPremium: boolean): Pro
     });
   } catch { /* silent */ }
 }
+
+/** 본인인증 완료 — 성별/생년 서버에 저장 */
+export async function verifyIdentity(
+  userId: string,
+  gender: 'male' | 'female',
+  birthYear: number,
+  phone?: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/verify`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gender, birthYear, phone }),
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch {
+    return false;
+  }
+}

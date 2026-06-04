@@ -14,6 +14,7 @@ import InterestIcon from '../components/InterestIcon';
 import RegionIcon from '../components/RegionIcon';
 import UpgradeModal from '../components/UpgradeModal';
 import RegionPickerModal from '../components/RegionPickerModal';
+import IdentityVerifyModal from '../components/IdentityVerifyModal';
 
 const SW = 1.8;
 
@@ -136,6 +137,7 @@ export default function MyInfoScreen() {
   const [notifOn,      setNotifOn]      = useState(true);
   const [showUpgrade,    setShowUpgrade]    = useState(false);
   const [showRegionPick, setShowRegionPick] = useState(false);
+  const [showVerify,     setShowVerify]     = useState(false);
 
   const myInts = (user?.interests || []).filter(i => i !== 'none');
   const myInt  = findInterest(myInts[0] || '');
@@ -184,7 +186,30 @@ export default function MyInfoScreen() {
         {/* ── 프로필 카드 ───────────────────────────────── */}
         <View style={s.profileCard}>
           <NickAvatar nick={user?.nickname || '?'} size={80} />
-          <Text style={s.nickname}>{user?.nickname}</Text>
+          <View style={s.nicknameRow}>
+            <Text style={s.nickname}>{user?.nickname}</Text>
+            {user?.isVerified && (
+              <View style={s.verifiedBadge}>
+                <Text style={s.verifiedTxt}>✓ 인증</Text>
+              </View>
+            )}
+          </View>
+          {/* 이메일 */}
+          {user?.email && (
+            <Text style={s.emailTxt}>{user.email}</Text>
+          )}
+          {/* 성별/생년 — 본인 프로필에서는 항상 표시 */}
+          {(user?.gender || user?.birthYear) && (
+            <View style={s.profileInfoRow}>
+              {user?.gender && (
+                <Text style={s.profileInfoTxt}>{user.gender === 'male' ? '남성' : '여성'}</Text>
+              )}
+              {user?.gender && user?.birthYear && <Text style={s.profileInfoSep}>·</Text>}
+              {user?.birthYear && (
+                <Text style={s.profileInfoTxt}>{user.birthYear}년생</Text>
+              )}
+            </View>
+          )}
           <View style={s.locRow}>
             <IcoPin color={Colors.g4} size={12} />
             <Text style={s.locTxt}>{user?.regionLabel || t('myinfo_location_unset')}</Text>
@@ -195,6 +220,16 @@ export default function MyInfoScreen() {
               <Text style={s.intBadgeTxt}>{interestLabel(myInt, curLang)}</Text>
             </View>
           )}
+          {/* 본인인증 버튼 */}
+          <TouchableOpacity
+            style={[s.verifyBtn, user?.isVerified && s.verifyBtnDone]}
+            onPress={() => !user?.isVerified && setShowVerify(true)}
+            activeOpacity={user?.isVerified ? 1 : 0.8}
+          >
+            <Text style={[s.verifyBtnTxt, user?.isVerified && s.verifyBtnTxtDone]}>
+              {user?.isVerified ? '✓ 본인인증 완료' : '본인인증 하기 (선택)'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── 플랜 카드 ─────────────────────────────────── */}
@@ -361,6 +396,9 @@ export default function MyInfoScreen() {
       {/* ── 업그레이드 모달 ──────────────────────────────── */}
       <UpgradeModal visible={showUpgrade} onClose={() => setShowUpgrade(false)} reason="region" />
 
+      {/* ── 본인인증 모달 ─────────────────────────────────── */}
+      <IdentityVerifyModal visible={showVerify} onClose={() => setShowVerify(false)} />
+
       {/* ── 지역 선택 모달 (프리미엄) ────────────────────── */}
       <RegionPickerModal
         visible={showRegionPick}
@@ -461,8 +499,19 @@ const s = StyleSheet.create({
   title:   { fontSize: 28, fontWeight: '800', color: Colors.dark, letterSpacing: -0.8 },
 
   profileCard: { backgroundColor: Colors.sf, padding: Spacing.xl, alignItems: 'center', gap: 6, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
-  nickname:    { fontSize: Typography.title2, fontWeight: '900', color: Colors.dark, letterSpacing: -0.5, marginTop: 4 },
-  locRow:      { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  nickname:    { fontSize: Typography.title2, fontWeight: '900', color: Colors.dark, letterSpacing: -0.5 },
+  nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  verifiedBadge: { backgroundColor: '#034A93', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  verifiedTxt:   { fontSize: 11, color: '#fff', fontWeight: '700' },
+  emailTxt:    { fontSize: 12, color: Colors.g4, marginTop: 2 },
+  profileInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  profileInfoTxt: { fontSize: 13, color: Colors.g4 },
+  profileInfoSep: { fontSize: 12, color: Colors.g3 },
+  verifyBtn:      { marginTop: 12, paddingHorizontal: 16, paddingVertical: 7, borderRadius: Radius.pill, borderWidth: 1.5, borderColor: '#034A93' },
+  verifyBtnDone:  { borderColor: Colors.g2, backgroundColor: Colors.g1 },
+  verifyBtnTxt:   { fontSize: 13, color: '#034A93', fontWeight: '600' },
+  verifyBtnTxtDone: { color: Colors.g3 },
+  locRow:      { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   locTxt:      { fontSize: Typography.footnote, color: Colors.g4 },
   intBadge:    { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: tinted(Colors.primary, 0.1), borderRadius: Radius.pill, paddingVertical: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: tinted(Colors.primary, 0.25), marginTop: 4 },
   intBadgeTxt: { fontSize: Typography.footnote, fontWeight: '700', color: Colors.primaryD },

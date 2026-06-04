@@ -57,6 +57,8 @@ interface User {
   email?: string;
   gender?: 'male' | 'female' | null;
   birthYear?: number | null;
+  isVerified?: boolean;    // 본인인증 완료
+  verifiedAt?: string | null;
 }
 
 interface Peer {
@@ -65,6 +67,9 @@ interface Peer {
   region: string;
   roomId: string;
   distanceKm?: number | null;  // 프리미엄 전용 — 상대방과의 거리 (km)
+  isVerified?: boolean;        // 본인인증 여부
+  gender?: 'male' | 'female' | null;    // 프리미엄만 볼 수 있음
+  birthYear?: number | null;            // 프리미엄만 볼 수 있음
 }
 
 export type AuthProvider = 'google' | 'kakao' | 'naver' | 'email' | 'apple';
@@ -89,6 +94,8 @@ interface AppState {
   setLoggedOut: () => void;
   updateRegion: (gu: string, label: string) => void;
   updateInterests: (interests: string[]) => void;
+  setVerified: (gender: 'male'|'female', birthYear: number) => void;
+  updateEmail: (email: string) => void;
 
   // 매칭
   peer: Peer | null;
@@ -147,6 +154,10 @@ export const useStore = create<AppState>((set, get) => ({
     clearChatSession().catch(() => {});
     set({ hasAuth: false, authProvider: null, authEmail: null, isLoggedIn: false, user: null, peer: null, roomId: null });
   },
+  setVerified: (gender, birthYear) =>
+    set((s) => ({ user: s.user ? { ...s.user, isVerified: true, verifiedAt: new Date().toISOString(), gender, birthYear } : null })),
+  updateEmail: (email) =>
+    set((s) => ({ user: s.user ? { ...s.user, email } : null })),
   updateRegion: (gu, label) =>
     set((s) => ({ user: s.user ? { ...s.user, regionGu: gu, regionLabel: label } : null })),
   updateInterests: (interests) =>

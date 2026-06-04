@@ -64,9 +64,16 @@ async function initDB() {
         region_gu     VARCHAR(50),
         region_label  VARCHAR(100),
         is_premium    BOOLEAN DEFAULT FALSE,
+        is_verified   BOOLEAN DEFAULT FALSE,
+        verified_at   TIMESTAMP,
+        phone         VARCHAR(20),
         created_at    TIMESTAMP DEFAULT NOW(),
         updated_at    TIMESTAMP DEFAULT NOW()
       );
+      -- 기존 테이블에 컬럼 추가 (이미 있으면 무시)
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
     `);
     console.log('[db] ✅ users 테이블 준비 완료');
   } catch (e) {
@@ -245,6 +252,30 @@ app.patch('/users/:id/premium', async (req, res) => {
     await db.query('UPDATE users SET is_premium = $2, updated_at = NOW() WHERE id = $1',
       [req.params.id, req.body.isPremium]);
     res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** 본인인증 완료 — 성별/생년 저장 + 인증 마크 */
+app.patch('/users/:id/verify', async (req, res) => {
+  const { gender, birthYear, phone } = req.body;
+  if (!gender || !birthYear) return res.status(400).json({ error: 'gender, birthYear 필수' });
+  if (!process.env.DATABASE_URL) {
+    return res.json({ ok: true, isVerified: true });
+  }
+  try {
+    await db.query(`
+      UPDATE users SET
+        gender      = $2,
+        birth_year  = $3,
+        phone       = $4,
+        is_verified = TRUE,
+        verified_at = NOW(),
+        updated_at  = NOW()
+      WHERE id = $1
+    `, [req.params.id, gender, birthYear, phone || null]);
+    res.json({ ok: true, isVerified: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -555,8 +586,19 @@ function createRoom(socketA, userA, socketIdB, userB,
     distanceKm = Math.round(haversineKm(userA.lat, userA.lng, userB.lat, userB.lng) * 10) / 10;
   }
 
-  const peerForA = { nick: userB.nick, interests: userB.interests, region: userB.region, roomId, distanceKm };
-  const peerForB = { nick: userA.nick, interests: userA.interests, region: userA.region, roomId, distanceKm };
+  // 프리미엄 유저에게만 상대 성별/생년 공개
+  const peerForA = {
+    nick: userB.nick, interests: userB.interests, region: userB.region, roomId, distanceKm,
+    isVerified: userB.isVerified || false,
+    gender: userA.isPremium ? (userB.gender || null) : null,
+    birthYear: userA.isPremium ? (userB.birthYear || null) : null,
+  };
+  const peerForB = {
+    nick: userA.nick, interests: userA.interests, region: userA.region, roomId, distanceKm,
+    isVerified: userA.isVerified || false,
+    gender: userB.isPremium ? (userA.gender || null) : null,
+    birthYear: userB.isPremium ? (userA.birthYear || null) : null,
+  };
 
   socketA.emit(eventA,       { roomId, peer: peerForA });
   io.to(socketIdB).emit(eventB, { roomId, peer: peerForB });
@@ -777,6 +819,9 @@ io.on('connection', (socket) => {
       lat         : typeof user.lat === 'number' ? user.lat : null,
       lng         : typeof user.lng === 'number' ? user.lng : null,
       isPremium   : user.isPremium === true,
+      isVerified  : user.isVerified === true,
+      gender      : user.gender || null,
+      birthYear   : user.birthYear || null,
       blockedUsers: Array.isArray(user.blockedUsers) ? user.blockedUsers : [],
       joinedAt    : Date.now(),
     };
