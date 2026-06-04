@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, KeyboardAvoidingView, Platform, Alert, AppState, AppStateStatus, Share,
+  FlatList, KeyboardAvoidingView, Platform, Alert, AppState, AppStateStatus, Share, Image as RNImage,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -20,6 +22,10 @@ import { connectSocket, getSocket } from '../services/socket';
 interface Message {
   id: string; text: string; mine: boolean; time: string; isNotice?: boolean;
   status?: 'sent' | 'failed';
+  imageData?: string;   // base64 이미지
+  imgWidth?: number;
+  imgHeight?: number;
+  read?: boolean;       // 상대방 읽음 여부
 }
 const AUTOS_KO = ['안녕하세요! 반가워요 😊','네 맞아요!','좋아요~ 같이 해봐요!','저도 그 근처예요','오늘 날씨 너무 좋네요'];
 const AUTOS_EN = ["Hello! Nice to meet you 😊", "Yeah, that's right!", "Sounds great, let's do it!", "I'm near there too", "The weather is so nice today"];
@@ -252,6 +258,10 @@ export default function ChatScreen() {
       setMessages(p => [...p, { id, text, mine: false, time }]);
       setLastPeerMsg(text);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+      // 채팅 화면 포커스 중이면 즉시 읽음 처리
+      if (isFocusedRef.current && peer?.roomId) {
+        socket.emit('read_message', { roomId: peer.roomId, messageId: id });
+      }
 
       // Feature 2: 채팅 탭이 포커스 없거나 앱이 백그라운드이면 로컬 알림
       if (!isFocusedRef.current || appStateRef.current !== 'active') {
@@ -303,7 +313,20 @@ export default function ChatScreen() {
     socket.on('peer_temporarily_disconnected', onPeerTemporarilyDisconnected);
     socket.on('peer_reconnected',             onPeerReconnected);
     socket.on('peer_disconnected',            onPeerDisconnected);
+    // ── 읽음 확인 ──────────────────────────────────────────────────
+    const onMessageRead = ({ messageId }: { messageId: string }) => {
+      setMessages(prev => prev.map(m => m.id === messageId ? { ...m, read: true } : m));
+    };
+
+    // ── 이미지 수신 ────────────────────────────────────────────────
+    const onReceiveImage = ({ id, imageData, width, height, time }: any) => {
+      setMessages(p => [...p, { id, text: '', mine: false, time, imageData, imgWidth: width, imgHeight: height }]);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+    };
+
     socket.on('chat_history',                 onChatHistory);
+    socket.on('message_read',                 onMessageRead);
+    socket.on('receive_image',                onReceiveImage);
 
     return () => {
       socket.off('receive_message',              onReceiveMessage);
@@ -312,6 +335,8 @@ export default function ChatScreen() {
       socket.off('peer_reconnected',             onPeerReconnected);
       socket.off('peer_disconnected',            onPeerDisconnected);
       socket.off('chat_history',                 onChatHistory);
+      socket.off('message_read',                 onMessageRead);
+      socket.off('receive_image',                onReceiveImage);
     };
   }, [peer?.roomId, isOffline]);
 
@@ -383,6 +408,67 @@ export default function ChatScreen() {
     }
     setPeer(null); setRoomId(null);
     navigation.navigate('홈');
+  };
+
+  // ── 사진 전송 ────────────────────────────────────────────────────
+  const handleSendImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('사진 권한 필요', '사진 접근 권한을 허용해주세요.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      base64: false,
+    });
+
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    let uri = asset.uri;
+    let w = asset.width || 1024;
+    let h = asset.height || 1024;
+
+    // 1MB 이상이면 자동 압축
+    const fileSize = asset.fileSize ?? 0;
+    if (fileSize > 1024 * 1024) {
+      const scale = Math.sqrt((1024 * 1024) / fileSize);
+      const compressed = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: Math.round(w * scale), height: Math.round(h * scale) } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true },
+      );
+      uri = compressed.uri;
+      w = compressed.width ?? w;
+      h = compressed.height ?? h;
+      // base64 직접 전송
+      const socket = getSocket();
+      if (socket?.connected && peer?.roomId) {
+        const msgId = Date.now().toString();
+        socket.emit('send_image', { roomId: peer.roomId, imageData: `data:image/jpeg;base64,${compressed.base64}`, width: w, height: h });
+        setMessages(p => [...p, { id: msgId, text: '', mine: true, time: '', imageData: uri, imgWidth: w, imgHeight: h }]);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+      }
+      return;
+    }
+
+    // 1MB 미만: 파일 읽어서 base64 전송
+    const fileContent = await fetch(uri);
+    const blob = await fileContent.blob();
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      const socket = getSocket();
+      if (socket?.connected && peer?.roomId) {
+        const msgId = Date.now().toString();
+        socket.emit('send_image', { roomId: peer.roomId, imageData: base64, width: w, height: h });
+        setMessages(p => [...p, { id: msgId, text: '', mine: true, time: '', imageData: uri, imgWidth: w, imgHeight: h }]);
+        setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+      }
+    };
+    reader.readAsDataURL(blob);
   };
 
   const handleLeave = () => {
@@ -522,17 +608,26 @@ export default function ChatScreen() {
                 )}
                 <View style={item.mine ? s.bubbleColMine : s.bubbleColPeer}>
                   <View style={[s.bubble, item.mine ? s.bubbleMine : s.bubblePeer,
-                    item.status === 'failed' && s.bubbleFailed]}>
-                    <Text style={[s.bubbleTxt, item.mine && s.bubbleTxtMine]}>{item.text}</Text>
+                    item.status === 'failed' && s.bubbleFailed,
+                    !!item.imageData && s.bubbleImg]}>
+                    {item.imageData ? (
+                      <RNImage
+                        source={{ uri: item.imageData }}
+                        style={{ width: 200, height: 200 * ((item.imgHeight||1) / (item.imgWidth||1)), borderRadius: 10 }}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Text style={[s.bubbleTxt, item.mine && s.bubbleTxtMine]}>{item.text}</Text>
+                    )}
                   </View>
                   {item.mine && item.status === 'failed' && (
-                    <TouchableOpacity
-                      style={s.retryBtn}
-                      onPress={() => send(item.text, item.id)}
-                      activeOpacity={0.7}
-                    >
+                    <TouchableOpacity style={s.retryBtn} onPress={() => send(item.text, item.id)} activeOpacity={0.7}>
                       <Text style={s.retryTxt}>{t('chat_send_failed')}</Text>
                     </TouchableOpacity>
+                  )}
+                  {/* 읽음 표시 */}
+                  {item.mine && item.read && (
+                    <Text style={s.readReceipt}>읽음</Text>
                   )}
                 </View>
                 <Text style={[s.timeStr, item.mine && s.timeStrMine]}>{item.time}</Text>
@@ -552,6 +647,14 @@ export default function ChatScreen() {
 
         {/* ── Input bar ────────────────────────────────── */}
         <View style={[s.inputBar, peerGone && s.inputBarGone]}>
+          {/* 사진 버튼 */}
+          <TouchableOpacity style={s.photoBtn} onPress={handleSendImage} disabled={peerGone}>
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                stroke={peerGone ? Colors.g3 : Colors.g4} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
+              <Circle cx="12" cy="13" r="4" stroke={peerGone ? Colors.g3 : Colors.g4} strokeWidth={1.8}/>
+            </Svg>
+          </TouchableOpacity>
           <TextInput
             style={s.textInput}
             value={input}
@@ -664,6 +767,9 @@ const s = StyleSheet.create({
   bubble:        { borderRadius: 18, paddingVertical: 10, paddingHorizontal: 14 },
   bubblePeer:    { backgroundColor: Colors.sf, borderWidth: 0.5, borderColor: Colors.separator, borderBottomLeftRadius: 4 },
   bubbleMine:    { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
+  bubbleImg:     { padding: 4, backgroundColor: 'transparent' },
+  readReceipt:   { fontSize: 10, color: Colors.primary, fontWeight: '600', marginTop: 2, alignSelf: 'flex-end' },
+  photoBtn:      { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
   bubbleFailed:  { backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.35)' },
   bubbleTxt:     { fontSize: Typography.footnote, color: Colors.dark, lineHeight: 20 },
   bubbleTxtMine: { color: '#fff' },

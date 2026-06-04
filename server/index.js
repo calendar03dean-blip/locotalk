@@ -834,6 +834,40 @@ io.on('connection', (socket) => {
     }
   });
 
+  // ── read_message (읽음 확인) ─────────────────────────────────────
+  socket.on('read_message', ({ roomId, messageId } = {}) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.sockets.includes(socket.id)) return;
+    // 상대방에게 읽음 알림 전송
+    const otherId = room.sockets.find(id => id !== socket.id);
+    if (otherId) {
+      io.to(otherId).emit('message_read', { messageId });
+    }
+  });
+
+  // ── send_image (사진 전송) ────────────────────────────────────────
+  socket.on('send_image', ({ roomId, imageData, width, height } = {}) => {
+    if (!roomId || !imageData) return;
+    const room = rooms.get(roomId);
+    if (!room || !room.sockets.includes(socket.id)) return;
+
+    const senderIdx = room.sockets.indexOf(socket.id);
+    const otherIdx  = senderIdx === 0 ? 1 : 0;
+    const senderUser = room.users[senderIdx];
+    const otherUser  = room.users[otherIdx];
+
+    const msgId = require('uuid').v4();
+    const msgTime = koreanTime();
+
+    io.to(roomId).except(socket.id).emit('receive_image', {
+      id: msgId, imageData, width, height, time: msgTime,
+    });
+
+    if (otherUser?.nick) {
+      sendPushToNick(otherUser.nick, senderUser?.nick || '이웃', '📷 사진을 보냈어요');
+    }
+  });
+
   // ── get_chat_history (프리미엄 전용) ────────────────────────────
   socket.on('get_chat_history', ({ roomId } = {}) => {
     const room = rooms.get(roomId);
