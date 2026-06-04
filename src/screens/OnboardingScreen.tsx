@@ -163,7 +163,7 @@ export default function OnboardingScreen() {
                 <Defs>
                   <SvgLinGrad id="spotBg" x1="0" y1="0" x2="84" y2="84" gradientUnits="userSpaceOnUse">
                     <Stop offset="0" stopColor="#72EDB8" />
-                    <Stop offset="1" stopColor="#1BAE84" />
+                    <Stop offset="1" stopColor="#40D3B6" />
                   </SvgLinGrad>
                 </Defs>
                 {/* 그라디언트 둥근 사각형 배경 */}
@@ -174,9 +174,9 @@ export default function OnboardingScreen() {
                   fill="white"
                 />
                 {/* 점 3개 (타이핑 인디케이터) */}
-                <Circle cx="30" cy="32" r="4.5" fill="#1BAE84" />
-                <Circle cx="42" cy="32" r="4.5" fill="#1BAE84" />
-                <Circle cx="54" cy="32" r="4.5" fill="#1BAE84" />
+                <Circle cx="30" cy="32" r="4.5" fill="#40D3B6" />
+                <Circle cx="42" cy="32" r="4.5" fill="#40D3B6" />
+                <Circle cx="54" cy="32" r="4.5" fill="#40D3B6" />
               </Svg>
             </View>
             <Text style={s.logoTitle}>Locotalk</Text>
@@ -342,7 +342,7 @@ const s = StyleSheet.create({
   scroll: { flexGrow:1, alignItems:'center', paddingHorizontal:Spacing.lg, paddingVertical:Spacing.xl },
 
   logoWrap:  { alignItems:'center', marginBottom:32 },
-  logoBox:   { width:84, height:84, borderRadius:20, shadowColor:'#1BAE84', shadowOffset:{width:0,height:10}, shadowOpacity:0.45, shadowRadius:22, elevation:16 },
+  logoBox:   { width:84, height:84, borderRadius:20, shadowColor:'#40D3B6', shadowOffset:{width:0,height:10}, shadowOpacity:0.45, shadowRadius:22, elevation:16 },
   logoTitle: { fontSize:26, fontWeight:'900', color:'#0A2419', letterSpacing:-0.5, marginTop:14 },
 
   card: { width:'100%', backgroundColor:'rgba(255,255,255,0.92)', borderRadius:Radius.xxl, padding:Spacing.lg, borderWidth:1, borderColor:'rgba(255,255,255,0.7)', ...Shadow.glass },

@@ -19,7 +19,7 @@ function IcoStar({ size = 18 }: { size?: number }) {
   );
 }
 
-function IcoCheck({ color = '#34C77E' }: { color?: string }) {
+function IcoCheck({ color = '#40D3B6' }: { color?: string }) {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path d="M20 6L9 17l-5-5"
