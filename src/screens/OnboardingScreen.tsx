@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, Animated,
   StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -82,12 +82,20 @@ function IcoStar({ color }: { color: string }) {
 }
 
 export default function OnboardingScreen() {
-  const { setLoggedIn } = useStore();
+  const { setLoggedIn, authEmail } = useStore();
   const t    = useT();
   const lang = useLang();
-  const [step,     setStep]   = useState<'nick'|'interest'>('nick');
-  const [nick,     setNick]   = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
+  const [step,      setStep]     = useState<'nick'|'profile'|'interest'>('nick');
+  const [nick,      setNick]     = useState('');
+  const [email,     setEmail]    = useState('');
+  const [gender,    setGender]   = useState<'male'|'female'|null>(null);
+  const [birthYear, setBirthYear]= useState('');
+  const [selected,  setSelected] = useState<string[]>([]);
+
+  // authEmail (소셜 로그인에서 받은 이메일) 자동 입력
+  useEffect(() => {
+    if (authEmail) setEmail(authEmail);
+  }, [authEmail]);
 
   // ── 관심사 ScrollView ref (자동 스크롤용) ───────────────────
   const interestScrollRef = useRef<any>(null);
@@ -128,6 +136,17 @@ export default function OnboardingScreen() {
     const trimmed = nick.trim();
     if (trimmed.length < 1) { Alert.alert(t('alert_nick_empty')); return; }
     if (containsProfanity(trimmed)) { Alert.alert(t('alert_nick_bad')); return; }
+    setStep('profile');
+  };
+
+  const handleProfileNext = () => {
+    if (!email.trim()) { Alert.alert('이메일을 입력해주세요'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { Alert.alert('올바른 이메일 주소를 입력해주세요'); return; }
+    if (!gender) { Alert.alert('성별을 선택해주세요'); return; }
+    const year = parseInt(birthYear, 10);
+    if (!birthYear || isNaN(year) || year < 1900 || year > new Date().getFullYear() - 5) {
+      Alert.alert('올바른 생년을 입력해주세요 (예: 1995)'); return;
+    }
     setStep('interest');
   };
 
@@ -154,8 +173,11 @@ export default function OnboardingScreen() {
       id: 'local-' + Date.now(),
       nickname: nick.trim(),
       interests: selected,
-      regionGu: '마포구',
-      regionLabel: '마포구',
+      regionGu: '',
+      regionLabel: '',
+      email: email.trim() || undefined,
+      gender: gender,
+      birthYear: birthYear ? parseInt(birthYear, 10) : null,
     });
   };
 
@@ -252,10 +274,82 @@ export default function OnboardingScreen() {
               </TouchableOpacity>
             </View>
 
+          ) : step === 'profile' ? (
+            /* ── 프로필 스텝: 이메일/성별/생년 ───────────────── */
+            <View style={s.card}>
+              <TouchableOpacity style={s.backBtn} onPress={() => setStep('nick')}>
+                <View style={s.backBtnInner}>
+                  <IcoBack color={Colors.primary} />
+                  <Text style={s.backTxt}>{t('onboarding_back_btn')}</Text>
+                </View>
+              </TouchableOpacity>
+
+              <Text style={s.cardTitle}>{'기본 정보 입력'}</Text>
+              <Text style={s.cardSub}>{'가입 완료를 위해 정보를 입력해주세요'}</Text>
+
+              {/* 이메일 */}
+              <View style={s.profileField}>
+                <Text style={s.profileLabel}>이메일</Text>
+                <TextInput
+                  style={s.profileInput}
+                  placeholder="이메일 주소"
+                  placeholderTextColor={Colors.g3}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+
+              {/* 성별 */}
+              <View style={s.profileField}>
+                <Text style={s.profileLabel}>성별</Text>
+                <View style={s.genderRow}>
+                  <TouchableOpacity
+                    style={[s.genderBtn, gender === 'male' && s.genderBtnSel]}
+                    onPress={() => setGender('male')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.genderTxt, gender === 'male' && s.genderTxtSel]}>남성</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[s.genderBtn, gender === 'female' && s.genderBtnSel]}
+                    onPress={() => setGender('female')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[s.genderTxt, gender === 'female' && s.genderTxtSel]}>여성</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* 생년 */}
+              <View style={s.profileField}>
+                <Text style={s.profileLabel}>생년</Text>
+                <TextInput
+                  style={s.profileInput}
+                  placeholder="예: 1995"
+                  placeholderTextColor={Colors.g3}
+                  value={birthYear}
+                  onChangeText={t => setBirthYear(t.replace(/[^0-9]/g, '').slice(0, 4))}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[s.btn, (!email || !gender || birthYear.length < 4) && s.btnOff]}
+                onPress={handleProfileNext}
+                disabled={!email || !gender || birthYear.length < 4}
+              >
+                <Text style={s.btnTxt}>{'다음으로'}</Text>
+              </TouchableOpacity>
+            </View>
+
           ) : (
             <View style={s.card}>
               {/* 뒤로 버튼 */}
-              <TouchableOpacity style={s.backBtn} onPress={() => setStep('nick')}>
+              <TouchableOpacity style={s.backBtn} onPress={() => setStep('profile')}>
                 <View style={s.backBtnInner}>
                   <IcoBack color={Colors.primary} />
                   <Text style={s.backTxt}>{t('onboarding_back_btn')}</Text>
@@ -379,6 +473,16 @@ const s = StyleSheet.create({
   nickHintRow:         { flexDirection:'row', gap:7, flexWrap:'wrap', justifyContent:'center' },
   nickHintPill:        { backgroundColor:'rgba(26,158,110,0.09)', borderRadius:Radius.pill, paddingVertical:5, paddingHorizontal:13, borderWidth:1, borderColor:'rgba(26,158,110,0.2)' },
   nickHintTxt:         { fontSize:11, fontWeight:'700', color:Colors.primaryD },
+
+  // 프로필 스텝 스타일
+  profileField: { marginTop: 20 },
+  profileLabel: { fontSize: 13, fontWeight: '600', color: Colors.g4, marginBottom: 6 },
+  profileInput: { height: 48, borderWidth: 1.5, borderColor: Colors.g2, borderRadius: Radius.md, paddingHorizontal: 14, fontSize: 15, color: Colors.dark, backgroundColor: Colors.g1 },
+  genderRow:    { flexDirection: 'row', gap: 10 },
+  genderBtn:    { flex: 1, height: 48, borderWidth: 1.5, borderColor: Colors.g2, borderRadius: Radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.g1 },
+  genderBtnSel: { borderColor: Colors.primary, backgroundColor: Colors.primaryTint },
+  genderTxt:    { fontSize: 15, fontWeight: '600', color: Colors.g4 },
+  genderTxtSel: { color: Colors.primary },
 
   backBtn:      { marginBottom:Spacing.sm },
   backBtnInner: { flexDirection:'row', alignItems:'center', gap:6 },

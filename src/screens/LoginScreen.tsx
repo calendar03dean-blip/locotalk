@@ -181,14 +181,12 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Kakao 로그인 (WebBrowser 방식 + 네이티브 SDK 폴백) ─────────────
+  // ── Kakao 로그인 ─────────────────────────────────────────────────
   const handleKakao = async () => {
     try {
-      // 네이티브 SDK 시도
       await kakaoLogin();
-      setAuth('kakao');
+      setAuth('kakao');  // 네이티브 SDK 성공 시에만 이동
     } catch {
-      // 네이티브 실패 시 WebBrowser OAuth 시도
       try {
         const authUrl =
           `https://kauth.kakao.com/oauth/authorize` +
@@ -197,13 +195,11 @@ export default function LoginScreen() {
           `&response_type=code`;
         const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
         if (result.type === 'success') {
-          setAuth('kakao');
-        } else {
-          // 브라우저 닫힌 경우: 바로 진행 (테스트 편의)
-          setAuth('kakao');
+          setAuth('kakao');  // WebBrowser 성공 시에만 이동
         }
+        // else: 브라우저 닫힘 → 아무것도 안 함
       } catch {
-        setAuth('kakao');
+        Alert.alert('카카오 로그인 실패', '카카오 앱 또는 계정을 확인해주세요.');
       }
     }
   };

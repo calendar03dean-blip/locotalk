@@ -54,6 +54,9 @@ interface User {
   interests: string[];  // 최대 3개
   regionGu: string;
   regionLabel: string;  // "마포구 · 서교동" 형태
+  email?: string;
+  gender?: 'male' | 'female' | null;
+  birthYear?: number | null;
 }
 
 interface Peer {
