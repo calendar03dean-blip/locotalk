@@ -8,11 +8,11 @@ import { Platform } from 'react-native';
 // Apple system palette + Spota brand emerald (tuned to iOS system green).
 export const Colors = {
   // Brand (emerald) — tuned to sit next to iOS system colors
-  primary:      '#34C77E',   // accent
-  primaryD:     '#0F6E47',   // primary on tinted bg (text)
-  primaryDk:    '#0A5235',   // primary on filled bg (text)
-  primaryTint:  '#E0F5EC',   // tinted bg (15% mix)
-  primaryMuted: '#A7E8C8',
+  primary:      '#40D3B6',   // accent
+  primaryD:     '#077060',   // primary on tinted bg (text)
+  primaryDk:    '#055448',   // primary on filled bg (text)
+  primaryTint:  '#DFFAF6',   // tinted bg (15% mix)
+  primaryMuted: '#9FE8DE',
 
   // iOS system surfaces (light mode)
   bg:                 '#F2F2F7',   // ios-bg-grouped
@@ -159,14 +159,14 @@ export const Shadow = {
     elevation:     12,
   },
   fab: {
-    shadowColor:   '#34C77E',
+    shadowColor:   '#40D3B6',
     shadowOffset:  { width: 0, height: 14 },
     shadowOpacity: 0.40,
     shadowRadius:  30,
     elevation:     8,
   },
   button: {
-    shadowColor:   '#34C77E',
+    shadowColor:   '#40D3B6',
     shadowOffset:  { width: 0, height: 8 },
     shadowOpacity: 0.30,
     shadowRadius:  24,
@@ -203,7 +203,7 @@ export const ControlHeight = {
 // ───────── Nickname avatar palette ───────────────────────────
 // 12-color palette tuned to iOS pastel surfaces.
 export const AVATAR_PALETTE = [
-  { bg: '#E0F5EC', fg: '#0F6E47' },  // mint
+  { bg: '#DFFAF6', fg: '#077060' },  // mint
   { bg: '#EAE6FE', fg: '#4F2DC4' },  // purple
   { bg: '#FFF1CC', fg: '#8A5A00' },  // amber
   { bg: '#FFE0E5', fg: '#A8133D' },  // pink

@@ -35,7 +35,7 @@ function withAlpha(color: string, alpha: number): string {
 export default function RegionBadge({
   id,
   size = 64,
-  color = '#34C77E',
+  color = '#40D3B6',
   style,
 }: Props) {
   const mono = KOREAN_MONOGRAM[id] || '??';
