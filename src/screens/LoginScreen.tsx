@@ -26,6 +26,7 @@ import { login as kakaoLogin } from '@react-native-kakao/user';
 import { useStore } from '../store';
 import { useT } from '../i18n';
 import { Colors, Typography, Radius } from '../constants/theme';
+import { serverLogin } from '../services/userApi';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -153,6 +154,28 @@ export default function LoginScreen() {
     return () => clearInterval(id);
   }, [timerOn, timer]);
 
+  // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
+  const handleSocialLogin = async (provider: string, authId: string, email?: string) => {
+    const result = await serverLogin(provider, authId, email);
+    setAuth(provider as any, email, result.userId);
+
+    // 기존 완성된 프로필이 있으면 바로 홈으로
+    if (!result.isNew && result.isComplete && result.user) {
+      const u = result.user;
+      setLoggedIn({
+        id: result.userId,
+        nickname: u.nickname || '',
+        interests: u.interests || [],
+        regionGu: u.regionGu || '',
+        regionLabel: u.regionLabel || '',
+        email: u.email,
+        gender: u.gender,
+        birthYear: u.birthYear,
+      });
+    }
+    // isNew 또는 isComplete=false → 온보딩으로 (hasAuth:true → OnboardingScreen)
+  };
+
   // ── Apple 로그인 ────────────────────────────────────────────────
   const handleApple = async () => {
     try {
@@ -162,7 +185,7 @@ export default function LoginScreen() {
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
         ],
       });
-      setAuth('apple', credential.email ?? undefined);
+      await handleSocialLogin('apple', credential.user, credential.email ?? undefined);
     } catch (e: any) {
       if (e?.code !== 'ERR_REQUEST_CANCELED') {
         Alert.alert('Apple 로그인 실패', e?.message ?? '다시 시도해주세요.');
@@ -175,7 +198,9 @@ export default function LoginScreen() {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await GoogleSignin.signIn();
-      setAuth('google', response.data?.user?.email ?? undefined);
+      const email = response.data?.user?.email;
+      const googleId = response.data?.user?.id ?? email ?? 'google';
+      await handleSocialLogin('google', googleId, email ?? undefined);
     } catch (e: any) {
       if (e?.code !== 'SIGN_IN_CANCELLED') {
         Alert.alert('Google 로그인 실패', '다시 시도해주세요.');
@@ -270,11 +295,11 @@ export default function LoginScreen() {
     sendOtpToServer(email.trim(), code);
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.length < 6) { setOtpErr(t('email_code_invalid')); return; }
     if (timer <= 0)     { setOtpErr(t('email_code_expired')); return; }
     if (otp !== otpCode) { setOtpErr(t('email_code_invalid')); return; }
-    setAuth('email', email.trim());
+    await handleSocialLogin('email', email.trim(), email.trim());
   };
 
   // ── 개발자 테스트 계정 ────────────────────────────────────────────

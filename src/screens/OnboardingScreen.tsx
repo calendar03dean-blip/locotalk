@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useFonts } from 'expo-font';
+import { saveUserProfile } from '../services/userApi';
 import {
   View, Text, TextInput, TouchableOpacity, Animated,
   StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -83,7 +84,7 @@ function IcoStar({ color }: { color: string }) {
 }
 
 export default function OnboardingScreen() {
-  const { setLoggedIn, authEmail } = useStore();
+  const { setLoggedIn, authEmail, authUserId } = useStore();
   const t    = useT();
   const lang = useLang();
   const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
@@ -169,10 +170,12 @@ export default function OnboardingScreen() {
     });
   };
 
-  const handleStart = () => {
+  const handleStart = async () => {
     if (selected.length === 0) { Alert.alert(t('alert_interest_min')); return; }
-    setLoggedIn({
-      id: 'local-' + Date.now(),
+
+    const userId = authUserId || ('local-' + Date.now());
+    const profile = {
+      id: userId,
       nickname: nick.trim(),
       interests: selected,
       regionGu: '',
@@ -180,7 +183,12 @@ export default function OnboardingScreen() {
       email: email.trim() || undefined,
       gender: gender,
       birthYear: birthYear ? parseInt(birthYear, 10) : null,
-    });
+    };
+
+    // DB에 저장 (백그라운드)
+    saveUserProfile(userId, profile).catch(() => {});
+
+    setLoggedIn(profile);
   };
 
   return (

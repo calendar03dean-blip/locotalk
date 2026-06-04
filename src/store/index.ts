@@ -78,7 +78,8 @@ interface AppState {
   hasAuth: boolean;
   authProvider: AuthProvider | null;
   authEmail: string | null;
-  setAuth: (provider: AuthProvider, email?: string) => void;
+  authUserId: string | null;   // 서버 DB 사용자 ID
+  setAuth: (provider: AuthProvider, email?: string, userId?: string) => void;
   clearAuth: () => void;
 
   // 프로필 설정 완료
@@ -135,8 +136,9 @@ export const useStore = create<AppState>((set, get) => ({
   hasAuth: false,
   authProvider: null,
   authEmail: null,
-  setAuth: (provider, email) => set({ hasAuth: true, authProvider: provider, authEmail: email ?? null }),
-  clearAuth: () => set({ hasAuth: false, authProvider: null, authEmail: null }),
+  authUserId: null,
+  setAuth: (provider, email, userId) => set({ hasAuth: true, authProvider: provider, authEmail: email ?? null, authUserId: userId ?? null }),
+  clearAuth: () => set({ hasAuth: false, authProvider: null, authEmail: null, authUserId: null }),
 
   isLoggedIn: false,
   user: null,

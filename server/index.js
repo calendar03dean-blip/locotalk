@@ -36,6 +36,44 @@ const { v4: uuidv4 } = require('uuid');
 const fs             = require('fs');
 const path           = require('path');
 const { Resend }     = require('resend');
+const { Pool }       = require('pg');
+
+// ─── PostgreSQL 연결 ─────────────────────────────────────────────────
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+});
+
+// DB 초기화 — 테이블 생성
+async function initDB() {
+  if (!process.env.DATABASE_URL) {
+    console.log('[db] DATABASE_URL 없음 — DB 기능 비활성화');
+    return;
+  }
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id            VARCHAR(100) PRIMARY KEY,
+        auth_provider VARCHAR(20)  NOT NULL,
+        auth_id       VARCHAR(200),
+        email         VARCHAR(200),
+        nickname      VARCHAR(20),
+        gender        VARCHAR(10),
+        birth_year    INTEGER,
+        interests     TEXT,
+        region_gu     VARCHAR(50),
+        region_label  VARCHAR(100),
+        is_premium    BOOLEAN DEFAULT FALSE,
+        created_at    TIMESTAMP DEFAULT NOW(),
+        updated_at    TIMESTAMP DEFAULT NOW()
+      );
+    `);
+    console.log('[db] ✅ users 테이블 준비 완료');
+  } catch (e) {
+    console.error('[db] 초기화 실패:', e.message);
+  }
+}
+initDB();
 
 // ─── Resend 이메일 클라이언트 ─────────────────────────────────────────
 const resend = new Resend('re_LKSuS8YL_DgunADwa35vrmcbYttgdGAcw');
@@ -115,6 +153,101 @@ app.post('/auth/verify-otp', (req, res) => {
   otpStore.delete(email.toLowerCase()); // 사용 후 삭제
   console.log(`[OTP] ✅ 인증 완료 → ${email}`);
   res.json({ success: true });
+});
+
+// ─── 사용자 API ──────────────────────────────────────────────────────
+
+/** 로그인/회원가입 — 소셜 로그인 후 호출 */
+app.post('/auth/login', async (req, res) => {
+  const { provider, authId, email } = req.body;
+  if (!provider || !authId) return res.status(400).json({ error: 'provider, authId 필수' });
+
+  if (!process.env.DATABASE_URL) {
+    return res.json({ userId: authId, isNew: true, user: null });
+  }
+
+  try {
+    const userId = `${provider}:${authId}`;
+    const { rows } = await db.query(
+      'SELECT * FROM users WHERE id = $1 OR (auth_provider = $2 AND email = $3)',
+      [userId, provider, email || '']
+    );
+
+    if (rows.length > 0) {
+      const user = rows[0];
+      const isComplete = !!(user.nickname && user.gender && user.birth_year);
+      return res.json({ userId: user.id, isNew: false, isComplete, user });
+    }
+
+    // 신규 유저 생성
+    await db.query(
+      'INSERT INTO users (id, auth_provider, auth_id, email) VALUES ($1, $2, $3, $4)',
+      [userId, provider, authId, email || null]
+    );
+    return res.json({ userId, isNew: true, isComplete: false, user: null });
+  } catch (e) {
+    console.error('[db] login error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** 사용자 프로필 저장/업데이트 */
+app.post('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nickname, email, gender, birthYear, interests, regionGu, regionLabel } = req.body;
+
+  if (!process.env.DATABASE_URL) return res.json({ ok: true });
+
+  try {
+    await db.query(`
+      UPDATE users SET
+        nickname     = COALESCE($2, nickname),
+        email        = COALESCE($3, email),
+        gender       = COALESCE($4, gender),
+        birth_year   = COALESCE($5, birth_year),
+        interests    = COALESCE($6, interests),
+        region_gu    = COALESCE($7, region_gu),
+        region_label = COALESCE($8, region_label),
+        updated_at   = NOW()
+      WHERE id = $1
+    `, [id, nickname, email, gender, birthYear, JSON.stringify(interests), regionGu, regionLabel]);
+
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[db] update user error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** 사용자 프로필 조회 */
+app.get('/users/:id', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.status(404).json({ error: 'DB 없음' });
+  try {
+    const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: '유저 없음' });
+    const u = rows[0];
+    res.json({
+      id: u.id, nickname: u.nickname, email: u.email,
+      gender: u.gender, birthYear: u.birth_year,
+      interests: u.interests ? JSON.parse(u.interests) : [],
+      regionGu: u.region_gu, regionLabel: u.region_label,
+      isPremium: u.is_premium,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** 프리미엄 상태 업데이트 */
+app.patch('/users/:id/premium', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ ok: true });
+  try {
+    await db.query('UPDATE users SET is_premium = $2, updated_at = NOW() WHERE id = $1',
+      [req.params.id, req.body.isPremium]);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/health', (_req, res) => {
