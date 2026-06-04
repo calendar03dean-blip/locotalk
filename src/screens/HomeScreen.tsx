@@ -677,7 +677,7 @@ export default function HomeScreen() {
             {/* Center circle — rendered last so it sits above the rings */}
             <View style={s.rippleCenter}>
               <Image
-                source={require('../../assets/logo.png')}
+                source={require('../../assets/logo_white.png')}
                 style={{ width: 52, height: 52 }}
                 resizeMode="contain"
               />

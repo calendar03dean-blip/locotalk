@@ -3,10 +3,10 @@ import { useFonts } from 'expo-font';
 import { saveUserProfile } from '../services/userApi';
 import {
   View, Text, TextInput, TouchableOpacity, Animated,
-  StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert,
+  StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle, Defs, LinearGradient as SvgLinGrad, Stop, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import { INTERESTS, findInterest, interestLabel } from '../constants/data';
 import InterestIcon from '../components/InterestIcon';
@@ -199,28 +199,11 @@ export default function OnboardingScreen() {
 
           {/* 로고 */}
           <View style={s.logoWrap}>
-            {/* 그라디언트 배경 + 말풍선 SVG */}
-            <View style={s.logoBox}>
-              <Svg width={84} height={84} viewBox="0 0 84 84">
-                <Defs>
-                  <SvgLinGrad id="spotBg" x1="0" y1="0" x2="84" y2="84" gradientUnits="userSpaceOnUse">
-                    <Stop offset="0" stopColor="#72EDB8" />
-                    <Stop offset="1" stopColor="#40D3B6" />
-                  </SvgLinGrad>
-                </Defs>
-                {/* 그라디언트 둥근 사각형 배경 */}
-                <Rect x="0" y="0" width="84" height="84" rx="20" ry="20" fill="url(#spotBg)" />
-                {/* 말풍선 (왼쪽 아래 꼬리) */}
-                <Path
-                  d="M26 11 H58 Q71 11 71 22 V43 Q71 54 58 54 H36 L16 68 L24 54 H26 Q13 54 13 43 V22 Q13 11 26 11 Z"
-                  fill="white"
-                />
-                {/* 점 3개 (타이핑 인디케이터) */}
-                <Circle cx="30" cy="32" r="4.5" fill="#40D3B6" />
-                <Circle cx="42" cy="32" r="4.5" fill="#40D3B6" />
-                <Circle cx="54" cy="32" r="4.5" fill="#40D3B6" />
-              </Svg>
-            </View>
+            <Image
+              source={require('../../assets/logo_white.png')}
+              style={s.logoImg}
+              resizeMode="contain"
+            />
             <Text style={[s.logoTitle, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>Locotalk</Text>
           </View>
 
@@ -449,14 +432,14 @@ export default function OnboardingScreen() {
 }
 
 const s = StyleSheet.create({
-  safe:   { flex:1, backgroundColor:'#EDFBF4' },
+  safe:   { flex:1, backgroundColor:'#40D3B6' },
   scroll: { flexGrow:1, alignItems:'center', paddingHorizontal:Spacing.lg, paddingVertical:Spacing.xl },
 
   logoWrap:  { alignItems:'center', marginBottom:32 },
-  logoBox:   { width:84, height:84, borderRadius:20, shadowColor:'#40D3B6', shadowOffset:{width:0,height:10}, shadowOpacity:0.45, shadowRadius:22, elevation:16 },
-  logoTitle: { fontSize:28, fontWeight:'900', color:'#0A2419', letterSpacing:-1.5, marginTop:14 },
+  logoImg:   { width:84, height:84 },
+  logoTitle: { fontSize:32, fontWeight:'900', color:'#fff', letterSpacing:-1.5, marginTop:12 },
 
-  card: { width:'100%', backgroundColor:'rgba(255,255,255,0.92)', borderRadius:Radius.xxl, padding:Spacing.lg, borderWidth:1, borderColor:'rgba(255,255,255,0.7)', ...Shadow.glass },
+  card: { width:'100%', backgroundColor:'rgba(255,255,255,0.95)', borderRadius:Radius.xxl, padding:Spacing.lg, borderWidth:0, ...Shadow.glass },
 
   // ── 닉네임 페이지 (카드 없는 풀-페이지 레이아웃) ──────────────
   nickPage:            { width:'100%', alignItems:'center', gap:28 },
@@ -507,7 +490,7 @@ const s = StyleSheet.create({
   input:     { borderWidth:1.5, borderColor:Colors.separator, borderRadius:Radius.pill, paddingVertical:14, paddingHorizontal:44, fontSize:Typography.title3, fontWeight:'700', color:Colors.dark, backgroundColor:Colors.g1, textAlign:'center' },
   ringWrap:  { position:'absolute', right:14, top:0, bottom:0, justifyContent:'center' },
 
-  btn:     { width:'100%', backgroundColor:Colors.primary, borderRadius:Radius.pill, height:52, justifyContent:'center', ...Shadow.button },
+  btn:     { width:'100%', backgroundColor:'#034A93', borderRadius:Radius.pill, height:52, justifyContent:'center', shadowColor:'#034A93', shadowOffset:{width:0,height:4}, shadowOpacity:0.3, shadowRadius:8 },
   btnOff:  { opacity:0.3 },
   btnInner:{ flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8 },
   btnTxt:  { fontSize:Typography.headline, fontWeight:'700', color:'#fff' },
