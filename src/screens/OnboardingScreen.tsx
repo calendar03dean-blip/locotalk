@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useFonts } from 'expo-font';
 import {
   View, Text, TextInput, TouchableOpacity, Animated,
   StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert,
@@ -85,6 +86,7 @@ export default function OnboardingScreen() {
   const { setLoggedIn, authEmail } = useStore();
   const t    = useT();
   const lang = useLang();
+  const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
   const [step,      setStep]     = useState<'nick'|'profile'|'interest'>('nick');
   const [nick,      setNick]     = useState('');
   const [email,     setEmail]    = useState('');
@@ -211,7 +213,7 @@ export default function OnboardingScreen() {
                 <Circle cx="54" cy="32" r="4.5" fill="#40D3B6" />
               </Svg>
             </View>
-            <Text style={s.logoTitle}>Locotalk</Text>
+            <Text style={[s.logoTitle, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>Locotalk</Text>
           </View>
 
           {step === 'nick' ? (
@@ -444,7 +446,7 @@ const s = StyleSheet.create({
 
   logoWrap:  { alignItems:'center', marginBottom:32 },
   logoBox:   { width:84, height:84, borderRadius:20, shadowColor:'#40D3B6', shadowOffset:{width:0,height:10}, shadowOpacity:0.45, shadowRadius:22, elevation:16 },
-  logoTitle: { fontSize:26, fontWeight:'900', color:'#0A2419', letterSpacing:-0.5, marginTop:14 },
+  logoTitle: { fontSize:28, fontWeight:'900', color:'#0A2419', letterSpacing:-1.5, marginTop:14 },
 
   card: { width:'100%', backgroundColor:'rgba(255,255,255,0.92)', borderRadius:Radius.xxl, padding:Spacing.lg, borderWidth:1, borderColor:'rgba(255,255,255,0.7)', ...Shadow.glass },
 

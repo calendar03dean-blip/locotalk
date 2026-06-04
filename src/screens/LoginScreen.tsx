@@ -16,6 +16,7 @@ import {
   ActivityIndicator, KeyboardAvoidingView, Platform,
   Animated, Easing, Alert, Image,
 } from 'react-native';
+import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import * as WebBrowser from 'expo-web-browser';
@@ -109,6 +110,7 @@ type Step = 'main' | 'email_input' | 'email_otp';
 
 export default function LoginScreen() {
   const t       = useT();
+  const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
   const setAuth      = useStore(s => s.setAuth);
   const setLoggedIn  = useStore(s => s.setLoggedIn);
   const setPremium   = useStore(s => s.setPremium);
@@ -303,8 +305,8 @@ export default function LoginScreen() {
 
           {/* 로고 */}
           <View style={s.logoWrap}>
-            <Image source={require('../../assets/logo.png')} style={s.logo} resizeMode="contain" />
-            <Text style={s.appName}>Locotalk</Text>
+            <Image source={require('../../assets/logo_white.png')} style={s.logo} resizeMode="contain" />
+            <Text style={[s.appName, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>Locotalk</Text>
             {step === 'main' && <Text style={s.sub}>{t('login_sub')}</Text>}
           </View>
 
@@ -468,7 +470,7 @@ const s = StyleSheet.create({
 
   logoWrap: { alignItems: 'center', marginBottom: 44 },
   logo:     { width: 76, height: 76, marginBottom: 10 },
-  appName:  { fontSize: 28, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  appName:  { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -1.5 },
   sub:      { fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 6, textAlign: 'center' },
 
   btnGroup: { gap: 11 },
