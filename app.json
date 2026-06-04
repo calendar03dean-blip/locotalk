@@ -2,11 +2,11 @@
   "expo": {
     "name": "Locotalk",
     "slug": "spota-fresh",
-    "version": "1.1.0",
+    "version": "1.0.0",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.palosanto.spotchat",
-      "buildNumber": "16",
+      "buildNumber": "15",
       "jsEngine": "hermes",
       "entitlements": {
         "com.apple.developer.applesignin": [
