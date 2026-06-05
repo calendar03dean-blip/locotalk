@@ -6,7 +6,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.palosanto.spotchat",
-      "buildNumber": "17",
+      "buildNumber": "18",
       "jsEngine": "hermes",
       "entitlements": {
         "com.apple.developer.applesignin": [
@@ -42,7 +42,8 @@
       "expo-font",
       "expo-web-browser",
       "expo-apple-authentication",
-      "expo-image-picker"
+      "expo-image-picker",
+      "expo-image-manipulator"
     ],
     "extra": {
       "eas": {
