@@ -303,26 +303,29 @@ app.post('/auth/send-phone-otp', async (req, res) => {
   const code = String(Math.floor(100000 + Math.random() * 900000));
   phoneOtpStore.set(phone, { code, expiresAt: Date.now() + 3 * 60 * 1000 });
 
-  // AWS SNS SMS 발송 시도
+  // 솔라피 SMS 발송
+  const solapiKey    = process.env.SOLAPI_API_KEY;
+  const solapiSecret = process.env.SOLAPI_API_SECRET;
+  const solapiFrom   = process.env.SOLAPI_FROM_NUMBER; // 발신번호 (등록된 번호)
+
+  if (!solapiKey || !solapiSecret || !solapiFrom) {
+    console.log(`[Phone OTP] 솔라피 미설정 — devCode=${code}`);
+    return res.json({ success: true, devCode: code }); // 환경변수 미설정 시 개발용
+  }
+
   try {
-    const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
-    const sns = new SNSClient({
-      region: process.env.AWS_REGION || 'ap-northeast-2',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-      },
+    const { SolapiMessageService } = require('solapi');
+    const service = new SolapiMessageService(solapiKey, solapiSecret);
+    const formattedPhone = phone.startsWith('0') ? phone : '0' + phone.replace(/^\+82/, '');
+    await service.send({
+      to: formattedPhone,
+      from: solapiFrom,
+      text: `[Locotalk] 본인인증 코드: ${code} (3분 내 입력)`,
     });
-    const formattedPhone = phone.startsWith('+') ? phone : '+82' + phone.replace(/^0/, '');
-    await sns.send(new PublishCommand({
-      PhoneNumber: formattedPhone,
-      Message: `[Locotalk] 본인인증 코드: ${code} (3분 내 입력)`,
-    }));
-    console.log(`[Phone OTP] ✅ SMS 발송 → ${phone} code=${code}`);
+    console.log(`[Phone OTP] ✅ 솔라피 SMS 발송 → ${phone}`);
   } catch (e) {
-    // SMS 발송 실패 시 코드를 응답에 포함 (개발 단계 fallback)
-    console.log(`[Phone OTP] SMS 발송 실패, fallback code=${code}`, e.message);
-    return res.json({ success: true, devCode: code }); // 개발용
+    console.error(`[Phone OTP] SMS 발송 실패:`, e.message);
+    return res.status(500).json({ error: 'SMS 발송에 실패했습니다. 잠시 후 다시 시도해주세요.' });
   }
 
   res.json({ success: true });
