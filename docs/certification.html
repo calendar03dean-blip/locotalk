@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>통신사 본인인증</title>
+<script src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#40D3B6; display:flex; align-items:center; justify-content:center; height:100vh; }
+  .loader { text-align:center; color:#fff; }
+  .loader p { font-size:16px; font-weight:700; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="loader">
+  <div style="font-size:48px;">💬</div>
+  <p>본인인증 진행 중...</p>
+</div>
+<script>
+  // URL 파라미터에서 데이터 읽기
+  const params = new URLSearchParams(window.location.search);
+  const storeId  = params.get('store_id');  // 포트원 가맹점 식별코드
+  const merchant = params.get('merchant_uid') || 'locotalk_' + Date.now();
+  const carrier  = params.get('carrier') || '';
+
+  // 포트원 SDK 초기화
+  IMP.init(storeId);
+
+  // 본인인증 요청
+  IMP.certification({
+    merchant_uid: merchant,
+    carrier: carrier || undefined,
+    popup: false,
+  }, function(rsp) {
+    if (rsp.success) {
+      // 성공: 앱으로 imp_uid 전달
+      const result = JSON.stringify({
+        success: true,
+        imp_uid: rsp.imp_uid,
+        merchant_uid: rsp.merchant_uid,
+      });
+      // React Native WebView 메시지 전달
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(result);
+      } else {
+        // 폴백: URL 스킴
+        window.location.href = 'locotalk://certification?data=' + encodeURIComponent(result);
+      }
+    } else {
+      // 실패
+      const result = JSON.stringify({ success: false, error: rsp.error_msg });
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(result);
+      } else {
+        window.location.href = 'locotalk://certification?data=' + encodeURIComponent(result);
+      }
+    }
+  });
+</script>
+</body>
+</html>

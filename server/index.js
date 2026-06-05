@@ -293,6 +293,58 @@ app.patch('/users/:id/verify', async (req, res) => {
   }
 });
 
+// ─── 포트원 본인인증 검증 ──────────────────────────────────────
+app.post('/auth/portone-verify', async (req, res) => {
+  const { imp_uid, merchant_uid, userId } = req.body;
+  if (!imp_uid) return res.status(400).json({ error: 'imp_uid required' });
+
+  try {
+    // 1. 포트원 액세스 토큰 발급
+    const tokenRes = await fetch('https://api.iamport.kr/users/getToken', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        imp_key:    process.env.PORTONE_IMP_KEY,
+        imp_secret: process.env.PORTONE_IMP_SECRET,
+      }),
+    });
+    const tokenData = await tokenRes.json();
+    const accessToken = tokenData?.response?.access_token;
+    if (!accessToken) return res.status(401).json({ error: '포트원 인증 실패' });
+
+    // 2. imp_uid로 인증 정보 조회
+    const certRes = await fetch(`https://api.iamport.kr/certifications/${imp_uid}`, {
+      headers: { Authorization: accessToken },
+    });
+    const certData = await certRes.json();
+    const cert = certData?.response;
+
+    if (!cert || !cert.certified) {
+      return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
+    }
+
+    // 3. 인증 정보 추출
+    const name   = cert.name;
+    const birth  = cert.birthday?.replace(/-/g, ''); // YYYYMMDD
+    const gender = cert.gender === 'male' ? 'male' : 'female';
+    const phone  = cert.phone?.replace(/[^0-9]/g, '');
+
+    // 4. DB 업데이트
+    if (pool && userId) {
+      await pool.query(
+        `UPDATE users SET phone=$1, is_verified=true, verified_at=NOW(), name=$2, birth_date=$3, gender=$4 WHERE id=$5`,
+        [phone, name, birth, gender, userId]
+      ).catch(() => {});
+    }
+
+    console.log(`[PortOne] ✅ 인증 완료 → ${name} (${birth}) ${gender} ${phone}`);
+    res.json({ success: true, name, birth, gender, phone });
+  } catch (e) {
+    console.error('[PortOne] 오류:', e.message);
+    res.status(500).json({ error: '인증 처리 중 오류가 발생했습니다.' });
+  }
+});
+
 // ─── 휴대폰 OTP 발송 ────────────────────────────────────────
 const phoneOtpStore = new Map(); // phone → { code, expiresAt }
 
