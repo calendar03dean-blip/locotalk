@@ -41,7 +41,7 @@ const { Pool }       = require('pg');
 // ─── PostgreSQL 연결 ─────────────────────────────────────────────────
 const db = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  ssl: false,   // Railway 내부 네트워크는 SSL 불필요
 });
 
 // DB 초기화 — 테이블 생성
