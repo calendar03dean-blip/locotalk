@@ -293,6 +293,71 @@ app.patch('/users/:id/verify', async (req, res) => {
   }
 });
 
+// ─── 휴대폰 OTP 발송 ────────────────────────────────────────
+const phoneOtpStore = new Map(); // phone → { code, expiresAt }
+
+app.post('/auth/send-phone-otp', async (req, res) => {
+  const { phone, userId } = req.body;
+  if (!phone) return res.status(400).json({ error: 'phone required' });
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  phoneOtpStore.set(phone, { code, expiresAt: Date.now() + 3 * 60 * 1000 });
+
+  // AWS SNS SMS 발송 시도
+  try {
+    const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
+    const sns = new SNSClient({
+      region: process.env.AWS_REGION || 'ap-northeast-2',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      },
+    });
+    const formattedPhone = phone.startsWith('+') ? phone : '+82' + phone.replace(/^0/, '');
+    await sns.send(new PublishCommand({
+      PhoneNumber: formattedPhone,
+      Message: `[Locotalk] 본인인증 코드: ${code} (3분 내 입력)`,
+    }));
+    console.log(`[Phone OTP] ✅ SMS 발송 → ${phone} code=${code}`);
+  } catch (e) {
+    // SMS 발송 실패 시 코드를 응답에 포함 (개발 단계 fallback)
+    console.log(`[Phone OTP] SMS 발송 실패, fallback code=${code}`, e.message);
+    return res.json({ success: true, devCode: code }); // 개발용
+  }
+
+  res.json({ success: true });
+});
+
+app.post('/auth/verify-phone-otp', async (req, res) => {
+  const { phone, code, userId } = req.body;
+  if (!phone || !code) return res.status(400).json({ error: 'phone and code required' });
+
+  const stored = phoneOtpStore.get(phone);
+  if (!stored) return res.status(400).json({ error: '인증번호를 먼저 요청해주세요' });
+  if (Date.now() > stored.expiresAt) {
+    phoneOtpStore.delete(phone);
+    return res.status(400).json({ error: '인증번호가 만료되었습니다' });
+  }
+  if (stored.code !== String(code)) {
+    return res.status(400).json({ error: '인증번호가 맞지 않습니다' });
+  }
+
+  phoneOtpStore.delete(phone);
+
+  // DB 업데이트 (있는 경우)
+  if (process.env.DATABASE_URL && userId) {
+    try {
+      await db.query(
+        `UPDATE users SET phone = $1, is_verified = true, verified_at = NOW() WHERE id = $2`,
+        [phone, userId]
+      ).catch(() => {});
+    } catch {}
+  }
+
+  console.log(`[Phone OTP] ✅ 인증 완료 → ${phone}`);
+  res.json({ success: true });
+});
+
 app.get('/health', (_req, res) => {
   res.json({
     status  : 'ok',

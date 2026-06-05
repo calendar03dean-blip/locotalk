@@ -55,6 +55,7 @@ interface User {
   regionGu: string;
   regionLabel: string;  // "마포구 · 서교동" 형태
   email?: string;
+  phone?: string;
   gender?: 'male' | 'female' | null;
   birthYear?: number | null;
   isVerified?: boolean;    // 본인인증 완료
@@ -95,6 +96,7 @@ interface AppState {
   updateRegion: (gu: string, label: string) => void;
   updateInterests: (interests: string[]) => void;
   setVerified: (gender: 'male'|'female', birthYear: number) => void;
+  setPhoneVerified: (phone: string) => void;
   updateEmail: (email: string) => void;
 
   // 매칭
@@ -156,6 +158,10 @@ export const useStore = create<AppState>((set, get) => ({
   },
   setVerified: (gender, birthYear) =>
     set((s) => ({ user: s.user ? { ...s.user, isVerified: true, verifiedAt: new Date().toISOString(), gender, birthYear } : null })),
+  setPhoneVerified: (phone) =>
+    set((s) => ({
+      user: s.user ? { ...s.user, phone, isVerified: true, verifiedAt: new Date().toISOString() } : s.user,
+    })),
   updateEmail: (email) =>
     set((s) => ({ user: s.user ? { ...s.user, email } : null })),
   updateRegion: (gu, label) =>

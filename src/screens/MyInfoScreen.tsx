@@ -15,6 +15,7 @@ import RegionIcon from '../components/RegionIcon';
 import UpgradeModal from '../components/UpgradeModal';
 import RegionPickerModal from '../components/RegionPickerModal';
 import IdentityVerifyModal from '../components/IdentityVerifyModal';
+import PhoneVerifyModal from '../components/PhoneVerifyModal';
 
 const SW = 1.8;
 
@@ -128,6 +129,7 @@ export default function MyInfoScreen() {
     acceptsChat, setAcceptsChat, lang, setLang,
     isPremium, matchCountThisHour,
     customRegionGu, customRegionLabel, setCustomRegion,
+    setPhoneVerified,
   } = useStore();
   const t    = useT();
   const curLang = useLang();
@@ -135,9 +137,10 @@ export default function MyInfoScreen() {
   const [blockedModal, setBlockedModal] = useState(false);
   const [tmpInts,      setTmpInts]      = useState<string[]>([]);
   const [notifOn,      setNotifOn]      = useState(true);
-  const [showUpgrade,    setShowUpgrade]    = useState(false);
-  const [showRegionPick, setShowRegionPick] = useState(false);
-  const [showVerify,     setShowVerify]     = useState(false);
+  const [showUpgrade,      setShowUpgrade]      = useState(false);
+  const [showRegionPick,   setShowRegionPick]   = useState(false);
+  const [showVerify,       setShowVerify]       = useState(false);
+  const [showPhoneVerify,  setShowPhoneVerify]  = useState(false);
 
   const myInts = (user?.interests || []).filter(i => i !== 'none');
   const myInt  = findInterest(myInts[0] || '');
@@ -346,7 +349,7 @@ export default function MyInfoScreen() {
           </View>
 
           {/* 언어 — Language toggle */}
-          <View style={[s.row, s.rowLast]}>
+          <View style={s.row}>
             <View style={s.rowLeft}>
               <Text style={{ fontSize: 15 }}>{curLang === 'en' ? '🇺🇸' : '🇰🇷'}</Text>
               <Text style={s.rowTitle}>{t('myinfo_language')}</Text>
@@ -359,6 +362,22 @@ export default function MyInfoScreen() {
               <Text style={s.langToggleTxt}>{t('myinfo_language_value')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* 본인인증 */}
+          <TouchableOpacity
+            style={[s.row, s.rowLast]}
+            onPress={() => !user?.isVerified && setShowPhoneVerify(true)}
+            activeOpacity={user?.isVerified ? 1 : 0.7}
+            disabled={!!user?.isVerified}
+          >
+            <View style={s.rowLeft}>
+              <IcoShield color={user?.isVerified ? Colors.primary : Colors.g4} size={15} />
+              <Text style={[s.rowTitle, user?.isVerified && { color: Colors.primary }]}>
+                {user?.isVerified ? '본인인증 완료 ✓' : '본인인증하기'}
+              </Text>
+            </View>
+            {!user?.isVerified && <IcoChevron color={Colors.g3} />}
+          </TouchableOpacity>
         </View>
 
         {/* ── Locotalk 안내 ─────────────────────────────── */}
@@ -398,6 +417,18 @@ export default function MyInfoScreen() {
 
       {/* ── 본인인증 모달 ─────────────────────────────────── */}
       <IdentityVerifyModal visible={showVerify} onClose={() => setShowVerify(false)} />
+
+      {/* ── 휴대폰 본인인증 모달 ──────────────────────────── */}
+      <PhoneVerifyModal
+        visible={showPhoneVerify}
+        onClose={() => setShowPhoneVerify(false)}
+        userId={user?.id || ''}
+        onVerified={(phone) => {
+          setPhoneVerified(phone);
+          setShowPhoneVerify(false);
+          Alert.alert('인증 완료', '본인인증이 완료되었습니다 ✓');
+        }}
+      />
 
       {/* ── 지역 선택 모달 (프리미엄) ────────────────────── */}
       <RegionPickerModal
