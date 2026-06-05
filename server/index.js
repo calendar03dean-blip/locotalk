@@ -35,7 +35,6 @@ const cors           = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const fs             = require('fs');
 const path           = require('path');
-const { Resend }     = require('resend');
 const { Pool }       = require('pg');
 
 // ─── PostgreSQL 연결 ─────────────────────────────────────────────────
@@ -82,8 +81,27 @@ async function initDB() {
 }
 initDB();
 
-// ─── Resend 이메일 클라이언트 ─────────────────────────────────────────
-const resend = new Resend('re_LKSuS8YL_DgunADwa35vrmcbYttgdGAcw');
+// ─── AWS SES 이메일 (nodemailer SMTP) ────────────────────────────────
+const nodemailer = require('nodemailer');
+
+const sesTransport = nodemailer.createTransport({
+  host: `email-smtp.${process.env.AWS_REGION || 'ap-northeast-2'}.amazonaws.com`,
+  port: 465,
+  secure: true,
+  auth: {
+    user: process.env.AWS_ACCESS_KEY_ID     || '',
+    pass: process.env.AWS_SECRET_ACCESS_KEY || '',
+  },
+});
+
+async function sendEmailSES({ to, subject, html }) {
+  return sesTransport.sendMail({
+    from   : process.env.SES_FROM_EMAIL || 'Locotalk <calendar03dean@gmail.com>',
+    to,
+    subject,
+    html,
+  });
+}
 
 // OTP 임시 저장소 (이메일 → { code, expiresAt })
 const otpStore = new Map();
@@ -112,11 +130,10 @@ app.post('/auth/send-otp', async (req, res) => {
   });
 
   try {
-    const { data, error } = await resend.emails.send({
-      from   : 'Locotalk <onboarding@resend.dev>',
-      to     : [email],
+    await sendEmailSES({
+      to: email,
       subject: '[Locotalk] 이메일 인증 코드',
-      html   : `
+      html: `
         <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#f9fafb;">
           <div style="background:#40D3B6;border-radius:16px;padding:32px;text-align:center;margin-bottom:24px;">
             <h1 style="color:#fff;font-size:28px;margin:0;font-weight:800;">Locotalk</h1>
@@ -134,12 +151,7 @@ app.post('/auth/send-otp', async (req, res) => {
       `,
     });
 
-    if (error) {
-      console.error('[OTP] 이메일 발송 실패:', error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    console.log(`[OTP] ✅ 발송 완료 → ${email}  id=${data?.id}`);
+    console.log(`[OTP] ✅ AWS SES 발송 완료 → ${email}`);
     res.json({ success: true });
   } catch (e) {
     console.error('[OTP] 예외:', e.message);
