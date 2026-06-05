@@ -41,7 +41,7 @@ const KAKAO_REST_KEY     = '82edb8d683fa5171e2e05991ef52225d'; // REST API 키 (
 const KAKAO_REDIRECT_URI = 'kakao3a28c2894d331f12450cec5f37c3c578://oauth'; // 카카오 표준 스킴
 const NAVER_CLIENT_ID    = '4amvZv8LfW4vE277jo8n';
 const REDIRECT_URI       = 'com.palosanto.spotchat://oauth';  // Google용
-const NAVER_REDIRECT_URI = 'com.palosanto.spotchat://oauth';  // 네이버용
+const NAVER_REDIRECT_URI = 'locotalk://oauth';  // Naver 콘솔 URL Scheme  // 네이버용
 
 // OTP 만료 시간(초)
 const OTP_EXPIRE_SEC = 180;
