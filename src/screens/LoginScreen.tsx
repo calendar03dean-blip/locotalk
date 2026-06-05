@@ -156,33 +156,35 @@ export default function LoginScreen() {
     return () => clearInterval(id);
   }, [timerOn, timer]);
 
+  // ── 서버 로그인 결과 적용 (성공 시에만 페이지 이동) ──────────────
+  const applyLoginResult = (provider: string, result: any, email?: string): boolean => {
+    if (!result?.userId) return false;
+    setAuth(provider as any, email ?? result.email, result.userId);
+
+    // 기존 완성된 프로필이 있으면 바로 홈으로
+    if (!result.isNew && result.isComplete && result.user) {
+      const u = result.user;
+      setLoggedIn({
+        id: result.userId,
+        nickname: u.nickname || '',
+        interests: u.interests || [],
+        regionGu: u.region_gu || u.regionGu || '',
+        regionLabel: u.region_label || u.regionLabel || '',
+        email: u.email,
+        gender: u.gender,
+        birthYear: u.birth_year || u.birthYear,
+      });
+    }
+    return true;
+  };
+
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
-  // 반환값: true = 성공(페이지 이동), false = 실패(이동 없음)
   const handleSocialLogin = async (provider: string, authId: string, email?: string): Promise<boolean> => {
     try {
       const result = await serverLogin(provider, authId, email);
-      if (!result?.userId) return false; // userId 없으면 실패
-
-      // ── 여기서만 페이지 이동 ──────────────────────────────
-      setAuth(provider as any, email, result.userId);
-
-      // 기존 완성된 프로필이 있으면 바로 홈으로
-      if (!result.isNew && result.isComplete && result.user) {
-        const u = result.user;
-        setLoggedIn({
-          id: result.userId,
-          nickname: u.nickname || '',
-          interests: u.interests || [],
-          regionGu: u.regionGu || '',
-          regionLabel: u.regionLabel || '',
-          email: u.email,
-          gender: u.gender,
-          birthYear: u.birthYear,
-        });
-      }
-      return true; // 성공
+      return applyLoginResult(provider, result, email);
     } catch {
-      return false; // 실패 → 페이지 이동 없음
+      return false;
     }
   };
 
@@ -258,7 +260,7 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Naver 로그인 ─────────────────────────────────────────────────
+  // ── Naver 로그인 (서버 토큰 교환 방식) ──────────────────────────
   const handleNaver = async () => {
     if (authLoading) return;
     setAuthLoading(true);
@@ -270,11 +272,26 @@ export default function LoginScreen() {
         `&redirect_uri=${encodeURIComponent(NAVER_REDIRECT_URI)}` +
         `&response_type=code&state=${state}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, 'locotalk://oauth');
-      if (result.type === 'success') {
-        const ok = await handleSocialLogin('naver', `naver-${state}`, undefined);
-        if (!ok) Alert.alert('네이버 로그인 실패', '잠시 후 다시 시도해주세요.');
+
+      if (result.type !== 'success' || !result.url) return; // 취소 → 무시
+
+      // 콜백 URL에서 code 추출
+      const m     = result.url.match(/[?&]code=([^&]+)/);
+      const rawCode = m ? decodeURIComponent(m[1]) : '';
+      if (!rawCode) { Alert.alert('네이버 로그인 실패', '인증 코드를 받지 못했습니다.'); return; }
+
+      // 서버에서 토큰 교환 + 프로필 조회
+      const res = await fetch('https://locotalk-production.up.railway.app/auth/naver-callback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: rawCode, state }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.userId) {
+        Alert.alert('네이버 로그인 실패', data.error || '잠시 후 다시 시도해주세요.');
+        return;
       }
-      // dismiss = 사용자 취소 → 아무것도 안 함
+      applyLoginResult('naver', data, data.email);
     } catch {
       Alert.alert('네이버 로그인 실패', '다시 시도해주세요.');
     } finally {

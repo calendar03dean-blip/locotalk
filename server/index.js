@@ -194,7 +194,8 @@ app.post('/auth/login', async (req, res) => {
 
     if (rows.length > 0) {
       const user = rows[0];
-      const isComplete = !!(user.nickname && user.gender && user.birth_year);
+      // 온보딩 완료 기준: 닉네임 보유 (관심사는 선택)
+      const isComplete = !!user.nickname;
       return res.json({ userId: user.id, isNew: false, isComplete, user });
     }
 
@@ -206,6 +207,64 @@ app.post('/auth/login', async (req, res) => {
     return res.json({ userId, isNew: true, isComplete: false, user: null });
   } catch (e) {
     console.error('[db] login error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/** 네이버 OAuth 콜백 — code를 토큰으로 교환하고 프로필 조회 후 로그인 처리 */
+app.post('/auth/naver-callback', async (req, res) => {
+  const { code, state } = req.body;
+  if (!code) return res.status(400).json({ error: 'code 필수' });
+
+  const NAVER_CLIENT_ID     = process.env.NAVER_CLIENT_ID     || '4amvZv8LfW4vE277jo8n';
+  const NAVER_CLIENT_SECRET = process.env.NAVER_CLIENT_SECRET || 'NddPIqKVfL';
+
+  try {
+    // 1. code → access token
+    const tokenUrl =
+      `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code` +
+      `&client_id=${NAVER_CLIENT_ID}` +
+      `&client_secret=${NAVER_CLIENT_SECRET}` +
+      `&code=${encodeURIComponent(code)}` +
+      `&state=${encodeURIComponent(state || '')}`;
+    const tokenRes  = await fetch(tokenUrl);
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) {
+      console.error('[naver] 토큰 실패:', tokenData);
+      return res.status(401).json({ error: '네이버 토큰 발급 실패' });
+    }
+
+    // 2. 프로필 조회
+    const profRes = await fetch('https://openapi.naver.com/v1/nid/me', {
+      headers: { Authorization: `Bearer ${tokenData.access_token}` },
+    });
+    const profData = await profRes.json();
+    const np = profData.response;
+    if (!np?.id) return res.status(401).json({ error: '네이버 프로필 조회 실패' });
+
+    // 3. 안정적인 네이버 ID로 로그인/가입 처리
+    const provider = 'naver';
+    const authId   = np.id;            // 네이버 고유 ID (재로그인 시 동일)
+    const email    = np.email || null;
+    const userId   = `${provider}:${authId}`;
+
+    if (!process.env.DATABASE_URL) {
+      return res.json({ userId, isNew: true, isComplete: false, user: null, email });
+    }
+
+    const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+    if (rows.length > 0) {
+      const user = rows[0];
+      const isComplete = !!(user.nickname);
+      return res.json({ userId, isNew: false, isComplete, user, email });
+    }
+    await db.query(
+      'INSERT INTO users (id, auth_provider, auth_id, email) VALUES ($1, $2, $3, $4)',
+      [userId, provider, authId, email]
+    );
+    res.json({ userId, isNew: true, isComplete: false, user: null, email });
+  } catch (e) {
+    console.error('[naver] 콜백 오류:', e.message);
     res.status(500).json({ error: e.message });
   }
 });
