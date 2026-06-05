@@ -1,32 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Locotalk 로그인 중...</title>
-  <style>
-    body { font-family: -apple-system, sans-serif; display: flex; justify-content: center;
-           align-items: center; height: 100vh; margin: 0; background: #40D3B6; }
-    .box { text-align: center; color: #fff; }
-    h2 { font-size: 22px; margin-bottom: 8px; }
-    p  { font-size: 14px; opacity: 0.85; }
-  </style>
+<meta charset="UTF-8">
+<title>Locotalk 로그인 처리 중...</title>
+<script>
+  // Naver OAuth 콜백: 쿼리파라미터를 locotalk:// 스킴으로 포워딩
+  (function() {
+    var params = window.location.search; // ?code=xxx&state=yyy
+    var url = 'locotalk://oauth' + params;
+    window.location.replace(url);
+    // 앱이 없을 경우 1.5초 후 메시지 표시
+    setTimeout(function() {
+      document.getElementById('msg').style.display = 'block';
+    }, 1500);
+  })();
+</script>
 </head>
-<body>
-  <div class="box">
-    <h2>✅ 로그인 완료</h2>
-    <p>앱으로 돌아가는 중...</p>
-  </div>
-  <script>
-    // URL 파라미터 전체를 앱 딥링크로 전달
-    const params = window.location.search;
-    const deepLink = 'locotalk://oauth' + params;
-    window.location.href = deepLink;
-
-    // 앱이 안 열리면 안내
-    setTimeout(() => {
-      document.querySelector('p').textContent = 'Locotalk 앱을 설치 후 다시 시도해주세요.';
-    }, 3000);
-  </script>
+<body style="font-family:-apple-system,sans-serif;text-align:center;padding:60px 20px;background:#ECFDF5;">
+  <div style="font-size:40px;margin-bottom:16px;">💬</div>
+  <h2 style="color:#40D3B6;font-size:22px;">Locotalk</h2>
+  <p style="color:#888;">로그인 처리 중...</p>
+  <p id="msg" style="display:none;color:#bbb;font-size:13px;margin-top:20px;">
+    앱이 자동으로 열리지 않으면 Locotalk 앱을 직접 실행해주세요.
+  </p>
 </body>
 </html>

@@ -41,7 +41,7 @@ const KAKAO_REST_KEY     = '82edb8d683fa5171e2e05991ef52225d'; // REST API 키 (
 const KAKAO_REDIRECT_URI = 'kakao3a28c2894d331f12450cec5f37c3c578://oauth'; // 카카오 표준 스킴
 const NAVER_CLIENT_ID    = '4amvZv8LfW4vE277jo8n';
 const REDIRECT_URI       = 'com.palosanto.spotchat://oauth';  // Google용
-const NAVER_REDIRECT_URI = 'locotalk://oauth';  // Naver 콘솔 URL Scheme  // 네이버용
+const NAVER_REDIRECT_URI = 'https://calendar03dean-blip.github.io/locotalk/oauth.html'; // Naver 콘솔 등록 URL
 
 // OTP 만료 시간(초)
 const OTP_EXPIRE_SEC = 180;
@@ -237,9 +237,10 @@ export default function LoginScreen() {
         `?client_id=${NAVER_CLIENT_ID}` +
         `&redirect_uri=${encodeURIComponent(NAVER_REDIRECT_URI)}` +
         `&response_type=code&state=${state}`;
-      const result = await WebBrowser.openAuthSessionAsync(authUrl, NAVER_REDIRECT_URI);
+      // GitHub Pages가 locotalk:// 스킴으로 포워딩 → 앱이 감지
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, 'locotalk://oauth');
       if (result.type === 'success') {
-        setAuth('naver');
+        await handleSocialLogin('naver', `naver-${state}`, undefined);
       }
     } catch {
       Alert.alert('네이버 로그인 실패', '다시 시도해주세요.');
