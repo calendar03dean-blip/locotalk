@@ -117,6 +117,7 @@ export default function LoginScreen() {
   const setLoggedIn  = useStore(s => s.setLoggedIn);
   const setPremium   = useStore(s => s.setPremium);
 
+  const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
   const [step,     setStep]     = useState<Step>('main');
   const [email,    setEmail]    = useState('');
   const [otp,      setOtp]      = useState('');
@@ -156,29 +157,39 @@ export default function LoginScreen() {
   }, [timerOn, timer]);
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
-  const handleSocialLogin = async (provider: string, authId: string, email?: string) => {
-    const result = await serverLogin(provider, authId, email);
-    setAuth(provider as any, email, result.userId);
+  // 반환값: true = 성공(페이지 이동), false = 실패(이동 없음)
+  const handleSocialLogin = async (provider: string, authId: string, email?: string): Promise<boolean> => {
+    try {
+      const result = await serverLogin(provider, authId, email);
+      if (!result?.userId) return false; // userId 없으면 실패
 
-    // 기존 완성된 프로필이 있으면 바로 홈으로
-    if (!result.isNew && result.isComplete && result.user) {
-      const u = result.user;
-      setLoggedIn({
-        id: result.userId,
-        nickname: u.nickname || '',
-        interests: u.interests || [],
-        regionGu: u.regionGu || '',
-        regionLabel: u.regionLabel || '',
-        email: u.email,
-        gender: u.gender,
-        birthYear: u.birthYear,
-      });
+      // ── 여기서만 페이지 이동 ──────────────────────────────
+      setAuth(provider as any, email, result.userId);
+
+      // 기존 완성된 프로필이 있으면 바로 홈으로
+      if (!result.isNew && result.isComplete && result.user) {
+        const u = result.user;
+        setLoggedIn({
+          id: result.userId,
+          nickname: u.nickname || '',
+          interests: u.interests || [],
+          regionGu: u.regionGu || '',
+          regionLabel: u.regionLabel || '',
+          email: u.email,
+          gender: u.gender,
+          birthYear: u.birthYear,
+        });
+      }
+      return true; // 성공
+    } catch {
+      return false; // 실패 → 페이지 이동 없음
     }
-    // isNew 또는 isComplete=false → 온보딩으로 (hasAuth:true → OnboardingScreen)
   };
 
   // ── Apple 로그인 ────────────────────────────────────────────────
   const handleApple = async () => {
+    if (authLoading) return;
+    setAuthLoading(true);
     try {
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
@@ -186,37 +197,49 @@ export default function LoginScreen() {
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
         ],
       });
-      if (!credential?.user) throw new Error('Apple 인증 정보 없음');
-      const appleId    = credential.user;
-      const appleEmail = credential.email ?? undefined; // 최초 로그인 외엔 null
-      await handleSocialLogin('apple', appleId, appleEmail);
+      if (!credential?.user) {
+        Alert.alert('Apple 로그인 실패', '인증 정보를 가져올 수 없습니다.');
+        return;
+      }
+      const ok = await handleSocialLogin('apple', credential.user, credential.email ?? undefined);
+      if (!ok) Alert.alert('Apple 로그인 실패', '잠시 후 다시 시도해주세요.');
     } catch (e: any) {
       if (e?.code !== 'ERR_REQUEST_CANCELED' && e?.code !== 'ERR_CANCELED') {
         Alert.alert('Apple 로그인 실패', '다시 시도해주세요.');
       }
+    } finally {
+      setAuthLoading(false);
     }
   };
 
   // ── Google 로그인 ────────────────────────────────────────────────
   const handleGoogle = async () => {
+    if (authLoading) return;
+    setAuthLoading(true);
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await GoogleSignin.signIn();
-      const email = response.data?.user?.email;
-      const googleId = response.data?.user?.id ?? email ?? 'google';
-      await handleSocialLogin('google', googleId, email ?? undefined);
+      const email    = response.data?.user?.email;
+      const googleId = response.data?.user?.id ?? email ?? '';
+      if (!googleId) { Alert.alert('Google 로그인 실패', '계정 정보를 가져올 수 없습니다.'); return; }
+      const ok = await handleSocialLogin('google', googleId, email ?? undefined);
+      if (!ok) Alert.alert('Google 로그인 실패', '잠시 후 다시 시도해주세요.');
     } catch (e: any) {
       if (e?.code !== 'SIGN_IN_CANCELLED') {
         Alert.alert('Google 로그인 실패', '다시 시도해주세요.');
       }
+    } finally {
+      setAuthLoading(false);
     }
   };
 
   // ── Kakao 로그인 ─────────────────────────────────────────────────
   const handleKakao = async () => {
+    if (authLoading) return;
+    setAuthLoading(true);
     try {
-      await kakaoLogin();
-      let kakaoId = `kakao-${Date.now()}`;
+      await kakaoLogin(); // 실패 시 throw → catch에서 에러 처리
+      let kakaoId    = `kakao-${Date.now()}`;
       let kakaoEmail: string | undefined = undefined;
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -224,31 +247,38 @@ export default function LoginScreen() {
         const kakaoUser = await kakaoMe();
         kakaoId    = String(kakaoUser?.id ?? kakaoId);
         kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
-      } catch {
-        // me() 실패해도 로그인 진행 (ID는 timestamp 사용)
-      }
-      await handleSocialLogin('kakao', kakaoId, kakaoEmail);
+      } catch { /* me() 실패해도 진행 — kakaoLogin()은 성공했으므로 */ }
+
+      const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail);
+      if (!ok) Alert.alert('카카오 로그인 실패', '잠시 후 다시 시도해주세요.');
     } catch {
       Alert.alert('카카오 로그인 실패', '카카오톡 앱 또는 계정을 확인해주세요.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
-  // ── Naver 로그인 (WebView 방식) ──────────────────────────────────
+  // ── Naver 로그인 ─────────────────────────────────────────────────
   const handleNaver = async () => {
+    if (authLoading) return;
+    setAuthLoading(true);
     try {
-      const state = Math.random().toString(36).substring(7);
+      const state   = Math.random().toString(36).substring(7);
       const authUrl =
         `https://nid.naver.com/oauth2.0/authorize` +
         `?client_id=${NAVER_CLIENT_ID}` +
         `&redirect_uri=${encodeURIComponent(NAVER_REDIRECT_URI)}` +
         `&response_type=code&state=${state}`;
-      // GitHub Pages가 locotalk:// 스킴으로 포워딩 → 앱이 감지
       const result = await WebBrowser.openAuthSessionAsync(authUrl, 'locotalk://oauth');
       if (result.type === 'success') {
-        await handleSocialLogin('naver', `naver-${state}`, undefined);
+        const ok = await handleSocialLogin('naver', `naver-${state}`, undefined);
+        if (!ok) Alert.alert('네이버 로그인 실패', '잠시 후 다시 시도해주세요.');
       }
+      // dismiss = 사용자 취소 → 아무것도 안 함
     } catch {
       Alert.alert('네이버 로그인 실패', '다시 시도해주세요.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
