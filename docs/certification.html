@@ -20,7 +20,7 @@
 <script>
   // URL 파라미터에서 데이터 읽기
   const params = new URLSearchParams(window.location.search);
-  const storeId  = params.get('store_id');  // 포트원 가맹점 식별코드
+  const storeId  = params.get('store_id') || 'imp18543766';  // 포트원 가맹점 식별코드
   const merchant = params.get('merchant_uid') || 'locotalk_' + Date.now();
   const carrier  = params.get('carrier') || '';
 

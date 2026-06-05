@@ -19,7 +19,7 @@ const CERT_PAGE = 'https://calendar03dean-blip.github.io/locotalk/certification.
 
 // ⚠️ 포트원 가맹점 식별코드 (portone.io 콘솔에서 확인)
 // 실제 배포 시 환경변수로 관리하거나 Railway에 설정
-const PORTONE_STORE_ID = process.env.PORTONE_STORE_ID || 'imp_XXXXXXXXXX';
+const PORTONE_STORE_ID = process.env.PORTONE_STORE_ID || 'imp18543766';
 
 interface VerifiedInfo {
   name: string;
