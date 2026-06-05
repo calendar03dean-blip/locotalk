@@ -186,10 +186,13 @@ export default function LoginScreen() {
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
         ],
       });
-      await handleSocialLogin('apple', credential.user, credential.email ?? undefined);
+      if (!credential?.user) throw new Error('Apple 인증 정보 없음');
+      const appleId    = credential.user;
+      const appleEmail = credential.email ?? undefined; // 최초 로그인 외엔 null
+      await handleSocialLogin('apple', appleId, appleEmail);
     } catch (e: any) {
-      if (e?.code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Apple 로그인 실패', e?.message ?? '다시 시도해주세요.');
+      if (e?.code !== 'ERR_REQUEST_CANCELED' && e?.code !== 'ERR_CANCELED') {
+        Alert.alert('Apple 로그인 실패', '다시 시도해주세요.');
       }
     }
   };
@@ -213,22 +216,15 @@ export default function LoginScreen() {
   const handleKakao = async () => {
     try {
       await kakaoLogin();
-      setAuth('kakao');  // 네이티브 SDK 성공 시에만 이동
+      // 로그인 성공 후 유저 정보 가져오기 (타입 호환 위해 require 사용)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { me: kakaoMe } = require('@react-native-kakao/user');
+      const kakaoUser  = await kakaoMe();
+      const kakaoId    = String(kakaoUser.id ?? 'kakao');
+      const kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
+      await handleSocialLogin('kakao', kakaoId, kakaoEmail);
     } catch {
-      try {
-        const authUrl =
-          `https://kauth.kakao.com/oauth/authorize` +
-          `?client_id=${KAKAO_REST_KEY}` +
-          `&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}` +
-          `&response_type=code`;
-        const result = await WebBrowser.openAuthSessionAsync(authUrl, KAKAO_REDIRECT_URI);
-        if (result.type === 'success') {
-          setAuth('kakao');  // WebBrowser 성공 시에만 이동
-        }
-        // else: 브라우저 닫힘 → 아무것도 안 함
-      } catch {
-        Alert.alert('카카오 로그인 실패', '카카오 앱 또는 계정을 확인해주세요.');
-      }
+      Alert.alert('카카오 로그인 실패', '카카오톡 앱 또는 계정을 확인해주세요.');
     }
   };
 
