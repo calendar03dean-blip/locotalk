@@ -647,14 +647,16 @@ export default function ChatScreen() {
                       <Text style={s.retryTxt}>{t('chat_send_failed')}</Text>
                     </TouchableOpacity>
                   )}
-                  {/* 읽음/전송 표시 */}
+                </View>
+                {/* 시간 + 읽음 표시 (버블 바깥 하단) */}
+                <View style={item.mine ? s.timeReadRowMine : s.timeReadRow}>
                   {item.mine && (
-                    <Text style={[s.readReceipt, !item.read && s.readReceiptSent]}>
+                    <Text style={item.read ? s.readDone : s.readPending}>
                       {item.read ? '읽음' : '✓'}
                     </Text>
                   )}
+                  <Text style={[s.timeStr, item.mine && s.timeStrMine]}>{item.time}</Text>
                 </View>
-                <Text style={[s.timeStr, item.mine && s.timeStrMine]}>{item.time}</Text>
               </View>
             );
           }}
@@ -804,6 +806,10 @@ const s = StyleSheet.create({
   retryTxt:      { fontSize: 11, color: '#EF4444', fontWeight: '600' },
   timeStr:       { fontSize: 10, color: Colors.g3, marginLeft: 4, alignSelf: 'flex-end', marginBottom: 2 },
   timeStrMine:   { marginLeft: 0, marginRight: 4 },
+  timeReadRow:     { flexDirection: 'row', alignItems: 'flex-end', marginLeft: 4 },
+  timeReadRowMine: { flexDirection: 'row', alignItems: 'flex-end', marginRight: 4, justifyContent: 'flex-end' },
+  readDone:    { fontSize: 11, color: Colors.primary, fontWeight: '700', marginRight: 2, marginBottom: 2 },
+  readPending: { fontSize: 11, color: Colors.g3,      fontWeight: '600', marginRight: 2, marginBottom: 2 },
 
   quickRow:  { flexDirection: 'row', gap: 6, paddingHorizontal: Spacing.md, paddingVertical: 8, backgroundColor: Colors.sf, borderTopWidth: 0.5, borderTopColor: Colors.separator },
   quickChip: { backgroundColor: Colors.g1, borderRadius: Radius.pill, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: Colors.g2 },
