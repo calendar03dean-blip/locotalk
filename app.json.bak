@@ -3,10 +3,18 @@
     "name": "Locotalk",
     "slug": "spota-fresh",
     "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#40D3B6"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.palosanto.spotchat",
-      "buildNumber": "20",
+      "buildNumber": "6",
       "jsEngine": "hermes",
       "entitlements": {
         "com.apple.developer.applesignin": [
@@ -19,15 +27,21 @@
         "NSMicrophoneUsageDescription": "음성 메시지 전송 시 사용돼요",
         "NSCameraUsageDescription": "프로필 사진 설정 시 사용돼요",
         "NSPhotoLibraryUsageDescription": "사진을 첨부할 때 사용돼요",
-        "ITSAppUsesNonExemptEncryption": false,
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd"
-            ]
-          }
-        ]
+        "ITSAppUsesNonExemptEncryption": false
       }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ECFDF5"
+      },
+      "package": "com.palosanto.spotchat",
+      "versionCode": 1,
+      "jsEngine": "hermes",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-location",
@@ -42,7 +56,12 @@
       "expo-font",
       "expo-web-browser",
       "expo-apple-authentication",
-      "expo-image-picker"
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd"
+        }
+      ]
     ],
     "extra": {
       "eas": {
@@ -52,27 +71,6 @@
       "kakaoNativeAppKey": "3a28c2894d331f12450cec5f37c3c578",
       "naverClientId": "4amvZv8LfW4vE277jo8n",
       "naverClientSecret": "NddPIqKVfL"
-    },
-    "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#40D3B6"
-    },
-    "orientation": "portrait",
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ECFDF5"
-      },
-      "package": "com.palosanto.spotchat",
-      "versionCode": 1,
-      "jsEngine": "hermes",
-      "permissions": [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
-      ]
-    },
-    "userInterfaceStyle": "light"
+    }
   }
 }

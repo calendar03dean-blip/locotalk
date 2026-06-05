@@ -197,9 +197,17 @@ export default function MyInfoScreen() {
               </View>
             )}
           </View>
+          {/* 이름 (본인인증 완료 시) */}
+          {user?.name && (
+            <Text style={s.profileNameTxt}>{user.name}</Text>
+          )}
           {/* 이메일 */}
           {user?.email && (
             <Text style={s.emailTxt}>{user.email}</Text>
+          )}
+          {/* 전화번호 (본인인증 완료 시) */}
+          {user?.phone && (
+            <Text style={s.emailTxt}>{user.phone}</Text>
           )}
           {/* 성별/생년 — 본인 프로필에서는 항상 표시 */}
           {(user?.gender || user?.birthYear) && (
@@ -373,7 +381,7 @@ export default function MyInfoScreen() {
             <View style={s.rowLeft}>
               <IcoShield color={user?.isVerified ? Colors.primary : Colors.g4} size={15} />
               <Text style={[s.rowTitle, user?.isVerified && { color: Colors.primary }]}>
-                {user?.isVerified ? '본인인증 완료 ✓' : '본인인증하기'}
+                {user?.isVerified ? '본인인증 완료 ✓' : '통신사 본인인증'}
               </Text>
             </View>
             {!user?.isVerified && <IcoChevron color={Colors.g3} />}
@@ -423,10 +431,11 @@ export default function MyInfoScreen() {
         visible={showPhoneVerify}
         onClose={() => setShowPhoneVerify(false)}
         userId={user?.id || ''}
-        onVerified={(phone) => {
-          setPhoneVerified(phone);
+        onVerified={(phone, name, birthDate, gender) => {
+          const birthYear = parseInt(birthDate.slice(0, 4), 10);
+          setPhoneVerified(phone, name, birthYear, gender);
           setShowPhoneVerify(false);
-          Alert.alert('인증 완료', '본인인증이 완료되었습니다 ✓');
+          Alert.alert('인증 완료', `${name}님 본인인증이 완료되었습니다.`);
         }}
       />
 
@@ -534,6 +543,7 @@ const s = StyleSheet.create({
   nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   verifiedBadge: { backgroundColor: '#034A93', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   verifiedTxt:   { fontSize: 11, color: '#fff', fontWeight: '700' },
+  profileNameTxt: { fontSize: 15, fontWeight: '700', color: Colors.dark, marginTop: 2 },
   emailTxt:    { fontSize: 12, color: Colors.g4, marginTop: 2 },
   profileInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   profileInfoTxt: { fontSize: 13, color: Colors.g4 },

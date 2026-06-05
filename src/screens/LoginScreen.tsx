@@ -216,12 +216,17 @@ export default function LoginScreen() {
   const handleKakao = async () => {
     try {
       await kakaoLogin();
-      // 로그인 성공 후 유저 정보 가져오기 (타입 호환 위해 require 사용)
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { me: kakaoMe } = require('@react-native-kakao/user');
-      const kakaoUser  = await kakaoMe();
-      const kakaoId    = String(kakaoUser.id ?? 'kakao');
-      const kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
+      let kakaoId = `kakao-${Date.now()}`;
+      let kakaoEmail: string | undefined = undefined;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { me: kakaoMe } = require('@react-native-kakao/user');
+        const kakaoUser = await kakaoMe();
+        kakaoId    = String(kakaoUser?.id ?? kakaoId);
+        kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
+      } catch {
+        // me() 실패해도 로그인 진행 (ID는 timestamp 사용)
+      }
       await handleSocialLogin('kakao', kakaoId, kakaoEmail);
     } catch {
       Alert.alert('카카오 로그인 실패', '카카오톡 앱 또는 계정을 확인해주세요.');

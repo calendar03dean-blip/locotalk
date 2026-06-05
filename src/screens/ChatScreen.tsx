@@ -647,9 +647,11 @@ export default function ChatScreen() {
                       <Text style={s.retryTxt}>{t('chat_send_failed')}</Text>
                     </TouchableOpacity>
                   )}
-                  {/* 읽음 표시 */}
-                  {item.mine && item.read && (
-                    <Text style={s.readReceipt}>읽음</Text>
+                  {/* 읽음/전송 표시 */}
+                  {item.mine && (
+                    <Text style={[s.readReceipt, !item.read && s.readReceiptSent]}>
+                      {item.read ? '읽음' : '✓'}
+                    </Text>
                   )}
                 </View>
                 <Text style={[s.timeStr, item.mine && s.timeStrMine]}>{item.time}</Text>
@@ -792,7 +794,8 @@ const s = StyleSheet.create({
   bubblePeer:    { backgroundColor: Colors.sf, borderWidth: 0.5, borderColor: Colors.separator, borderBottomLeftRadius: 4 },
   bubbleMine:    { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   bubbleImg:     { padding: 4, backgroundColor: 'transparent' },
-  readReceipt:   { fontSize: 10, color: Colors.primary, fontWeight: '600', marginTop: 2, alignSelf: 'flex-end' },
+  readReceipt:     { fontSize: 10, color: Colors.primary, fontWeight: '600', marginTop: 2, alignSelf: 'flex-end' },
+  readReceiptSent: { color: Colors.g3 },
   photoBtn:      { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 4 },
   bubbleFailed:  { backgroundColor: 'rgba(239,68,68,0.12)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.35)' },
   bubbleTxt:     { fontSize: Typography.footnote, color: Colors.dark, lineHeight: 20 },
