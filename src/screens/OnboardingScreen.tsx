@@ -183,7 +183,7 @@ export default function OnboardingScreen() {
               style={s.logoImg}
               resizeMode="contain"
             />
-            <Text style={[s.logoTitle, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>Locotalk</Text>
+            <Text style={[s.logoTitle, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>LOCOTALK</Text>
           </View>
 
           {step === 'nick' ? (
@@ -347,7 +347,7 @@ const s = StyleSheet.create({
 
   logoWrap:  { alignItems:'center', marginBottom:32 },
   logoImg:   { width:84, height:84 },
-  logoTitle: { fontSize:32, fontWeight:'900', color:'#fff', letterSpacing:-1.5, marginTop:12 },
+  logoTitle: { fontSize:32, fontWeight:'900', color:'#fff', letterSpacing:4, marginTop:12 },
 
   card: { width:'100%', backgroundColor:'rgba(255,255,255,0.95)', borderRadius:Radius.xxl, padding:Spacing.lg, borderWidth:0, ...Shadow.glass },
 

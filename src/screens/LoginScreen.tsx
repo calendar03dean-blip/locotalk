@@ -37,10 +37,11 @@ GoogleSignin.configure({
 
 // ── 소셜 로그인 설정 ────────────────────────────────────────────────
 const GOOGLE_CLIENT_ID  = '1016344798203-pnugcb1l44ee4aokjsboh4acrh3d61fd.apps.googleusercontent.com';
-const KAKAO_REST_KEY    = '3a28c2894d331f12450cec5f37c3c578';
-const NAVER_CLIENT_ID   = '4amvZv8LfW4vE277jo8n';
-const REDIRECT_URI      = 'com.palosanto.spotchat://oauth';  // Google/Kakao용
-const NAVER_REDIRECT_URI = 'com.palosanto.spotchat://oauth'; // Info.plist에 등록된 스킴
+const KAKAO_REST_KEY     = '82edb8d683fa5171e2e05991ef52225d'; // REST API 키 (콘솔 확인)
+const KAKAO_REDIRECT_URI = 'kakao3a28c2894d331f12450cec5f37c3c578://oauth'; // 카카오 표준 스킴
+const NAVER_CLIENT_ID    = '4amvZv8LfW4vE277jo8n';
+const REDIRECT_URI       = 'com.palosanto.spotchat://oauth';  // Google용
+const NAVER_REDIRECT_URI = 'com.palosanto.spotchat://oauth';  // 네이버용
 
 // OTP 만료 시간(초)
 const OTP_EXPIRE_SEC = 180;
@@ -218,9 +219,9 @@ export default function LoginScreen() {
         const authUrl =
           `https://kauth.kakao.com/oauth/authorize` +
           `?client_id=${KAKAO_REST_KEY}` +
-          `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+          `&redirect_uri=${encodeURIComponent(KAKAO_REDIRECT_URI)}` +
           `&response_type=code`;
-        const result = await WebBrowser.openAuthSessionAsync(authUrl, REDIRECT_URI);
+        const result = await WebBrowser.openAuthSessionAsync(authUrl, KAKAO_REDIRECT_URI);
         if (result.type === 'success') {
           setAuth('kakao');  // WebBrowser 성공 시에만 이동
         }
@@ -331,7 +332,7 @@ export default function LoginScreen() {
           {/* 로고 */}
           <View style={s.logoWrap}>
             <Image source={require('../../assets/logo_white.png')} style={s.logo} resizeMode="contain" />
-            <Text style={[s.appName, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>Locotalk</Text>
+            <Text style={[s.appName, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>LOCOTALK</Text>
             {step === 'main' && <Text style={s.sub}>{t('login_sub')}</Text>}
           </View>
 
@@ -495,7 +496,7 @@ const s = StyleSheet.create({
 
   logoWrap: { alignItems: 'center', marginBottom: 44 },
   logo:     { width: 76, height: 76, marginBottom: 10 },
-  appName:  { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -1.5 },
+  appName:  { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 4 },
   sub:      { fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 6, textAlign: 'center' },
 
   btnGroup: { gap: 11 },

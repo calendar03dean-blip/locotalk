@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initIAP, cleanupIAP } from './src/services/iap';
+import { initializeKakaoSDK } from '@react-native-kakao/core';
 
 // ── 부팅 로고 애니메이션 ─────────────────────────────────────────────
 function SplashOverlay({ onDone }: { onDone: () => void }) {
@@ -39,7 +40,7 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
           style={st.splashLogo}
           resizeMode="contain"
         />
-        <Text style={st.splashName}>Locotalk</Text>
+        <Text style={st.splashName}>LOCOTALK</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -48,7 +49,7 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
 const st = StyleSheet.create({
   splash:     { ...StyleSheet.absoluteFillObject, backgroundColor: '#40D3B6', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
   splashLogo: { width: 100, height: 100 },
-  splashName: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: -1.5, textAlign: 'center', marginTop: 12 },
+  splashName: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: 4, textAlign: 'center', marginTop: 12 },
 });
 
 // ── 앱 루트 ─────────────────────────────────────────────────────────
@@ -56,6 +57,8 @@ export default function App() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
+    // Kakao SDK 초기화
+    initializeKakaoSDK('3a28c2894d331f12450cec5f37c3c578').catch(() => {});
     initIAP();
     return () => { cleanupIAP(); };
   }, []);
