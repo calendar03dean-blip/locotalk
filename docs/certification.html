@@ -7,54 +7,42 @@
 <script src="https://cdn.iamport.kr/js/iamport.payment-1.2.0.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#40D3B6; display:flex; align-items:center; justify-content:center; height:100vh; }
+  body { background:#40D3B6; display:flex; align-items:center; justify-content:center; height:100vh; font-family:-apple-system,sans-serif; }
   .loader { text-align:center; color:#fff; }
-  .loader p { font-size:16px; font-weight:700; margin-top:12px; }
+  .icon  { font-size:56px; margin-bottom:16px; }
+  .title { font-size:18px; font-weight:800; letter-spacing:-0.5px; }
+  .sub   { font-size:13px; margin-top:8px; opacity:0.8; }
 </style>
 </head>
 <body>
 <div class="loader">
-  <div style="font-size:48px;">💬</div>
-  <p>본인인증 진행 중...</p>
+  <div class="icon">💬</div>
+  <div class="title">LOCOTALK</div>
+  <div class="sub">본인인증 진행 중...</div>
 </div>
 <script>
-  // URL 파라미터에서 데이터 읽기
-  const params = new URLSearchParams(window.location.search);
-  const storeId  = params.get('store_id') || 'imp18543766';  // 포트원 가맹점 식별코드
-  const merchant = params.get('merchant_uid') || 'locotalk_' + Date.now();
-  const carrier  = params.get('carrier') || '';
+  const params     = new URLSearchParams(window.location.search);
+  const merchant   = params.get('merchant_uid') || 'locotalk_' + Date.now();
+  const STORE_ID   = 'imp18543766';
+  const CHANNEL_KEY = 'channel-key-d62a950a-f69e-49e9-9704-f13b94a0b71b';
 
-  // 포트원 SDK 초기화
-  IMP.init(storeId);
+  IMP.init(STORE_ID);
 
-  // 본인인증 요청
   IMP.certification({
-    merchant_uid: merchant,
-    carrier: carrier || undefined,
-    popup: false,
+    merchant_uid : merchant,
+    pg           : 'inicis',     // KG이니시스
+    channel_key  : CHANNEL_KEY,  // 테스트 채널
+    popup        : false,
   }, function(rsp) {
-    if (rsp.success) {
-      // 성공: 앱으로 imp_uid 전달
-      const result = JSON.stringify({
-        success: true,
-        imp_uid: rsp.imp_uid,
-        merchant_uid: rsp.merchant_uid,
-      });
-      // React Native WebView 메시지 전달
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(result);
-      } else {
-        // 폴백: URL 스킴
-        window.location.href = 'locotalk://certification?data=' + encodeURIComponent(result);
-      }
+    const result = JSON.stringify(
+      rsp.success
+        ? { success: true,  imp_uid: rsp.imp_uid, merchant_uid: rsp.merchant_uid }
+        : { success: false, error:   rsp.error_msg }
+    );
+    if (window.ReactNativeWebView) {
+      window.ReactNativeWebView.postMessage(result);
     } else {
-      // 실패
-      const result = JSON.stringify({ success: false, error: rsp.error_msg });
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(result);
-      } else {
-        window.location.href = 'locotalk://certification?data=' + encodeURIComponent(result);
-      }
+      window.location.href = 'locotalk://certification?data=' + encodeURIComponent(result);
     }
   });
 </script>
