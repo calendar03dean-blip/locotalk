@@ -235,12 +235,15 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Kakao 로그인 ─────────────────────────────────────────────────
+  // ── Kakao 로그인 (웹 계정 로그인 — AppDelegate 핸들러 불필요) ────
   const handleKakao = async () => {
     if (authLoading) return;
     setAuthLoading(true);
     try {
-      await kakaoLogin(); // 실패 시 throw → catch에서 에러 처리
+      // useKakaoAccountLogin: 카카오톡 앱 대신 웹 계정 로그인(ASWebAuthenticationSession)
+      // → AppDelegate URL 콜백 핸들러 없이도 로그인 완료됨
+      await (kakaoLogin as any)({ useKakaoAccountLogin: true });
+
       let kakaoId    = `kakao-${Date.now()}`;
       let kakaoEmail: string | undefined = undefined;
       try {
@@ -249,12 +252,12 @@ export default function LoginScreen() {
         const kakaoUser = await kakaoMe();
         kakaoId    = String(kakaoUser?.id ?? kakaoId);
         kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
-      } catch { /* me() 실패해도 진행 — kakaoLogin()은 성공했으므로 */ }
+      } catch { /* me() 실패해도 진행 */ }
 
       const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail);
       if (!ok) Alert.alert('카카오 로그인 실패', '잠시 후 다시 시도해주세요.');
     } catch {
-      Alert.alert('카카오 로그인 실패', '카카오톡 앱 또는 계정을 확인해주세요.');
+      Alert.alert('카카오 로그인 실패', '카카오 계정을 확인해주세요.');
     } finally {
       setAuthLoading(false);
     }
