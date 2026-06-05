@@ -371,6 +371,15 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// 서버 외부 IP 확인용 (Solapi IP 허용 설정용)
+app.get('/server-ip', async (_req, res) => {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json');
+    const d = await r.json();
+    res.json({ ip: d.ip });
+  } catch { res.json({ ip: 'unknown' }); }
+});
+
 // ─── 디버그 엔드포인트 ────────────────────────────────────────────
 // 등록된 토큰 목록 확인
 app.get('/debug/tokens', (_req, res) => {
