@@ -565,7 +565,7 @@ const s = StyleSheet.create({
   safe:      { flex: 1, backgroundColor: '#40D3B6' },
   container: { flex: 1, paddingHorizontal: 28, justifyContent: 'center' },
 
-  logoWrap: { alignItems: 'center', marginBottom: 44 },
+  logoWrap: { alignItems: 'center', marginBottom: 26, marginTop: 8 },
   logo:     { width: 76, height: 76, marginBottom: 10 },
   appName:  { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 4 },
   sub:      { fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 6, textAlign: 'center' },
