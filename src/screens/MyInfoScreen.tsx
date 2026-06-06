@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useStore } from '../store';
 import { Colors, Typography, Spacing, Radius, Shadow, tinted } from '../constants/theme';
+import { LT } from '../constants/lt';
 import { findInterest, INTERESTS, interestLabel } from '../constants/data';
 import { useT, useLang, type Lang } from '../i18n';
 import { regionIconId } from '../constants/regions';
@@ -332,7 +333,7 @@ export default function MyInfoScreen() {
             activeOpacity={0.7}
           >
             <View style={s.rowLeft}>
-              <Text style={{ fontSize: 15 }}>📍</Text>
+              <IcoPin color={Colors.g4} size={16} />
               <View>
                 <Text style={s.rowTitle}>{t('myinfo_region_custom')}</Text>
                 {!isPremium && (
@@ -391,7 +392,7 @@ export default function MyInfoScreen() {
             <Switch
               value={acceptsChat}
               onValueChange={setAcceptsChat}
-              trackColor={{ false: Colors.g2, true: '#034A93' }}
+              trackColor={{ false: Colors.g2, true: LT.brand }}
               thumbColor={acceptsChat ? '#ECFDF5' : Colors.g3}
               ios_backgroundColor={Colors.g2}
             />
@@ -406,7 +407,7 @@ export default function MyInfoScreen() {
             <Switch
               value={notifOn}
               onValueChange={setNotifOn}
-              trackColor={{ false: Colors.g2, true: '#034A93' }}
+              trackColor={{ false: Colors.g2, true: LT.brand }}
               thumbColor={notifOn ? '#ECFDF5' : Colors.g3}
               ios_backgroundColor={Colors.g2}
             />
@@ -429,7 +430,7 @@ export default function MyInfoScreen() {
               : <Switch
                   value={avoidContacts}
                   onValueChange={handleToggleAvoidContacts}
-                  trackColor={{ false: Colors.g2, true: '#034A93' }}
+                  trackColor={{ false: Colors.g2, true: LT.brand }}
                   thumbColor={avoidContacts ? '#ECFDF5' : Colors.g3}
                   ios_backgroundColor={Colors.g2}
                 />}
@@ -633,16 +634,16 @@ const s = StyleSheet.create({
   profileCard: { backgroundColor: Colors.sf, padding: Spacing.xl, alignItems: 'center', gap: 6, borderBottomWidth: 0.5, borderBottomColor: Colors.separator },
   nickname:    { fontSize: Typography.title2, fontWeight: '900', color: Colors.dark, letterSpacing: -0.5 },
   nicknameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  verifiedBadge: { backgroundColor: '#034A93', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  verifiedBadge: { backgroundColor: LT.brand, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   verifiedTxt:   { fontSize: 11, color: '#fff', fontWeight: '700' },
   profileNameTxt: { fontSize: 15, fontWeight: '700', color: Colors.dark, marginTop: 2 },
   emailTxt:    { fontSize: 12, color: Colors.g4, marginTop: 2 },
   profileInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   profileInfoTxt: { fontSize: 13, color: Colors.g4 },
   profileInfoSep: { fontSize: 12, color: Colors.g3 },
-  verifyBtn:      { marginTop: 12, paddingHorizontal: 16, paddingVertical: 7, borderRadius: Radius.pill, borderWidth: 1.5, borderColor: '#034A93' },
+  verifyBtn:      { marginTop: 12, paddingHorizontal: 16, paddingVertical: 7, borderRadius: Radius.pill, borderWidth: 1.5, borderColor: LT.brand },
   verifyBtnDone:  { borderColor: Colors.g2, backgroundColor: Colors.g1 },
-  verifyBtnTxt:   { fontSize: 13, color: '#034A93', fontWeight: '600' },
+  verifyBtnTxt:   { fontSize: 13, color: LT.brandStrong, fontWeight: '600' },
   verifyBtnTxtDone: { color: Colors.g3 },
   locRow:      { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   locTxt:      { fontSize: Typography.footnote, color: Colors.g4 },
@@ -659,7 +660,7 @@ const s = StyleSheet.create({
   planBadgeFree:    { color: Colors.g4 },
   planBadgePremium: { color: '#FFD700' },
   planMatchTxt:     { fontSize: 12, color: Colors.g4 },
-  upgradeChip:      { backgroundColor: '#034A93', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  upgradeChip:      { backgroundColor: LT.g900, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
   upgradeChipTxt:   { color: '#fff', fontSize: 12, fontWeight: '700' },
 
   // 지역 설정
@@ -674,7 +675,7 @@ const s = StyleSheet.create({
   rowTitle:     { fontSize: Typography.footnote, fontWeight: '600', color: Colors.dark },
   rowHint:      { fontSize: 10, color: Colors.g3, marginTop: 1 },
   rowValue:     { fontSize: Typography.footnote, color: Colors.g4 },
-  premiumTag:   { fontSize: 9, fontWeight: '800', color: '#fff', backgroundColor: '#034A93', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, letterSpacing: 0.3 },
+  premiumTag:   { fontSize: 9, fontWeight: '800', color: '#fff', backgroundColor: LT.g900, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, letterSpacing: 0.3 },
 
   // Spota info cards (list style)
   infoCards:   { backgroundColor: Colors.sf, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 0.5, borderColor: Colors.separator },
@@ -698,12 +699,12 @@ const s = StyleSheet.create({
   sheetTitleRow:{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
   sheetTitle:   { fontSize: Typography.title3, fontWeight: '800', color: Colors.dark },
   selBadge:     { fontSize: Typography.footnote, fontWeight: '800', color: Colors.g3, marginLeft: 4 },
-  selBadgeFull: { color: '#034A93' },
+  selBadgeFull: { color: LT.brandStrong },
   sheetSub:     { fontSize: Typography.footnote, color: Colors.g4, marginBottom: Spacing.md },
 
   intGrid:       { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: Spacing.lg },
   intChip:       { width: '100%', paddingVertical: 10, borderRadius: Radius.lg, borderWidth: 1.5, borderColor: Colors.g2, backgroundColor: Colors.sf, alignItems: 'center', gap: 4 },
-  intChipSel:    { borderColor: '#034A93', backgroundColor: '#ECFDF5' },
+  intChipSel:    { borderColor: LT.brand, backgroundColor: LT.brandTint },
   intChipDim:    { opacity: 0.35 },
   intChipNone:   { borderStyle: 'dashed' as const, borderColor: Colors.g2 },
   intChipNoneSel:{ borderStyle: 'solid' as const, borderColor: Colors.g4 },
@@ -714,7 +715,7 @@ const s = StyleSheet.create({
   intLabelDim:   { color: Colors.g2 },
   intLabelNoneSel:{ color: Colors.dark },
 
-  saveBtn:     { backgroundColor: '#034A93', borderRadius: Radius.pill, height: 50, justifyContent: 'center', ...Shadow.button },
+  saveBtn:     { backgroundColor: LT.brand, borderRadius: Radius.pill, height: 50, justifyContent: 'center', ...Shadow.button },
   saveBtnInner:{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   saveBtnTxt:  { fontSize: Typography.headline, fontWeight: '700', color: '#fff' },
 
