@@ -253,7 +253,7 @@ export default function MyInfoScreen() {
         >
           <View style={{ flex: 1 }}>
             <Text style={[s.planBadge, isPremium ? s.planBadgePremium : s.planBadgeFree]}>
-              {isPremium ? '⭐ PREMIUM' : '무료 플랜'}
+              {isPremium ? '◆ PREMIUM' : '무료 플랜'}
             </Text>
             <Text style={s.planMatchTxt}>
               {isPremium

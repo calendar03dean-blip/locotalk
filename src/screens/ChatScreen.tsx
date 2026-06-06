@@ -345,9 +345,16 @@ export default function ChatScreen() {
     return (
       <SafeAreaView style={s.safe} edges={['top']}>
         <View style={s.empty}>
+          <View style={s.emptyLogo}>
+            <RNImage
+              source={require('../../assets/logo_white.png')}
+              style={s.emptyLogoImg}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={s.emptyTitle}>{t('chat_empty_title')}</Text>
           <Text style={s.emptyDesc}>{t('chat_empty_desc')}</Text>
-          <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('홈')}>
+          <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('홈')} activeOpacity={0.85}>
             <Text style={s.emptyBtnTxt}>{t('chat_empty_btn')}</Text>
           </TouchableOpacity>
         </View>
@@ -764,6 +771,8 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
 
   empty:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
+  emptyLogo:   { width: 96, height: 96, borderRadius: 28, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  emptyLogoImg:{ width: 60, height: 60 },
   emptyIcon:   { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   emptyTitle:  { fontSize: Typography.headline, fontWeight: '800', color: Colors.dark },
   emptyDesc:   { fontSize: Typography.footnote, color: Colors.g4, textAlign: 'center', lineHeight: 20 },

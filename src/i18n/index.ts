@@ -130,9 +130,9 @@ export const translations = {
 
     // Chat
     chat_notice_no_save: '🔥 대화 내역은 저장되지 않아요',
-    chat_empty_title: '진행 중인 채팅 없음',
-    chat_empty_desc: '매칭을 시작하면\n이웃과 대화할 수 있어요',
-    chat_empty_btn: '매칭 시작하기',
+    chat_empty_title: '아직 진행 중인 대화가 없어요',
+    chat_empty_desc: '내 동네 이웃과 익명으로\n새로운 이야기를 시작해보세요 ✨',
+    chat_empty_btn: '이웃 만나러 가기',
     chat_anon: '익명',
     chat_leave_btn: '나가기',
     chat_leave_title: '채팅 나가기',
@@ -309,9 +309,9 @@ export const translations = {
 
     // Chat
     chat_notice_no_save: '🔥 Chat history is not saved',
-    chat_empty_title: 'No active chat',
-    chat_empty_desc: 'Start matching to\nchat with a neighbor',
-    chat_empty_btn: 'Start Matching',
+    chat_empty_title: 'No conversations yet',
+    chat_empty_desc: 'Start a new story anonymously\nwith a neighbor nearby ✨',
+    chat_empty_btn: 'Meet a Neighbor',
     chat_anon: 'Anonymous',
     chat_leave_btn: 'Leave',
     chat_leave_title: 'Leave Chat',

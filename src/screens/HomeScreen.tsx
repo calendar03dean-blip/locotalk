@@ -535,7 +535,7 @@ export default function HomeScreen() {
             <IcoPin color="rgba(255,255,255,0.85)" size={12} />
             <Text style={s.heroEyebrow}>
               {isPremium && customRegionLabel
-                ? `⭐ ${customRegionLabel}`
+                ? `◆ ${customRegionLabel}`
                 : (user?.regionLabel || t('home_my_hood'))
               } {t('home_nearby')}
             </Text>
@@ -557,7 +557,7 @@ export default function HomeScreen() {
           {user?.regionLabel && (
             <TouchableOpacity onPress={() => setShowUpgrade(true)} style={s.matchCountRow}>
               {isPremium
-                ? <Text style={s.matchCountPremium}>⭐ PREMIUM · 30회/시간</Text>
+                ? <Text style={s.matchCountPremium}>◆ PREMIUM · 30회/시간</Text>
                 : <Text style={s.matchCountFree}>
                     {t('premium_match_count')
                       .replace('{{used}}', String(matchCountThisHour))
