@@ -354,64 +354,33 @@ app.patch('/users/:id/verify', async (req, res) => {
 
 // ─── 포트원 본인인증 검증 ──────────────────────────────────────
 app.post('/auth/portone-verify', async (req, res) => {
-  const { identityVerificationId, imp_uid, userId } = req.body;
+  const { identityVerificationId, userId } = req.body;
+  if (!identityVerificationId) {
+    return res.status(400).json({ error: 'identityVerificationId required' });
+  }
 
   try {
-    let name, birth, gender, phone;
-
-    if (identityVerificationId) {
-      // ── PortOne V2 ─────────────────────────────────────────
-      const secret = process.env.PORTONE_V2_API_SECRET;
-      if (!secret) {
-        console.error('[PortOne V2] PORTONE_V2_API_SECRET 미설정');
-        return res.status(500).json({ error: '서버 본인인증 설정이 필요합니다 (API Secret).' });
-      }
-      const r = await fetch(
-        `https://api.portone.io/identity-verifications/${encodeURIComponent(identityVerificationId)}`,
-        { headers: { Authorization: `PortOne ${secret}` } }
-      );
-      const data = await r.json();
-
-      if (data.status !== 'VERIFIED' || !data.verifiedCustomer) {
-        console.warn('[PortOne V2] 미인증:', data.status, data.message || '');
-        return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
-      }
-      const c = data.verifiedCustomer;
-      name   = c.name;
-      birth  = (c.birthDate || '').replace(/-/g, '');                 // YYYY-MM-DD → YYYYMMDD
-      gender = (c.gender === 'MALE') ? 'male' : 'female';
-      phone  = (c.phoneNumber || '').replace(/[^0-9]/g, '');
-
-    } else if (imp_uid) {
-      // ── PortOne V1 (구버전 호환) ────────────────────────────
-      const tokenRes = await fetch('https://api.iamport.kr/users/getToken', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imp_key:    process.env.PORTONE_IMP_KEY,
-          imp_secret: process.env.PORTONE_IMP_SECRET,
-        }),
-      });
-      const tokenData = await tokenRes.json();
-      const accessToken = tokenData?.response?.access_token;
-      if (!accessToken) return res.status(401).json({ error: '포트원 인증 실패' });
-
-      const certRes = await fetch(`https://api.iamport.kr/certifications/${imp_uid}`, {
-        headers: { Authorization: accessToken },
-      });
-      const certData = await certRes.json();
-      const cert = certData?.response;
-      if (!cert || !cert.certified) {
-        return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
-      }
-      name   = cert.name;
-      birth  = cert.birthday?.replace(/-/g, '');
-      gender = cert.gender === 'male' ? 'male' : 'female';
-      phone  = cert.phone?.replace(/[^0-9]/g, '');
-
-    } else {
-      return res.status(400).json({ error: 'identityVerificationId required' });
+    // ── PortOne V2 인증결과 조회 ──────────────────────────────
+    const secret = process.env.PORTONE_V2_API_SECRET;
+    if (!secret) {
+      console.error('[PortOne V2] PORTONE_V2_API_SECRET 미설정');
+      return res.status(500).json({ error: '서버 본인인증 설정이 필요합니다 (API Secret).' });
     }
+    const r = await fetch(
+      `https://api.portone.io/identity-verifications/${encodeURIComponent(identityVerificationId)}`,
+      { headers: { Authorization: `PortOne ${secret}` } }
+    );
+    const data = await r.json();
+
+    if (data.status !== 'VERIFIED' || !data.verifiedCustomer) {
+      console.warn('[PortOne V2] 미인증:', data.status, data.message || '');
+      return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
+    }
+    const c = data.verifiedCustomer;
+    const name   = c.name;
+    const birth  = (c.birthDate || '').replace(/-/g, '');             // YYYY-MM-DD → YYYYMMDD
+    const gender = (c.gender === 'MALE') ? 'male' : 'female';
+    const phone  = (c.phoneNumber || '').replace(/[^0-9]/g, '');
 
     // ── DB 업데이트 ──────────────────────────────────────────
     if (pool && userId) {
