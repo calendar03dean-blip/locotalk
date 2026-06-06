@@ -16,6 +16,7 @@ import UpgradeModal from '../components/UpgradeModal';
 import RegionPickerModal from '../components/RegionPickerModal';
 import IdentityVerifyModal from '../components/IdentityVerifyModal';
 import PhoneVerifyModal from '../components/PhoneVerifyModal';
+import PortOneVerifyModal from '../components/PortOneVerifyModal';
 
 const SW = 1.8;
 
@@ -129,7 +130,7 @@ export default function MyInfoScreen() {
     acceptsChat, setAcceptsChat, lang, setLang,
     isPremium, matchCountThisHour,
     customRegionGu, customRegionLabel, setCustomRegion,
-    setPhoneVerified,
+    setPhoneVerified, authUserId,
   } = useStore();
   const t    = useT();
   const curLang = useLang();
@@ -141,6 +142,7 @@ export default function MyInfoScreen() {
   const [showRegionPick,   setShowRegionPick]   = useState(false);
   const [showVerify,       setShowVerify]       = useState(false);
   const [showPhoneVerify,  setShowPhoneVerify]  = useState(false);
+  const [showPortOne,      setShowPortOne]      = useState(false);
 
   const myInts = (user?.interests || []).filter(i => i !== 'none');
   const myInt  = findInterest(myInts[0] || '');
@@ -234,7 +236,7 @@ export default function MyInfoScreen() {
           {/* 본인인증 버튼 */}
           <TouchableOpacity
             style={[s.verifyBtn, user?.isVerified && s.verifyBtnDone]}
-            onPress={() => !user?.isVerified && setShowVerify(true)}
+            onPress={() => !user?.isVerified && setShowPortOne(true)}
             activeOpacity={user?.isVerified ? 1 : 0.8}
           >
             <Text style={[s.verifyBtnTxt, user?.isVerified && s.verifyBtnTxtDone]}>
@@ -374,7 +376,7 @@ export default function MyInfoScreen() {
           {/* 본인인증 */}
           <TouchableOpacity
             style={[s.row, s.rowLast]}
-            onPress={() => !user?.isVerified && setShowPhoneVerify(true)}
+            onPress={() => !user?.isVerified && setShowPortOne(true)}
             activeOpacity={user?.isVerified ? 1 : 0.7}
             disabled={!!user?.isVerified}
           >
@@ -436,6 +438,19 @@ export default function MyInfoScreen() {
           setPhoneVerified(phone, name, birthYear, gender);
           setShowPhoneVerify(false);
           Alert.alert('인증 완료', `${name}님 본인인증이 완료되었습니다.`);
+        }}
+      />
+
+      {/* ── 통신사 본인인증 모달 (포트원) ────────────────── */}
+      <PortOneVerifyModal
+        visible={showPortOne}
+        onClose={() => setShowPortOne(false)}
+        userId={user?.id || authUserId || 'guest'}
+        onVerified={(info) => {
+          const yr = parseInt(info.birth.slice(0, 4)) || undefined;
+          setPhoneVerified(info.phone, info.name, yr, info.gender);
+          setShowPortOne(false);
+          Alert.alert('인증 완료', `${info.name}님 본인인증이 완료되었습니다.`);
         }}
       />
 

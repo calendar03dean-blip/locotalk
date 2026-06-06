@@ -235,29 +235,34 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Kakao 로그인 (웹 계정 로그인 — AppDelegate 핸들러 불필요) ────
+  // ── Kakao 로그인 (카카오톡 앱 우선, 미설치 시 웹 계정) ──────────
   const handleKakao = async () => {
     if (authLoading) return;
     setAuthLoading(true);
     try {
-      // useKakaoAccountLogin: 카카오톡 앱 대신 웹 계정 로그인(ASWebAuthenticationSession)
-      // → AppDelegate URL 콜백 핸들러 없이도 로그인 완료됨
-      await (kakaoLogin as any)({ useKakaoAccountLogin: true });
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const KakaoUser = require('@react-native-kakao/user');
+      // 카카오톡 앱이 설치돼 있으면 앱 로그인(로그인된 계정 사용), 없으면 웹 계정 로그인
+      let talkAvailable = false;
+      try { talkAvailable = await KakaoUser.isKakaoTalkLoginAvailable(); } catch {}
+      await (KakaoUser.login as any)(talkAvailable ? {} : { useKakaoAccountLogin: true });
 
       let kakaoId    = `kakao-${Date.now()}`;
       let kakaoEmail: string | undefined = undefined;
       try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const { me: kakaoMe } = require('@react-native-kakao/user');
-        const kakaoUser = await kakaoMe();
+        const kakaoUser = await KakaoUser.me();
         kakaoId    = String(kakaoUser?.id ?? kakaoId);
         kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
       } catch { /* me() 실패해도 진행 */ }
 
       const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail);
       if (!ok) Alert.alert('카카오 로그인 실패', '잠시 후 다시 시도해주세요.');
-    } catch {
-      Alert.alert('카카오 로그인 실패', '카카오 계정을 확인해주세요.');
+    } catch (e: any) {
+      // 사용자가 취소한 경우는 조용히 무시
+      const msg = String(e?.message ?? '');
+      if (!/cancel/i.test(msg)) {
+        Alert.alert('카카오 로그인 실패', '카카오 계정을 확인해주세요.');
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -352,7 +357,16 @@ export default function LoginScreen() {
     if (otp.length < 6) { setOtpErr(t('email_code_invalid')); return; }
     if (timer <= 0)     { setOtpErr(t('email_code_expired')); return; }
     if (otp !== otpCode) { setOtpErr(t('email_code_invalid')); return; }
-    await handleSocialLogin('email', email.trim(), email.trim());
+    setOtpErr('');
+    setLoading(true);
+    try {
+      const ok = await handleSocialLogin('email', email.trim(), email.trim());
+      if (!ok) setOtpErr('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } catch {
+      setOtpErr('로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── 개발자 테스트 계정 ────────────────────────────────────────────
