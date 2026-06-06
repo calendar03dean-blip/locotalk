@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인증 완료</title>
+<style>
+  body { background:#40D3B6; color:#fff; font-family:-apple-system,sans-serif; display:flex; align-items:center; justify-content:center; height:100vh; text-align:center; }
+</style>
+</head>
+<body>
+<div><div style="font-size:48px">✅</div><p>인증 처리 중...</p></div>
+<script>
+  // 포트원 모바일 본인인증 결과 리다이렉트 수신
+  // ?imp_uid=...&merchant_uid=...&success=true (또는 imp_success)
+  (function(){
+    var p = new URLSearchParams(window.location.search);
+    var impUid   = p.get('imp_uid') || '';
+    var merchant = p.get('merchant_uid') || '';
+    var success  = (p.get('success') || p.get('imp_success')) === 'true';
+    var errorMsg = p.get('error_msg') || '';
+    var obj = success && impUid
+      ? { success:true, imp_uid:impUid, merchant_uid:merchant }
+      : { success:false, error: errorMsg || '본인인증에 실패했습니다' };
+    var s = JSON.stringify(obj);
+    if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s);
+    else window.location.href = 'locotalk://certification?data=' + encodeURIComponent(s);
+  })();
+</script>
+</body>
+</html>

@@ -8,43 +8,46 @@
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:#40D3B6; display:flex; align-items:center; justify-content:center; height:100vh; font-family:-apple-system,sans-serif; }
-  .loader { text-align:center; color:#fff; }
+  .loader { text-align:center; color:#fff; padding:24px; }
   .icon  { font-size:56px; margin-bottom:16px; }
   .title { font-size:18px; font-weight:800; letter-spacing:-0.5px; }
-  .sub   { font-size:13px; margin-top:8px; opacity:0.8; }
+  .sub   { font-size:13px; margin-top:8px; opacity:0.85; line-height:1.6; }
 </style>
 </head>
 <body>
 <div class="loader">
   <div class="icon">💬</div>
   <div class="title">LOCOTALK</div>
-  <div class="sub">본인인증 진행 중...</div>
+  <div class="sub" id="msg">본인인증 화면을 불러오는 중...</div>
 </div>
 <script>
-  const params     = new URLSearchParams(window.location.search);
-  const merchant   = params.get('merchant_uid') || 'locotalk_' + Date.now();
-  const STORE_ID   = 'imp18543766';
-  const CHANNEL_KEY = 'channel-key-d62a950a-f69e-49e9-9704-f13b94a0b71b';
+  (function () {
+    var params   = new URLSearchParams(window.location.search);
+    var merchant = params.get('merchant_uid') || ('locotalk_' + Date.now());
+    var STORE_ID = 'imp18543766';
 
-  IMP.init(STORE_ID);
-
-  IMP.certification({
-    merchant_uid : merchant,
-    pg           : 'inicis',     // KG이니시스
-    channel_key  : CHANNEL_KEY,  // 테스트 채널
-    popup        : false,
-  }, function(rsp) {
-    const result = JSON.stringify(
-      rsp.success
-        ? { success: true,  imp_uid: rsp.imp_uid, merchant_uid: rsp.merchant_uid }
-        : { success: false, error:   rsp.error_msg }
-    );
-    if (window.ReactNativeWebView) {
-      window.ReactNativeWebView.postMessage(result);
-    } else {
-      window.location.href = 'locotalk://certification?data=' + encodeURIComponent(result);
+    function post(obj){
+      var s = JSON.stringify(obj);
+      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s);
+      else window.location.href = 'locotalk://certification?data=' + encodeURIComponent(s);
     }
-  });
+
+    try {
+      if (typeof IMP === 'undefined') { post({success:false, error:'SDK 로드 실패'}); return; }
+      IMP.init(STORE_ID);
+      IMP.certification({
+        merchant_uid : merchant,
+        pg           : 'inicis_unified',
+        m_redirect_url : 'https://calendar03dean-blip.github.io/locotalk/cert-result.html'
+      }, function (rsp) {
+        if (rsp && rsp.success) post({success:true, imp_uid:rsp.imp_uid, merchant_uid:rsp.merchant_uid});
+        else post({success:false, error:(rsp && rsp.error_msg) || '본인인증이 취소되었습니다'});
+      });
+    } catch (e) {
+      document.getElementById('msg').textContent = '본인인증을 시작할 수 없습니다';
+      post({success:false, error:String((e && e.message) || e)});
+    }
+  })();
 </script>
 </body>
 </html>

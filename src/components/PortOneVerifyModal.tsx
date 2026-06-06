@@ -9,7 +9,7 @@
 import React, { useRef, useState } from 'react';
 import {
   Modal, View, Text, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Alert,
+  StyleSheet, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -110,8 +110,25 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
             onMessage={handleMessage}
             onLoadStart={() => setLoading(true)}
             onLoadEnd={() => setLoading(false)}
+            onError={() => {
+              setLoading(false);
+              Alert.alert('본인인증 오류', '인증 화면을 불러올 수 없습니다.\n잠시 후 다시 시도해주세요.', [
+                { text: '확인', onPress: onClose },
+              ]);
+            }}
+            onHttpError={() => { setLoading(false); }}
             javaScriptEnabled
             domStorageEnabled
+            thirdPartyCookiesEnabled
+            originWhitelist={['*']}
+            // 통신사 PASS 앱 등 외부 스킴 허용
+            onShouldStartLoadWithRequest={(req: any) => {
+              const u = req?.url || '';
+              if (/^https?:/i.test(u) || u.startsWith('about:')) return true;
+              // 외부 앱 스킴(intent:, ispmobile:, kftc-bankpay:, 통신사 PASS 등)은 시스템에 위임
+              try { Linking.openURL(u); } catch {}
+              return false;
+            }}
             style={{ flex: 1 }}
           />
         </View>
