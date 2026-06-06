@@ -103,7 +103,9 @@ async function sendEmailSES({ to, subject, html, text }) {
   if (text) body.Text = { Data: text, Charset: 'UTF-8' };
 
   const cmd = new SendEmailCommand({
-    Source: process.env.SES_FROM_EMAIL || 'Locotalk <noreply@locotalk.co.kr>',
+    // 인증된 도메인 발신 고정 (env SES_FROM_EMAIL 의 stale 값/오설정 방지).
+    // ⚠️ gmail 등 미인증 도메인 발신 시 DMARC fail → 스팸. 반드시 인증 도메인만.
+    Source: 'Locotalk <noreply@locotalk.co.kr>',
     Destination: { ToAddresses: [to] },
     Message: {
       Subject: { Data: subject, Charset: 'UTF-8' },
