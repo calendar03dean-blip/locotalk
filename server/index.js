@@ -92,7 +92,14 @@ const sesTransport = nodemailer.createTransport({
     user: process.env.AWS_ACCESS_KEY_ID     || '',
     pass: process.env.AWS_SECRET_ACCESS_KEY || '',
   },
+  // SES 미설정/네트워크 문제로 무한 대기(hang) 방지 — 빠르게 실패
+  connectionTimeout: 8000,
+  greetingTimeout  : 8000,
+  socketTimeout    : 10000,
 });
+
+// SES 자격증명 설정 여부 (미설정이면 발송 시도 자체를 건너뜀)
+const SES_CONFIGURED = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
 
 async function sendEmailSES({ to, subject, html }) {
   return sesTransport.sendMail({
@@ -128,6 +135,12 @@ app.post('/auth/send-otp', async (req, res) => {
     code,
     expiresAt: Date.now() + 3 * 60 * 1000,
   });
+
+  // SES 미설정 시 발송 시도하지 않고 즉시 실패 응답 (클라이언트가 코드 폴백 표시)
+  if (!SES_CONFIGURED) {
+    console.warn('[OTP] AWS SES 미설정 — 이메일 발송 건너뜀');
+    return res.status(503).json({ error: 'email_not_configured' });
+  }
 
   try {
     await sendEmailSES({
