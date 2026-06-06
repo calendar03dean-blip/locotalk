@@ -141,6 +141,7 @@ export default function HomeScreen() {
     userLat, userLng, setUserCoords,
     blockedUsers,
     customRegionGu, customRegionLabel,
+    autoMatchTrigger,
   } = useStore();
   const t    = useT();
   const lang = useLang();
@@ -167,6 +168,15 @@ export default function HomeScreen() {
   const matchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { detectLocation(); }, []);
+
+  // 빈채팅 '매칭 시작하기' → 홈 이동 후 자동 매칭 (값 변화 시에만)
+  const lastAutoMatch = useRef(autoMatchTrigger);
+  useEffect(() => {
+    if (autoMatchTrigger === lastAutoMatch.current) return;
+    lastAutoMatch.current = autoMatchTrigger;
+    if (user?.regionLabel) startMatch();
+    else detectLocation();
+  }, [autoMatchTrigger]);
 
   // ── 동네 피드 실시간 수신 ────────────────────────────────────
   useEffect(() => {

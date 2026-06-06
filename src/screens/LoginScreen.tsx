@@ -92,15 +92,23 @@ function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-async function sendOtpToServer(email: string, code: string): Promise<void> {
+const API_BASE = 'https://locotalk-production.up.railway.app';
+
+// 서버로 OTP 발송 요청. 성공(이메일 발송됨) 여부 반환. 12초 타임아웃으로 행 방지.
+async function sendOtpToServer(email: string, code: string): Promise<boolean> {
   try {
-    await fetch('http://localhost:4000/auth/send-otp', {
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 12000);
+    const res = await fetch(`${API_BASE}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code }),
+      signal: ctrl.signal,
     });
+    clearTimeout(timeout);
+    return res.ok;
   } catch {
-    // 서버 없음 — 무시
+    return false;  // 타임아웃/네트워크/서버오류 → 폴백
   }
 }
 
@@ -316,15 +324,7 @@ export default function LoginScreen() {
     const code = generateOtp();
     setOtpCode(code);
 
-    let serverSent = false;
-    try {
-      const res = await fetch('https://locotalk-production.up.railway.app/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), code }),
-      });
-      serverSent = res.ok;
-    } catch { serverSent = false; }
+    const serverSent = await sendOtpToServer(email.trim(), code);
 
     setLoading(false);
 
@@ -350,7 +350,10 @@ export default function LoginScreen() {
     setOtpCode(code);
     setTimer(OTP_EXPIRE_SEC);
     setTimerOn(true);
-    sendOtpToServer(email.trim(), code);
+    const ok = await sendOtpToServer(email.trim(), code);
+    if (!ok) {
+      Alert.alert('인증코드', `코드: ${code}\n\n(이메일 발송 실패 — 위 코드를 입력하세요)`);
+    }
   };
 
   const handleVerify = async () => {

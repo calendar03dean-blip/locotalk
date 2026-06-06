@@ -106,6 +106,10 @@ interface AppState {
   setPeer: (peer: Peer | null) => void;
   setRoomId: (id: string | null) => void;
 
+  // 빈채팅 화면 '매칭 시작하기' → 홈 이동 후 자동 매칭 트리거 (증가 카운터)
+  autoMatchTrigger: number;
+  requestAutoMatch: () => void;
+
   // 패시브 매칭 (채팅 받기)
   acceptsChat: boolean;
   setAcceptsChat: (v: boolean) => void;
@@ -188,6 +192,9 @@ export const useStore = create<AppState>((set, get) => ({
       if (roomId) saveChatSession(peer, roomId).catch(() => {});
     }
   },
+  autoMatchTrigger: 0,
+  requestAutoMatch: () => set((s) => ({ autoMatchTrigger: s.autoMatchTrigger + 1 })),
+
   setRoomId: (id) => {
     set({ roomId: id });
     if (!id) { clearChatSession().catch(() => {}); }

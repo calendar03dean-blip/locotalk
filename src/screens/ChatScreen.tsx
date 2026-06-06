@@ -352,8 +352,12 @@ export default function ChatScreen() {
           />
           <Text style={s.emptyTitle}>{t('chat_empty_title')}</Text>
           <Text style={s.emptyDesc}>{t('chat_empty_desc')}</Text>
-          <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('홈')} activeOpacity={0.85}>
-            <Text style={s.emptyBtnTxt}>{t('chat_empty_btn')}</Text>
+          <TouchableOpacity
+            style={s.emptyBtn}
+            onPress={() => { navigation.navigate('홈'); useStore.getState().requestAutoMatch(); }}
+            activeOpacity={0.85}
+          >
+            <Text style={s.emptyBtnTxt}>{t('home_match_start')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
