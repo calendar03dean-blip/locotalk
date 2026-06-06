@@ -97,13 +97,17 @@ const sesClient = new SESClient({
   maxAttempts: 2,
 });
 
-async function sendEmailSES({ to, subject, html }) {
+async function sendEmailSES({ to, subject, html, text }) {
+  // HTML 만 있으면 스팸 점수가 올라가므로 플레인텍스트도 함께(multipart) 발송
+  const body = { Html: { Data: html, Charset: 'UTF-8' } };
+  if (text) body.Text = { Data: text, Charset: 'UTF-8' };
+
   const cmd = new SendEmailCommand({
-    Source: process.env.SES_FROM_EMAIL || 'Locotalk <calendar03dean@gmail.com>',
+    Source: process.env.SES_FROM_EMAIL || 'Locotalk <noreply@locotalk.co.kr>',
     Destination: { ToAddresses: [to] },
     Message: {
       Subject: { Data: subject, Charset: 'UTF-8' },
-      Body:    { Html: { Data: html, Charset: 'UTF-8' } },
+      Body:    body,
     },
   });
   return sesClient.send(cmd);
@@ -161,6 +165,11 @@ app.post('/auth/send-otp', async (req, res) => {
           </div>
         </div>
       `,
+      text:
+        `Locotalk 이메일 인증 코드\n\n` +
+        `인증 코드: ${code}\n\n` +
+        `이 코드는 3분 후 만료됩니다.\n` +
+        `본인이 요청하지 않았다면 이 이메일을 무시하세요.`,
     });
 
     console.log(`[OTP] ✅ AWS SES 발송 완료 → ${email}`);
