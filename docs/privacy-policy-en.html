@@ -47,7 +47,7 @@
 
 <div class="hero">
   <h1>🔒 Privacy Policy</h1>
-  <p>Locotalk · Last updated: May 30, 2026</p>
+  <p>Locotalk · Last updated: June 6, 2026</p>
 </div>
 
 <div class="container">
@@ -75,10 +75,15 @@
     <li><strong>Interests</strong> — Up to 3 selections, used for matching</li>
     <li><strong>Location</strong> — GPS used to determine district-level area only (e.g., Mapo-gu); precise coordinates are not stored</li>
     <li><strong>Device Token</strong> — FCM/APNs token for push notifications</li>
+    <li><strong>Contacts (optional · Premium)</strong> — Only when you enable "Avoid Matching Acquaintances," phone numbers from your contacts are converted into <strong>one-way cryptographic hashes (SHA-256)</strong>. Raw phone numbers, names, and other contact details are <strong>never stored or transmitted</strong>; hashes are used solely to exclude acquaintances from matching.</li>
   </ul>
 
   <div class="notice">
     💬 Chat messages are never stored on our servers and are permanently deleted when you leave the chat room.
+  </div>
+
+  <div class="notice">
+    📇 "Avoid Matching Acquaintances" (Premium) compares contact phone numbers using <strong>cryptographic hashes only</strong>. Raw phone numbers and names are <strong>never collected, stored, or transmitted</strong>, and stored hashes are deleted immediately when you turn the feature off.
   </div>
 
   <h2>2. How We Use Your Information</h2>
@@ -86,6 +91,7 @@
     <li>Identity verification and account management</li>
     <li>Neighbor matching and anonymous chat services</li>
     <li>Location-based neighborhood feed features</li>
+    <li>Avoid Matching Acquaintances — excluding people in your contacts from matching (Premium, via phone-number hash comparison)</li>
     <li>Push notifications related to service usage</li>
     <li>Prevention of illegal or inappropriate use</li>
   </ul>
@@ -98,6 +104,7 @@
     <tr><td>Location (district name)</td><td>Deleted at end of session (not stored)</td></tr>
     <tr><td>Chat messages</td><td>Deleted immediately when leaving chat room</td></tr>
     <tr><td>Push notification token</td><td>Deleted upon account deletion or token refresh</td></tr>
+    <tr><td>Contact phone-number hashes</td><td>Deleted immediately when "Avoid Matching Acquaintances" is turned off or upon account deletion (raw numbers never stored)</td></tr>
   </table>
 
   <h2>4. Third-Party Sharing</h2>
@@ -147,7 +154,7 @@
   <p>We may update this Privacy Policy from time to time. Changes will be communicated via in-app notices or email.</p>
 
   <footer>
-    <p>Effective Date: May 30, 2026 &nbsp;|&nbsp; Locotalk © 2026</p>
+    <p>Effective Date: June 6, 2026 &nbsp;|&nbsp; Locotalk © 2026</p>
   </footer>
 
 </div>
