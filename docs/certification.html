@@ -25,16 +25,26 @@
   (function () {
     var params     = new URLSearchParams(window.location.search);
     var storeId    = params.get('store_id')    || 'store-0cedce90-6165-447b-8694-40fb67ec7481';
-    var channelKey = params.get('channel_key') || 'channel-key-d62a950a-f69e-49e9-9704-f13b94a0b71b';
+    var channelKey = params.get('channel_key') || 'channel-key-27a776e9-50e0-4e1a-9713-d3fbc110b239';
     var vid        = params.get('vid')         || ('identity-verification-' + Date.now());
+
+    // RNWebView 참조 저장 후, SDK 호출 동안에는 숨긴다.
+    // (브라우저 SDK 가 window.ReactNativeWebView 를 감지하면 "RN SDK 호스트 모드"로
+    //  동작하다 "본인인증 창 호출에 실패" 에러를 냄. 숨기면 일반 모바일 redirect 모드로 동작)
+    var RNWV = window.ReactNativeWebView;
 
     function post(obj){
       var s = JSON.stringify(obj);
-      if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s);
+      if (RNWV) RNWV.postMessage(s);
+      else if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(s);
       else window.location.href = 'locotalk://certification?data=' + encodeURIComponent(s);
     }
 
     if (typeof PortOne === 'undefined') { post({success:false, error:'SDK 로드 실패'}); return; }
+
+    // 브라우저 SDK 가 redirect 모드를 쓰도록 RNWebView 신호 제거
+    try { delete window.ReactNativeWebView; } catch (e) {}
+    try { window.ReactNativeWebView = undefined; } catch (e) {}
 
     try {
       PortOne.requestIdentityVerification({
