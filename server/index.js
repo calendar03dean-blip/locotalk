@@ -81,33 +81,32 @@ async function initDB() {
 }
 initDB();
 
-// ─── AWS SES 이메일 (nodemailer SMTP) ────────────────────────────────
-const nodemailer = require('nodemailer');
+// ─── AWS SES 이메일 (SES API / HTTPS) ────────────────────────────────
+// SMTP(465) 는 Railway 등 PaaS 에서 차단/행되는 경우가 많아 SES API(443) 사용.
+// IAM 액세스 키(AKIA...)를 그대로 사용 (SMTP 전용 자격증명 불필요).
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
 
-const sesTransport = nodemailer.createTransport({
-  host: `email-smtp.${process.env.AWS_REGION || 'ap-northeast-2'}.amazonaws.com`,
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.AWS_ACCESS_KEY_ID     || '',
-    pass: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
-  // SES 미설정/네트워크 문제로 무한 대기(hang) 방지 — 빠르게 실패
-  connectionTimeout: 8000,
-  greetingTimeout  : 8000,
-  socketTimeout    : 10000,
-});
-
-// SES 자격증명 설정 여부 (미설정이면 발송 시도 자체를 건너뜀)
 const SES_CONFIGURED = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY);
 
+const sesClient = new SESClient({
+  region: process.env.AWS_REGION || 'ap-northeast-2',
+  credentials: {
+    accessKeyId    : process.env.AWS_ACCESS_KEY_ID     || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+  },
+  maxAttempts: 2,
+});
+
 async function sendEmailSES({ to, subject, html }) {
-  return sesTransport.sendMail({
-    from   : process.env.SES_FROM_EMAIL || 'Locotalk <calendar03dean@gmail.com>',
-    to,
-    subject,
-    html,
+  const cmd = new SendEmailCommand({
+    Source: process.env.SES_FROM_EMAIL || 'Locotalk <calendar03dean@gmail.com>',
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: subject, Charset: 'UTF-8' },
+      Body:    { Html: { Data: html, Charset: 'UTF-8' } },
+    },
   });
+  return sesClient.send(cmd);
 }
 
 // OTP 임시 저장소 (이메일 → { code, expiresAt })
