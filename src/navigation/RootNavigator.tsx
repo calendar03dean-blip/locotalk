@@ -92,9 +92,9 @@ function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   const peer = useStore(s => s.peer);
   const t    = useT();
 
-  // Hide entirely on the chat screen
+  // Hide only during an ACTIVE chat (peer 존재). 빈채팅 화면에선 탭바 표시.
   const activeRouteName = state.routes[state.index]?.name;
-  if (activeRouteName === '채팅') return null;
+  if (activeRouteName === '채팅' && peer) return null;
 
   const TAB_CONFIG: Record<string, { Icon: React.FC<{ color: string; filled?: boolean }>; label: string }> = {
     '홈':    { Icon: IcoHome,   label: t('tab_home') },
