@@ -451,26 +451,28 @@ export default function LoginScreen() {
 
               <Text style={s.terms}>{t('login_terms')}</Text>
 
-              {/* ── 개발자 테스트 진입 ── */}
-              <View style={s.devSection}>
-                <Text style={s.devLabel}>🛠 개발자 테스트</Text>
-                <View style={s.devRow}>
-                  <TouchableOpacity
-                    style={[s.devBtn, s.devBtnPremium]}
-                    onPress={() => enterTestAccount('premium')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.devBtnTxt}>⭐ 프리미엄 계정</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[s.devBtn, s.devBtnFree]}
-                    onPress={() => enterTestAccount('free')}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={s.devBtnTxt}>👤 일반 계정</Text>
-                  </TouchableOpacity>
+              {/* ── 개발자 테스트 진입 (개발 빌드 전용 — 출시 빌드에선 숨김) ── */}
+              {__DEV__ && (
+                <View style={s.devSection}>
+                  <Text style={s.devLabel}>🛠 개발자 테스트</Text>
+                  <View style={s.devRow}>
+                    <TouchableOpacity
+                      style={[s.devBtn, s.devBtnPremium]}
+                      onPress={() => enterTestAccount('premium')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={s.devBtnTxt}>⭐ 프리미엄 계정</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[s.devBtn, s.devBtnFree]}
+                      onPress={() => enterTestAccount('free')}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={s.devBtnTxt}>👤 일반 계정</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              )}
             </View>
           )}
 
