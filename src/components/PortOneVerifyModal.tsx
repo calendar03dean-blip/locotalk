@@ -1,25 +1,26 @@
 /**
- * PortOneVerifyModal — 포트원(아임포트) 통신사 본인인증 모달
- * 
- * 사용 전 필요:
- * 1. portone.io 가맹점 가입 + 본인확인 서비스 신청
- * 2. PORTONE_STORE_ID 환경변수 설정
- * 3. 서버 /auth/portone-verify 엔드포인트 구현
+ * PortOneVerifyModal — 포트원 V2 통신사 본인인증 모달
+ *
+ * 공식 @portone/react-native-sdk 의 IdentityVerification 컴포넌트 사용.
+ * (커스텀 WebView 는 iOS WKWebView 의 교차출처 차단으로 prepare fetch 가
+ *  "Load failed" 되어 작동 불가 → 공식 SDK 가 WebView 를 직접 호스팅하여 해결)
+ *
+ * 서버 /auth/portone-verify 가 identityVerificationId 로 V2 인증결과를 조회.
  */
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Modal, View, Text, TouchableOpacity,
-  StyleSheet, ActivityIndicator, Alert, Linking,
+  StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
+import { IdentityVerification } from '@portone/react-native-sdk';
 
 const BASE = 'https://locotalk-production.up.railway.app';
-const CERT_PAGE = 'https://calendar03dean-blip.github.io/locotalk/certification.html';
 
-// ⚠️ 포트원 가맹점 식별코드 (portone.io 콘솔에서 확인)
-// 실제 배포 시 환경변수로 관리하거나 Railway에 설정
-const PORTONE_STORE_ID = process.env.PORTONE_STORE_ID || 'imp18543766';
+// 포트원 V2 식별값 (콘솔에서 확인 — 클라이언트 공개 가능 값)
+const PORTONE_STORE_ID    = process.env.PORTONE_STORE_ID    || 'store-0cedce90-6165-447b-8694-40fb67ec7481';
+// NHN(KCP) 본인확인 채널
+const PORTONE_CHANNEL_KEY = process.env.PORTONE_CHANNEL_KEY || 'channel-key-27a776e9-50e0-4e1a-9713-d3fbc110b239';
 
 interface VerifiedInfo {
   name: string;
@@ -36,36 +37,35 @@ interface Props {
 }
 
 export default function PortOneVerifyModal({ visible, onClose, onVerified, userId }: Props) {
-  const [loading, setLoading] = useState(true);
-  const webviewRef = useRef<WebView>(null);
+  const [loading, setLoading] = useState(false);
 
-  const certUrl =
-    `${CERT_PAGE}` +
-    `?store_id=${encodeURIComponent(PORTONE_STORE_ID)}` +
-    `&merchant_uid=locotalk_${userId}_${Date.now()}`;
+  // 인증ID 는 모달이 열릴 때 한 번만 생성 (visible 토글마다 갱신)
+  // ⚠️ KCP 는 이 값을 ordr_idxx(주문번호)로 사용 → 짧은 영숫자만 허용(하이픈/길이 제한).
+  //    userId 는 서버 POST 에 따로 전달하므로 ID 에 넣지 않는다.
+  const identityVerificationId = useMemo(
+    () => `idv${Date.now().toString(36)}${Math.floor(Math.random() * 1679616).toString(36)}`,
+    [visible],
+  );
 
-  const handleMessage = async (event: any) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-
-      if (!data.success) {
-        // 사용자 취소는 조용히, 그 외(미계약 등)는 준비중 안내
-        const msg = String(data.error || '');
-        if (!/취소|cancel/i.test(msg)) {
-          Alert.alert('본인인증 준비 중', '통신사 본인인증 서비스를 준비하고 있어요.\n곧 이용하실 수 있습니다 🙏');
-        }
-        onClose();
-        return;
+  // 인증 완료 → 서버에서 실제 사용자 정보 조회
+  const handleComplete = async (response: any) => {
+    // code 가 있으면 실패/취소
+    if (response?.code) {
+      const code = String(response.code);
+      if (!/CANCEL|USER_CANCEL/i.test(code)) {
+        Alert.alert('본인인증 실패', response.message || '잠시 후 다시 시도해주세요.');
       }
+      onClose();
+      return;
+    }
 
-      // 서버에서 imp_uid로 실제 사용자 정보 조회
+    try {
       setLoading(true);
       const res = await fetch(`${BASE}/auth/portone-verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          imp_uid: data.imp_uid,
-          merchant_uid: data.merchant_uid,
+          identityVerificationId: response?.identityVerificationId || identityVerificationId,
           userId,
         }),
       });
@@ -90,6 +90,12 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
     }
   };
 
+  const handleError = (error: Error) => {
+    Alert.alert('본인인증 오류', error?.message || '본인인증을 시작할 수 없습니다.', [
+      { text: '확인', onPress: onClose },
+    ]);
+  };
+
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={st.safe}>
@@ -102,39 +108,27 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
         </View>
 
         <View style={{ flex: 1 }}>
+          {visible && (
+            <IdentityVerification
+              request={{
+                storeId: PORTONE_STORE_ID,
+                identityVerificationId,
+                channelKey: PORTONE_CHANNEL_KEY,
+              }}
+              onComplete={handleComplete}
+              onError={handleError}
+              // WKWebView 기본 UA 는 "Safari" 표기가 없어 일부 PG/본인인증 서버가
+              // 모바일 채널을 못 찾는 경우가 있음 → 완전한 모바일 Safari UA 지정
+              userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+              style={{ flex: 1 }}
+            />
+          )}
           {loading && (
             <View style={st.loadingOverlay}>
               <ActivityIndicator size="large" color="#40D3B6" />
-              <Text style={st.loadingTxt}>인증 화면 로딩 중...</Text>
+              <Text style={st.loadingTxt}>인증 확인 중...</Text>
             </View>
           )}
-          <WebView
-            ref={webviewRef}
-            source={{ uri: certUrl }}
-            onMessage={handleMessage}
-            onLoadStart={() => setLoading(true)}
-            onLoadEnd={() => setLoading(false)}
-            onError={() => {
-              setLoading(false);
-              Alert.alert('본인인증 준비 중', '통신사 본인인증 서비스를 준비하고 있어요.\n곧 이용하실 수 있습니다 🙏', [
-                { text: '확인', onPress: onClose },
-              ]);
-            }}
-            onHttpError={() => { setLoading(false); }}
-            javaScriptEnabled
-            domStorageEnabled
-            thirdPartyCookiesEnabled
-            originWhitelist={['*']}
-            // 통신사 PASS 앱 등 외부 스킴 허용
-            onShouldStartLoadWithRequest={(req: any) => {
-              const u = req?.url || '';
-              if (/^https?:/i.test(u) || u.startsWith('about:')) return true;
-              // 외부 앱 스킴(intent:, ispmobile:, kftc-bankpay:, 통신사 PASS 등)은 시스템에 위임
-              try { Linking.openURL(u); } catch {}
-              return false;
-            }}
-            style={{ flex: 1 }}
-          />
         </View>
       </SafeAreaView>
     </Modal>
