@@ -10,6 +10,7 @@ import { useStore } from '../store';
 import { Colors, Typography, Spacing, Radius, Shadow, tinted } from '../constants/theme';
 import { containsProfanity } from '../utils/filter';
 import { hashPhone } from '../utils/contacts';
+import { LT, LtShadow } from '../constants/lt';
 import { findInterest, interestLabel } from '../constants/data';
 import { useT, useLang, translate } from '../i18n';
 import { regionIconId } from '../constants/regions';
@@ -555,7 +556,7 @@ export default function HomeScreen() {
           <View style={s.heroBubble1} />
           <View style={s.heroBubble2} />
           <View style={s.heroEyebrowRow}>
-            <IcoPin color="rgba(255,255,255,0.85)" size={12} />
+            <IcoPin color={LT.brandStrong} size={12} />
             <Text style={s.heroEyebrow}>
               {isPremium && customRegionLabel
                 ? `◆ ${customRegionLabel}`
@@ -774,19 +775,19 @@ const s = StyleSheet.create({
   body: { padding: Spacing.lg, gap: Spacing.md, paddingBottom: 130 },
 
   // Hero card
-  heroCard:        { backgroundColor: Colors.primary, borderRadius: 28, padding: 26, overflow: 'hidden', minHeight: 280, justifyContent: 'flex-end' },
+  heroCard:        { backgroundColor: LT.surface, borderRadius: 24, padding: 24, overflow: 'hidden', minHeight: 270, justifyContent: 'flex-end', ...LtShadow.card },
   heroBubble1:     { position: 'absolute', top: -50, right: -50, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.10)' },
   heroBubble2:     { position: 'absolute', top: 30, right: 24, width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.08)' },
   heroEyebrowRow:  { position: 'absolute', top: 22, left: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
-  heroEyebrow:     { fontSize: Typography.caption1, fontWeight: '800', color: 'rgba(255,255,255,0.85)' },
-  heroTitle:       { fontSize: 34, fontWeight: '900', color: '#fff', letterSpacing: -1.2, lineHeight: 40, marginTop: 14, marginBottom: 12 },
-  heroDesc:        { fontSize: Typography.footnote, color: 'rgba(255,255,255,0.78)', lineHeight: 20, marginBottom: 22 },
-  matchBtn:        { backgroundColor: '#ECFDF5', borderRadius: Radius.pill, height: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  matchBtnOff:     { backgroundColor: 'rgba(255,255,255,0.5)' },
-  matchBtnTxt:     { fontSize: Typography.headline, fontWeight: '800', color: Colors.primaryD },
+  heroEyebrow:     { fontSize: Typography.caption1, fontWeight: '800', color: LT.brandStrong },
+  heroTitle:       { fontSize: 30, fontWeight: '800', color: LT.label, letterSpacing: -1.2, lineHeight: 40, marginTop: 14, marginBottom: 12 },
+  heroDesc:        { fontSize: Typography.footnote, color: LT.label3, lineHeight: 20, marginBottom: 22 },
+  matchBtn:        { backgroundColor: LT.brand, borderRadius: Radius.pill, height: 54, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
+  matchBtnOff:     { backgroundColor: LT.g200 },
+  matchBtnTxt:     { fontSize: Typography.headline, fontWeight: '800', color: LT.brandOn },
   matchBtnTxtOff:  { color: Colors.g3 },
   matchCountRow:   { alignItems: 'center', marginTop: 8 },
-  matchCountFree:  { fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
+  matchCountFree:  { fontSize: 12, color: LT.label4, fontWeight: '500' },
   matchCountPremium: { fontSize: 12, color: '#FFD700', fontWeight: '700' },
 
   // Info cards
