@@ -343,15 +343,13 @@ export default function ChatScreen() {
   // ── Empty state ─────────────────────────────────────────────────
   if (!peer) {
     return (
-      <SafeAreaView style={s.safe} edges={['top']}>
+      <SafeAreaView style={s.emptySafe} edges={['top']}>
         <View style={s.empty}>
-          <View style={s.emptyLogo}>
-            <RNImage
-              source={require('../../assets/logo_white.png')}
-              style={s.emptyLogoImg}
-              resizeMode="contain"
-            />
-          </View>
+          <RNImage
+            source={require('../../assets/logo_white.png')}
+            style={s.emptyLogoImg}
+            resizeMode="contain"
+          />
           <Text style={s.emptyTitle}>{t('chat_empty_title')}</Text>
           <Text style={s.emptyDesc}>{t('chat_empty_desc')}</Text>
           <TouchableOpacity style={s.emptyBtn} onPress={() => navigation.navigate('홈')} activeOpacity={0.85}>
@@ -770,13 +768,13 @@ export default function ChatScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
 
-  empty:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
-  emptyLogo:   { width: 96, height: 96, borderRadius: 28, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: 20, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  emptyLogoImg:{ width: 60, height: 60 },
+  emptySafe:   { flex: 1, backgroundColor: '#40D3B6' },  // 로그인 화면과 동일한 배경
+  empty:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12, backgroundColor: '#40D3B6' },
+  emptyLogoImg:{ width: 76, height: 76, marginBottom: 14 },
   emptyIcon:   { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle:  { fontSize: Typography.headline, fontWeight: '800', color: Colors.dark },
-  emptyDesc:   { fontSize: Typography.footnote, color: Colors.g4, textAlign: 'center', lineHeight: 20 },
-  emptyBtn:    { marginTop: 8, backgroundColor: '#034A93', borderRadius: Radius.pill, paddingVertical: 12, paddingHorizontal: 28 },
+  emptyTitle:  { fontSize: Typography.title3, fontWeight: '800', color: '#fff', textAlign: 'center' },
+  emptyDesc:   { fontSize: Typography.footnote, color: 'rgba(255,255,255,0.9)', textAlign: 'center', lineHeight: 20 },
+  emptyBtn:    { marginTop: 12, backgroundColor: '#034A93', borderRadius: Radius.pill, paddingVertical: 14, paddingHorizontal: 32, shadowColor: '#034A93', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12 },
   emptyBtnTxt: { fontSize: Typography.callout, fontWeight: '700', color: '#fff' },
 
   header:        { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.sf, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator, gap: 6 },

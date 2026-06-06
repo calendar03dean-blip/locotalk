@@ -8,12 +8,14 @@ import { StatusBar } from 'expo-status-bar';
 import {
   View, Image, Animated, StyleSheet, Text,
 } from 'react-native';
+import { useFonts } from 'expo-font';
 import RootNavigator from './src/navigation/RootNavigator';
 import { initIAP, cleanupIAP } from './src/services/iap';
 import { initializeKakaoSDK } from '@react-native-kakao/core';
 
 // ── 부팅 로고 애니메이션 ─────────────────────────────────────────────
 function SplashOverlay({ onDone }: { onDone: () => void }) {
+  const [fontsLoaded] = useFonts({ 'JUA-Regular': require('./assets/fonts/JUA-Regular.ttf') });
   const scale   = useRef(new Animated.Value(0.7)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const fadeOut = useRef(new Animated.Value(1)).current;
@@ -34,22 +36,23 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
 
   return (
     <Animated.View style={[st.splash, { opacity: fadeOut }]}>
-      <Animated.View style={{ transform: [{ scale }], opacity }}>
+      <Animated.View style={[st.splashInner, { transform: [{ scale }], opacity }]}>
         <Image
           source={require('./assets/logo_white.png')}
           style={st.splashLogo}
           resizeMode="contain"
         />
-        <Text style={st.splashName}>LOCOTALK</Text>
+        <Text style={[st.splashName, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>LOCOTALK</Text>
       </Animated.View>
     </Animated.View>
   );
 }
 
 const st = StyleSheet.create({
-  splash:     { ...StyleSheet.absoluteFillObject, backgroundColor: '#40D3B6', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
-  splashLogo: { width: 100, height: 100 },
-  splashName: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: 4, textAlign: 'center', marginTop: 12 },
+  splash:      { ...StyleSheet.absoluteFillObject, backgroundColor: '#40D3B6', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
+  splashInner: { alignItems: 'center', justifyContent: 'center' },
+  splashLogo:  { width: 76, height: 76, marginBottom: 10 },
+  splashName:  { color: '#fff', fontSize: 30, fontWeight: '800', letterSpacing: 4, textAlign: 'center' },
 });
 
 // ── 앱 루트 ─────────────────────────────────────────────────────────
