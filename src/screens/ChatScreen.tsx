@@ -12,6 +12,7 @@ import * as Notifications from 'expo-notifications';
 import { useStore } from '../store';
 import { setChatFocused } from '../services/notifications';
 import { Colors, Typography, Spacing, Radius } from '../constants/theme';
+import { LT } from '../constants/lt';
 import { findInterest, interestLabel } from '../constants/data';
 import { useT, useLang, translate } from '../i18n';
 import { regionIconId } from '../constants/regions';
@@ -345,11 +346,13 @@ export default function ChatScreen() {
     return (
       <SafeAreaView style={s.emptySafe} edges={['top']}>
         <View style={s.empty}>
-          <RNImage
-            source={require('../../assets/logo_white.png')}
-            style={s.emptyLogoImg}
-            resizeMode="contain"
-          />
+          <View style={s.emptyLogoCircle}>
+            <RNImage
+              source={require('../../assets/lt-logo-teal.png')}
+              style={s.emptyLogoImg}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={s.emptyTitle}>{t('chat_empty_title')}</Text>
           <Text style={s.emptyDesc}>{t('chat_empty_desc')}</Text>
           <TouchableOpacity
@@ -772,14 +775,15 @@ export default function ChatScreen() {
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.bg },
 
-  emptySafe:   { flex: 1, backgroundColor: '#40D3B6' },  // 로그인 화면과 동일한 배경
-  empty:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12, backgroundColor: '#40D3B6' },
-  emptyLogoImg:{ width: 76, height: 76, marginBottom: 14 },
+  emptySafe:   { flex: 1, backgroundColor: LT.bg },
+  empty:       { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 8, backgroundColor: LT.bg },
+  emptyLogoCircle: { width: 104, height: 104, borderRadius: 52, backgroundColor: LT.brandTint, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  emptyLogoImg:{ width: 58, height: 58 },
   emptyIcon:   { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
-  emptyTitle:  { fontSize: Typography.title3, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  emptyDesc:   { fontSize: Typography.footnote, color: 'rgba(255,255,255,0.9)', textAlign: 'center', lineHeight: 20 },
-  emptyBtn:    { marginTop: 12, backgroundColor: '#034A93', borderRadius: Radius.pill, paddingVertical: 14, paddingHorizontal: 32, shadowColor: '#034A93', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12 },
-  emptyBtnTxt: { fontSize: Typography.callout, fontWeight: '700', color: '#fff' },
+  emptyTitle:  { fontSize: 21, fontWeight: '800', color: LT.label, textAlign: 'center', letterSpacing: -0.4 },
+  emptyDesc:   { fontSize: 14.5, color: LT.label3, textAlign: 'center', lineHeight: 22 },
+  emptyBtn:    { marginTop: 18, backgroundColor: LT.brand, borderRadius: Radius.pill, height: 54, justifyContent: 'center', paddingHorizontal: 30 },
+  emptyBtnTxt: { fontSize: 16, fontWeight: '800', color: LT.brandOn },
 
   header:        { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.sf, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 0.5, borderBottomColor: Colors.separator, gap: 6 },
   backBtn:       { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
