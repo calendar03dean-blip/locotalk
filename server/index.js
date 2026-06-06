@@ -854,8 +854,21 @@ function tryMatch(socket, user) {
   });
   if (eligible.length === 0) return false;
 
+  // 2.5 지인 매칭 피하기 (프리미엄) — 전화번호 해시로 연락처에 있는 상대 양방향 제외
+  const myContactSet = (user.avoidContacts && user.contactHashes?.length)
+    ? new Set(user.contactHashes) : null;
+  const eligible2 = eligible.filter(([, c]) => {
+    // A가 켰고 상대(c) 번호가 A 연락처에 있으면 제외
+    if (myContactSet && c.phoneHash && myContactSet.has(c.phoneHash)) return false;
+    // 상대(c)가 켰고 A 번호가 c 연락처에 있으면 제외
+    if (c.avoidContacts && user.phoneHash && c.contactHashes?.length
+        && c.contactHashes.includes(user.phoneHash)) return false;
+    return true;
+  });
+  if (eligible2.length === 0) return false;
+
   // 3. 매칭 점수 계산 후 내림차순 정렬
-  const scored = eligible.map(([id, c]) => ({
+  const scored = eligible2.map(([id, c]) => ({
     id, candidate: c,
     score: calcMatchScore(user, c),
   }));
@@ -909,9 +922,18 @@ function tryMatch(socket, user) {
  * fromPassive=true 이면 요청자도 passive_match_found 를 받음 (standby→standby)
  */
 function requestToStandby(fromSocket, fromUser, fromPassive = false) {
-  // standby 풀에서 자신 및 이미 pending 인 소켓 제외
+  // 지인 매칭 피하기 (프리미엄) — 연락처 해시 양방향 제외
+  const myContactSet = (fromUser.avoidContacts && fromUser.contactHashes?.length)
+    ? new Set(fromUser.contactHashes) : null;
+  // standby 풀에서 자신 및 이미 pending 인 소켓 제외 + 지인 제외
   const candidates = [...standby.entries()]
-    .filter(([id]) => id !== fromSocket.id);
+    .filter(([id]) => id !== fromSocket.id)
+    .filter(([, c]) => {
+      if (myContactSet && c.phoneHash && myContactSet.has(c.phoneHash)) return false;
+      if (c.avoidContacts && fromUser.phoneHash && c.contactHashes?.length
+          && c.contactHashes.includes(fromUser.phoneHash)) return false;
+      return true;
+    });
   if (candidates.length === 0) return false;
 
   const sameRegion = candidates.filter(([, c]) => c.region === fromUser.region);
@@ -1040,6 +1062,10 @@ io.on('connection', (socket) => {
       gender      : user.gender || null,
       birthYear   : user.birthYear || null,
       blockedUsers: Array.isArray(user.blockedUsers) ? user.blockedUsers : [],
+      // 지인 매칭 피하기 (프리미엄) — 전화번호 해시 기반
+      phoneHash    : typeof user.phoneHash === 'string' ? user.phoneHash : null,
+      avoidContacts: user.avoidContacts === true,
+      contactHashes: Array.isArray(user.contactHashes) ? user.contactHashes : [],
       joinedAt    : Date.now(),
     };
     queue.set(socket.id, entry);
@@ -1088,6 +1114,10 @@ io.on('connection', (socket) => {
       nick     : (user.nick || '').trim(),
       interests: Array.isArray(user.interests) ? user.interests : [],
       region   : (user.region || '').trim(),
+      // 지인 매칭 피하기 (프리미엄)
+      phoneHash    : typeof user.phoneHash === 'string' ? user.phoneHash : null,
+      avoidContacts: user.avoidContacts === true,
+      contactHashes: Array.isArray(user.contactHashes) ? user.contactHashes : [],
       joinedAt : Date.now(),
     };
     standby.set(socket.id, entry);

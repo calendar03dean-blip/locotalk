@@ -54,6 +54,27 @@ export function connectSocket(): Socket {
       timeout             : 10000,
     });
 
+    // 매칭 emit(join_queue/join_standby)에 '지인 매칭 피하기' 식별자 자동 주입
+    // (전화번호 해시 — 원본 번호는 절대 전송하지 않음)
+    const _origEmit = (_socket.emit as any).bind(_socket);
+    (_socket as any).emit = (event: any, ...args: any[]) => {
+      if ((event === 'join_queue' || event === 'join_standby') && args[0] && typeof args[0] === 'object') {
+        try {
+          const { useStore } = require('../store');
+          const st = useStore.getState();
+          const on = !!(st.isPremium && st.avoidContacts);
+          args[0] = {
+            // 기본값은 store 에서, 단 payload 가 이미 가진 값이 우선(덮어쓰지 않음)
+            phoneHash    : st.myPhoneHash || null,
+            avoidContacts: on,
+            contactHashes: on ? (st.contactHashes || []) : [],
+            ...args[0],
+          };
+        } catch { /* onboarding 단계 등 — 무시 */ }
+      }
+      return _origEmit(event, ...args);
+    };
+
     _socket.on('connect', () => {
       console.log('[socket] ✅ connected', _socket?.id);
       try {

@@ -9,6 +9,7 @@ import Svg, { Path, Circle, G } from 'react-native-svg';
 import { useStore } from '../store';
 import { Colors, Typography, Spacing, Radius, Shadow, tinted } from '../constants/theme';
 import { containsProfanity } from '../utils/filter';
+import { hashPhone } from '../utils/contacts';
 import { findInterest, interestLabel } from '../constants/data';
 import { useT, useLang, translate } from '../i18n';
 import { regionIconId } from '../constants/regions';
@@ -142,7 +143,15 @@ export default function HomeScreen() {
     blockedUsers,
     customRegionGu, customRegionLabel,
     autoMatchTrigger,
+    avoidContacts, contactHashes,
   } = useStore();
+
+  // 내 본인인증 번호 해시 (지인 매칭 피하기용 — 상대 연락처와 대조됨)
+  const myPhoneHash = useRef<string | null>(null);
+  useEffect(() => {
+    if (user?.phone) { hashPhone(user.phone).then(h => { myPhoneHash.current = h || null; }); }
+    else { myPhoneHash.current = null; }
+  }, [user?.phone]);
   const t    = useT();
   const lang = useLang();
 
@@ -387,6 +396,10 @@ export default function HomeScreen() {
           gender      : user.gender || null,
           birthYear   : user.birthYear || null,
           blockedUsers: blockedUsers,
+          // 지인 매칭 피하기 (프리미엄): 내 번호 해시 + 내 연락처 해시 목록
+          phoneHash    : myPhoneHash.current || null,
+          avoidContacts: isPremium && avoidContacts,
+          contactHashes: (isPremium && avoidContacts) ? contactHashes : [],
         });
 
         // 30초 안에 매칭 없으면 → 상대 없음 알림

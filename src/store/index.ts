@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeModules, Platform } from 'react-native';
+import { hashPhone } from '../utils/phonehash';
 
 export type Lang = 'ko' | 'en';
 
@@ -126,6 +127,14 @@ interface AppState {
   isPremium: boolean;
   setPremium: (v: boolean) => void;
 
+  // 지인 매칭 피하기 (프리미엄) — 연락처 전화번호 해시로 지인 매칭 제외
+  avoidContacts: boolean;
+  contactHashes: string[];      // 내 연락처 번호 해시 목록 (원본 번호 저장 안 함)
+  myPhoneHash: string | null;   // 내 본인인증 번호 해시 (매칭 식별용)
+  setAvoidContacts: (v: boolean) => void;
+  setContactHashes: (h: string[]) => void;
+  setMyPhoneHash: (h: string | null) => void;
+
   // 매칭 횟수 (1시간 단위 제한: 무료 10회 / 유료 30회)
   matchCountThisHour: number;
   matchCountResetAt: number;   // epoch ms — 이 시각 이후 카운트 초기화
@@ -163,7 +172,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
   setVerified: (gender, birthYear) =>
     set((s) => ({ user: s.user ? { ...s.user, isVerified: true, verifiedAt: new Date().toISOString(), gender, birthYear } : null })),
-  setPhoneVerified: (phone, name, birthYear, gender) =>
+  setPhoneVerified: (phone, name, birthYear, gender) => {
     set((s) => ({
       user: s.user ? {
         ...s.user,
@@ -174,7 +183,10 @@ export const useStore = create<AppState>((set, get) => ({
         ...(birthYear !== undefined && { birthYear }),
         ...(gender    !== undefined && { gender }),
       } : s.user,
-    })),
+    }));
+    // 지인 매칭 식별용 내 번호 해시 계산 (비동기)
+    hashPhone(phone).then(h => set({ myPhoneHash: h || null })).catch(() => {});
+  },
   updateEmail: (email) =>
     set((s) => ({ user: s.user ? { ...s.user, email } : null })),
   updateRegion: (gu, label) =>
@@ -229,6 +241,19 @@ export const useStore = create<AppState>((set, get) => ({
     set({ isPremium: v });
     AsyncStorage.setItem('locotalk_premium', v ? '1' : '0').catch(() => {});
   },
+
+  avoidContacts: false,
+  contactHashes: [],
+  myPhoneHash: null,
+  setAvoidContacts: (v) => {
+    set({ avoidContacts: v });
+    AsyncStorage.setItem('locotalk_avoid_contacts', v ? '1' : '0').catch(() => {});
+  },
+  setContactHashes: (h) => {
+    set({ contactHashes: h });
+    AsyncStorage.setItem('locotalk_contact_hashes', JSON.stringify(h)).catch(() => {});
+  },
+  setMyPhoneHash: (h) => set({ myPhoneHash: h }),
 
   matchCountThisHour: 0,
   matchCountResetAt: 0,

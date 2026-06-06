@@ -19,6 +19,7 @@
         "NSMicrophoneUsageDescription": "음성 메시지 전송 시 사용돼요",
         "NSCameraUsageDescription": "프로필 사진 설정 시 사용돼요",
         "NSPhotoLibraryUsageDescription": "사진을 첨부할 때 사용돼요",
+        "NSContactsUsageDescription": "지인과 매칭되지 않도록 연락처를 확인해요. 전화번호는 암호화 해시로만 비교되며 원본은 저장되지 않아요.",
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Switch, Animated,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Alert, Switch, Animated, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -17,6 +17,7 @@ import RegionPickerModal from '../components/RegionPickerModal';
 import IdentityVerifyModal from '../components/IdentityVerifyModal';
 import PhoneVerifyModal from '../components/PhoneVerifyModal';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
+import { loadContactPhoneHashes } from '../utils/contacts';
 
 const SW = 1.8;
 
@@ -131,6 +132,7 @@ export default function MyInfoScreen() {
     isPremium, matchCountThisHour,
     customRegionGu, customRegionLabel, setCustomRegion,
     setPhoneVerified, authUserId,
+    avoidContacts, setAvoidContacts, setContactHashes,
   } = useStore();
   const t    = useT();
   const curLang = useLang();
@@ -143,6 +145,29 @@ export default function MyInfoScreen() {
   const [showVerify,       setShowVerify]       = useState(false);
   const [showPhoneVerify,  setShowPhoneVerify]  = useState(false);
   const [showPortOne,      setShowPortOne]      = useState(false);
+  const [contactsLoading,  setContactsLoading]  = useState(false);
+
+  // ── 지인 매칭 피하기 (프리미엄) ────────────────────────────
+  const handleToggleAvoidContacts = async (next: boolean) => {
+    if (!isPremium) { setShowUpgrade(true); return; }      // 프리미엄 전용
+    if (!next) { setAvoidContacts(false); setContactHashes([]); return; }
+
+    setContactsLoading(true);
+    try {
+      const { granted, hashes } = await loadContactPhoneHashes();
+      if (!granted) {
+        Alert.alert('연락처 권한 필요', '지인 매칭을 피하려면 연락처 접근 권한이 필요해요.\n설정에서 권한을 허용해주세요.');
+        return;
+      }
+      setContactHashes(hashes);
+      setAvoidContacts(true);
+      Alert.alert('지인 매칭 피하기 켜짐', `연락처 ${hashes.length}명을 기준으로 지인과의 매칭을 피해요.\n(전화번호 원본은 저장되지 않아요)`);
+    } catch {
+      Alert.alert('오류', '연락처를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setContactsLoading(false);
+    }
+  };
 
   // ── 본인인증 게이트 ────────────────────────────────────────
   // 본인인증 활성화 스위치.
@@ -387,6 +412,29 @@ export default function MyInfoScreen() {
             />
           </View>
 
+          {/* 지인 매칭 피하기 — 프리미엄 (연락처 기반) */}
+          <View style={s.row}>
+            <View style={s.rowLeft}>
+              <IcoShield color={Colors.g4} size={15} />
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={s.rowTitle}>지인 매칭 피하기</Text>
+                  {!isPremium && <Text style={s.premiumTag}>PREMIUM</Text>}
+                </View>
+                <Text style={s.rowHint}>내 연락처에 있는 사람과 매칭되지 않아요</Text>
+              </View>
+            </View>
+            {contactsLoading
+              ? <ActivityIndicator size="small" color={Colors.primary} />
+              : <Switch
+                  value={avoidContacts}
+                  onValueChange={handleToggleAvoidContacts}
+                  trackColor={{ false: Colors.g2, true: '#034A93' }}
+                  thumbColor={avoidContacts ? '#ECFDF5' : Colors.g3}
+                  ios_backgroundColor={Colors.g2}
+                />}
+          </View>
+
           {/* 언어 — Language toggle */}
           <View style={s.row}>
             <View style={s.rowLeft}>
@@ -626,6 +674,7 @@ const s = StyleSheet.create({
   rowTitle:     { fontSize: Typography.footnote, fontWeight: '600', color: Colors.dark },
   rowHint:      { fontSize: 10, color: Colors.g3, marginTop: 1 },
   rowValue:     { fontSize: Typography.footnote, color: Colors.g4 },
+  premiumTag:   { fontSize: 9, fontWeight: '800', color: '#fff', backgroundColor: '#034A93', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, letterSpacing: 0.3 },
 
   // Spota info cards (list style)
   infoCards:   { backgroundColor: Colors.sf, marginHorizontal: Spacing.md, borderRadius: Radius.lg, overflow: 'hidden', borderWidth: 0.5, borderColor: Colors.separator },
