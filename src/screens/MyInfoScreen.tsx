@@ -144,6 +144,35 @@ export default function MyInfoScreen() {
   const [showPhoneVerify,  setShowPhoneVerify]  = useState(false);
   const [showPortOne,      setShowPortOne]      = useState(false);
 
+  // ── 본인인증 게이트 ────────────────────────────────────────
+  // 본인인증 활성화 스위치.
+  // 연동은 완료됨(공식 PortOne RN SDK). 단 다날 정식계약/실연동 전까지는
+  // 테스트 채널이라 실사용 완료가 안 되므로 false 로 두어 "준비 중" 안내만 노출.
+  // → 다날 실연동 준비되면 true 로 변경하면 바로 실서비스.
+  const VERIFY_LIVE = false;
+
+  const handleVerifyPress = () => {
+    if (user?.isVerified) return;
+    if (VERIFY_LIVE) { setShowPortOne(true); return; }
+
+    // 계약 전 — 깔끔한 안내. 개발 빌드에서는 테스트 우회 제공.
+    const buttons: any[] = [{ text: '확인', style: 'cancel' }];
+    if (__DEV__) {
+      buttons.unshift({
+        text: '테스트 인증(개발용)',
+        onPress: () => {
+          setPhoneVerified('01000000000', user?.nickname || '테스트', 1995, 'male');
+          Alert.alert('인증 완료', '테스트용 본인인증이 적용되었습니다.');
+        },
+      });
+    }
+    Alert.alert(
+      '통신사 본인인증 준비 중',
+      '통신사 본인인증 서비스를 준비하고 있어요.\n곧 이용하실 수 있습니다 🙏',
+      buttons,
+    );
+  };
+
   const myInts = (user?.interests || []).filter(i => i !== 'none');
   const myInt  = findInterest(myInts[0] || '');
 
@@ -236,7 +265,7 @@ export default function MyInfoScreen() {
           {/* 본인인증 버튼 */}
           <TouchableOpacity
             style={[s.verifyBtn, user?.isVerified && s.verifyBtnDone]}
-            onPress={() => !user?.isVerified && setShowPortOne(true)}
+            onPress={handleVerifyPress}
             activeOpacity={user?.isVerified ? 1 : 0.8}
           >
             <Text style={[s.verifyBtnTxt, user?.isVerified && s.verifyBtnTxtDone]}>
@@ -376,7 +405,7 @@ export default function MyInfoScreen() {
           {/* 본인인증 */}
           <TouchableOpacity
             style={[s.row, s.rowLast]}
-            onPress={() => !user?.isVerified && setShowPortOne(true)}
+            onPress={handleVerifyPress}
             activeOpacity={user?.isVerified ? 1 : 0.7}
             disabled={!!user?.isVerified}
           >
