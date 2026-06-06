@@ -26,6 +26,7 @@ import { login as kakaoLogin } from '@react-native-kakao/user';
 import { useStore } from '../store';
 import { useT } from '../i18n';
 import { Colors, Typography, Radius } from '../constants/theme';
+import { LT } from '../constants/lt';
 import { serverLogin } from '../services/userApi';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -77,12 +78,12 @@ function IcoNaver({ size = 20 }: { size?: number }) {
   );
 }
 
-function IcoEmail({ size = 20 }: { size?: number }) {
+function IcoEmail({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-        stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
-      <Path d="M22 6l-10 7L2 6" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
+        stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
+      <Path d="M22 6l-10 7L2 6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
     </Svg>
   );
 }
@@ -408,6 +409,7 @@ export default function LoginScreen() {
           {/* ── MAIN ────────────────────────────────── */}
           {step === 'main' && (
             <View style={s.btnGroup}>
+              <Text style={s.sheetLabel}>간편 로그인</Text>
               {/* Apple 로그인 — iOS 전용 */}
               <AppleAuthentication.AppleAuthenticationButton
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
@@ -443,8 +445,8 @@ export default function LoginScreen() {
                 onPress={() => { setStep('email_input'); animateIn(); }}
                 activeOpacity={0.85}
               >
-                <IcoEmail size={20} />
-                <Text style={[s.btnTxt, s.btnTxtLight]}>{t('login_email')}</Text>
+                <IcoEmail size={20} color={LT.brandStrong} />
+                <Text style={[s.btnTxt, { color: LT.brandStrong }]}>{t('login_email')}</Text>
               </TouchableOpacity>
 
               <Text style={s.terms}>{t('login_terms')}</Text>
@@ -568,28 +570,29 @@ const s = StyleSheet.create({
   appName:  { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 4 },
   sub:      { fontSize: 14, color: 'rgba(255,255,255,0.85)', marginTop: 6, textAlign: 'center' },
 
-  btnGroup: { gap: 11 },
+  btnGroup: { gap: 11, backgroundColor: LT.surface, borderRadius: 24, padding: 22, paddingTop: 18 },
+  sheetLabel: { fontSize: 13, fontWeight: '700', color: LT.label3, marginBottom: 2 },
   btn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    height: 54, borderRadius: Radius.pill, gap: 10,
+    height: 54, borderRadius: 14, gap: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
   },
-  btnGoogle: { backgroundColor: '#fff' },
+  btnGoogle: { backgroundColor: '#fff', borderWidth: 1, borderColor: LT.border },
   btnKakao:  { backgroundColor: '#FEE500' },
   btnNaver:  { backgroundColor: '#03C75A' },
-  btnEmail:  { backgroundColor: '#034A93' },
+  btnEmail:  { backgroundColor: LT.brandTint },
 
   btnTxt:      { fontSize: 15, fontWeight: '600', letterSpacing: -0.2 },
   btnTxtDark:  { color: '#1a1a1a' },
   btnTxtLight: { color: '#fff' },
 
   divRow:  { flexDirection: 'row', alignItems: 'center', marginVertical: 2 },
-  divLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.35)' },
-  divTxt:  { marginHorizontal: 12, color: 'rgba(255,255,255,0.8)', fontSize: 13 },
+  divLine: { flex: 1, height: 1, backgroundColor: LT.border },
+  divTxt:  { marginHorizontal: 12, color: LT.label3, fontSize: 13 },
 
   terms: {
-    fontSize: 11, color: 'rgba(255,255,255,0.7)',
+    fontSize: 11, color: LT.label3,
     textAlign: 'center', lineHeight: 16, marginTop: 6,
   },
 
@@ -628,7 +631,7 @@ const s = StyleSheet.create({
 
   // 개발자 테스트
   devSection: { marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 14 },
-  devLabel:   { fontSize: 11, color: 'rgba(255,255,255,0.6)', textAlign: 'center', marginBottom: 8 },
+  devLabel:   { fontSize: 11, color: LT.label4, textAlign: 'center', marginBottom: 8 },
   devRow:     { flexDirection: 'row', gap: 8 },
   devBtn:     { flex: 1, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   devBtnPremium: { backgroundColor: 'rgba(255,215,0,0.25)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.5)' },

@@ -43,6 +43,7 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
           resizeMode="contain"
         />
         <Text style={[st.splashName, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>LOCOTALK</Text>
+        <Text style={st.splashTagline}>내 동네 이웃과 익명으로</Text>
       </Animated.View>
     </Animated.View>
   );
@@ -51,8 +52,9 @@ function SplashOverlay({ onDone }: { onDone: () => void }) {
 const st = StyleSheet.create({
   splash:      { ...StyleSheet.absoluteFillObject, backgroundColor: '#40D3B6', alignItems: 'center', justifyContent: 'center', zIndex: 999 },
   splashInner: { alignItems: 'center', justifyContent: 'center' },
-  splashLogo:  { width: 76, height: 76, marginBottom: 10 },
-  splashName:  { color: '#fff', fontSize: 30, fontWeight: '800', letterSpacing: 4, textAlign: 'center' },
+  splashLogo:  { width: 96, height: 96, marginBottom: 14 },
+  splashName:  { color: '#fff', fontSize: 36, fontWeight: '800', letterSpacing: 1.5, textAlign: 'center' },
+  splashTagline: { color: 'rgba(255,255,255,0.85)', fontSize: 15, fontWeight: '500', marginTop: 14, textAlign: 'center' },
 });
 
 // ── 앱 루트 ─────────────────────────────────────────────────────────
