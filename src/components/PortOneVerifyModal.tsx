@@ -49,7 +49,11 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
       const data = JSON.parse(event.nativeEvent.data);
 
       if (!data.success) {
-        Alert.alert('본인인증 실패', data.error || '인증에 실패했습니다. 다시 시도해주세요.');
+        // 사용자 취소는 조용히, 그 외(미계약 등)는 준비중 안내
+        const msg = String(data.error || '');
+        if (!/취소|cancel/i.test(msg)) {
+          Alert.alert('본인인증 준비 중', '통신사 본인인증 서비스를 준비하고 있어요.\n곧 이용하실 수 있습니다 🙏');
+        }
         onClose();
         return;
       }
@@ -112,7 +116,7 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
             onLoadEnd={() => setLoading(false)}
             onError={() => {
               setLoading(false);
-              Alert.alert('본인인증 오류', '인증 화면을 불러올 수 없습니다.\n잠시 후 다시 시도해주세요.', [
+              Alert.alert('본인인증 준비 중', '통신사 본인인증 서비스를 준비하고 있어요.\n곧 이용하실 수 있습니다 🙏', [
                 { text: '확인', onPress: onClose },
               ]);
             }}
