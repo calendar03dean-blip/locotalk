@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
+import { LT } from '../constants/lt';
 import { INTERESTS, findInterest, interestLabel } from '../constants/data';
 import InterestIcon from '../components/InterestIcon';
 import NickAvatar from '../components/NickAvatar';
@@ -176,16 +177,6 @@ export default function OnboardingScreen() {
         <ScrollView ref={interestScrollRef} contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
 
-          {/* 로고 */}
-          <View style={s.logoWrap}>
-            <Image
-              source={require('../../assets/logo_white.png')}
-              style={s.logoImg}
-              resizeMode="contain"
-            />
-            <Text style={[s.logoTitle, fontsLoaded && { fontFamily: 'JUA-Regular' }]}>LOCOTALK</Text>
-          </View>
-
           {step === 'nick' ? (
             <View style={s.nickPage}>
               {/* ── 아바타 미리보기 ── */}
@@ -342,7 +333,7 @@ export default function OnboardingScreen() {
 }
 
 const s = StyleSheet.create({
-  safe:   { flex:1, backgroundColor:'#40D3B6' },
+  safe:   { flex:1, backgroundColor:LT.surface },
   scroll: { flexGrow:1, alignItems:'center', paddingHorizontal:Spacing.lg, paddingVertical:Spacing.xl },
 
   logoWrap:  { alignItems:'center', marginBottom:32 },
@@ -390,19 +381,19 @@ const s = StyleSheet.create({
   input:     { borderWidth:1.5, borderColor:Colors.separator, borderRadius:Radius.pill, paddingVertical:14, paddingHorizontal:44, fontSize:Typography.title3, fontWeight:'700', color:Colors.dark, backgroundColor:Colors.g1, textAlign:'center' },
   ringWrap:  { position:'absolute', right:14, top:0, bottom:0, justifyContent:'center' },
 
-  btn:     { width:'100%', backgroundColor:'#034A93', borderRadius:Radius.pill, height:52, justifyContent:'center', alignItems:'center', shadowColor:'#034A93', shadowOffset:{width:0,height:4}, shadowOpacity:0.3, shadowRadius:8 },
+  btn:     { width:'100%', backgroundColor:LT.brand, borderRadius:Radius.pill, height:52, justifyContent:'center', alignItems:'center', shadowColor:LT.brand, shadowOffset:{width:0,height:4}, shadowOpacity:0.3, shadowRadius:8 },
   btnOff:  { opacity:0.3 },
   btnInner:{ flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8 },
   btnTxt:  { fontSize:Typography.headline, fontWeight:'700', color:'#fff' },
 
   // interest count header
   interestSubRow: { flexDirection:'row', alignItems:'center', justifyContent:'space-between', marginBottom:Spacing.lg },
-  selCount:       { fontSize:Typography.footnote, fontWeight:'800', color:Colors.g3 },
-  selCountFull:   { color:Colors.primary },
+  selCount:       { fontSize:Typography.footnote, fontWeight:'800', color:LT.label3 },
+  selCountFull:   { color:LT.brandStrong },
 
   grid:          { flexDirection:'row', flexWrap:'wrap', gap:8, marginBottom:Spacing.lg },
   chip:          { width:'100%', paddingVertical:11, borderRadius:Radius.lg, borderWidth:1.5, borderColor:Colors.g2, backgroundColor:Colors.sf, alignItems:'center', gap:5, position:'relative' },
-  chipSel:       { borderColor:Colors.primary, backgroundColor:'#ECFDF5' },
+  chipSel:       { borderColor:LT.brand, backgroundColor:LT.brandTint },
   chipDim:       { opacity:0.38 },
   chipCheck:     { position:'absolute', top:4, right:4 },
   chipIcon:      { width:38, height:38, borderRadius:11, backgroundColor:Colors.g1, justifyContent:'center', alignItems:'center' },
