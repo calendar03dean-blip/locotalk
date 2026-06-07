@@ -11,6 +11,18 @@
 
 import { io, Socket } from 'socket.io-client';
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import * as Application from 'expo-application';
+
+// 통신비밀보호법: 기기 식별값(IDFV/AndroidId) — 접속로그용. 비식별 단말 식별자(개인정보 아님).
+let _deviceId: string | null = null;
+(async () => {
+  try {
+    _deviceId = Platform.OS === 'ios'
+      ? await Application.getIosIdForVendorAsync()
+      : ((Application as any).getAndroidId?.() ?? (Application as any).androidId ?? null);
+  } catch { _deviceId = null; }
+})();
 
 const SOCKET_PORT = 4000;
 const PROD_URL    = 'https://locotalk-production.up.railway.app';
@@ -68,6 +80,10 @@ export function connectSocket(): Socket {
             phoneHash    : st.myPhoneHash || null,
             avoidContacts: on,
             contactHashes: on ? (st.contactHashes || []) : [],
+            // 법령준수: 성인인증 가드(userId) + 접속로그(deviceId) + 위치수집방식 식별자
+            userId        : st.user?.id || st.authUserId || null,
+            deviceId      : _deviceId,
+            locationMethod: 'GPS',
             ...args[0],
           };
         } catch { /* onboarding 단계 등 — 무시 */ }

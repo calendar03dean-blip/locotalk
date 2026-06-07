@@ -54,7 +54,8 @@
     "react-native-svg": "15.12.1",
     "react-native-webview": "^13.16.1",
     "socket.io-client": "^4.7.5",
-    "zustand": "^4.5.5"
+    "zustand": "^4.5.5",
+    "expo-application": "7.0.8"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",

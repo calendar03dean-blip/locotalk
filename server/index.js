@@ -36,6 +36,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs             = require('fs');
 const path           = require('path');
 const { Pool }       = require('pg');
+const legal          = require('./legal');   // 법령준수(위치/통비/청소년/개인정보) 모듈
 
 // ─── PostgreSQL 연결 ─────────────────────────────────────────────────
 const db = new Pool({
@@ -75,6 +76,9 @@ async function initDB() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
     `);
     console.log('[db] ✅ users 테이블 준비 완료');
+    // 법령준수 스키마(위치/접속 로그 + users 보강) 준비 후 보관기간 자동파기 스케줄러 가동
+    await legal.initLegalSchema(db);
+    legal.startRetentionCron(db);
   } catch (e) {
     console.error('[db] 초기화 실패:', e.message);
   }
@@ -356,16 +360,20 @@ app.get('/users/:id', async (req, res) => {
   }
 });
 
-/** 회원 탈퇴 — 계정·프로필 영구 삭제 (네이버/Apple 심사 필수: 계정 삭제 기능) */
+/** 회원 탈퇴 — 개인정보보호법: 식별정보 Hard Delete + 보관의무 로그 비식별화 트랜잭션 */
 app.delete('/users/:id', async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ ok: true });
-  try {
-    await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('[users] 탈퇴 오류:', e.message);
-    res.status(500).json({ error: e.message });
-  }
+  const r = await legal.withdrawUser(db, req.params.id);
+  if (r.ok) return res.json({ ok: true, deleted: r.deletedUser });
+  console.error('[users] 탈퇴 오류:', r.error);
+  return res.status(500).json({ error: r.error || 'withdraw_failed' });
+});
+
+/** 위치기반서비스 이용약관 동의/철회 (위치정보법) — 동의해야 위치 수집·매칭 가능 */
+app.post('/users/:id/location-consent', async (req, res) => {
+  const agreed = req.body?.agreed === true || req.body?.agreed === 'true';
+  const ok = await legal.setLocationConsent(db, req.params.id, agreed);
+  res.json({ ok, locationConsent: agreed });
 });
 
 /** 프리미엄 상태 업데이트 */
@@ -388,17 +396,11 @@ app.patch('/users/:id/verify', async (req, res) => {
     return res.json({ ok: true, isVerified: true });
   }
   try {
-    await db.query(`
-      UPDATE users SET
-        gender      = $2,
-        birth_year  = $3,
-        phone       = $4,
-        is_verified = TRUE,
-        verified_at = NOW(),
-        updated_at  = NOW()
-      WHERE id = $1
-    `, [req.params.id, gender, birthYear, phone || null]);
-    res.json({ ok: true, isVerified: true });
+    await db.query('UPDATE users SET phone = COALESCE($2, phone), updated_at = NOW() WHERE id = $1',
+      [req.params.id, phone || null]);
+    // 청소년보호법: 성인여부 판정·반영 + 세션 JWT 발급
+    const r = await legal.setAdultVerified(db, req.params.id, { provider: 'self', birth: birthYear, gender });
+    res.json({ ok: true, isVerified: true, adultVerified: r.adult, token: r.token || null });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -434,16 +436,17 @@ app.post('/auth/portone-verify', async (req, res) => {
     const gender = (c.gender === 'MALE') ? 'male' : 'female';
     const phone  = (c.phoneNumber || '').replace(/[^0-9]/g, '');
 
-    // ── DB 업데이트 ──────────────────────────────────────────
-    if (pool && userId) {
-      await pool.query(
-        `UPDATE users SET phone=$1, is_verified=true, verified_at=NOW(), name=$2, birth_date=$3, gender=$4 WHERE id=$5`,
-        [phone, name, birth, gender, userId]
-      ).catch(() => {});
+    // ── DB 업데이트 (성인인증 반영 + 전화 저장) ──────────────────
+    // ⚠️ 기존 버그 수정: 'pool'(undefined)·없는 컬럼(name/birth_date) 사용 → db + 실제 컬럼으로 교체.
+    let sessionToken = null;
+    if (userId) {
+      try { await db.query('UPDATE users SET phone=$1, updated_at=NOW() WHERE id=$2', [phone, userId]); } catch {}
+      const r = await legal.setAdultVerified(db, userId, { provider: 'portone', birth, gender });
+      sessionToken = r.token || null;   // 청소년보호법: 성인여부 JWT 반영
     }
 
-    console.log(`[PortOne] ✅ 인증 완료 → ${name} (${birth}) ${gender} ${phone}`);
-    res.json({ success: true, name, birth, gender, phone });
+    console.log(`[PortOne] ✅ 인증 완료 → ${name} (${birth}) ${gender} ${phone} adult-token=${!!sessionToken}`);
+    res.json({ success: true, name, birth, gender, phone, token: sessionToken });
   } catch (e) {
     console.error('[PortOne] 오류:', e.message);
     res.status(500).json({ error: '인증 처리 중 오류가 발생했습니다.' });
@@ -542,6 +545,23 @@ app.get('/server-ip', async (_req, res) => {
 app.get('/debug/tokens', (_req, res) => {
   const tokens = Object.fromEntries(pushTokensByNick);
   res.json({ count: pushTokensByNick.size, tokens });
+});
+
+// 법령준수 로그 카운트 확인 (운영 점검용)
+app.get('/debug/legal', async (_req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ db: false });
+  try {
+    const loc = await db.query('SELECT COUNT(*)::int c, MIN(used_at) oldest FROM location_history_log');
+    const acc = await db.query('SELECT COUNT(*)::int c, MIN(event_at) oldest FROM access_log');
+    const adult = await db.query('SELECT COUNT(*)::int c FROM users WHERE adult_verified = TRUE');
+    const cons  = await db.query('SELECT COUNT(*)::int c FROM users WHERE location_consent = TRUE');
+    res.json({
+      db: true,
+      locationLog: loc.rows[0], accessLog: acc.rows[0],
+      adultVerifiedUsers: adult.rows[0].c, locationConsentUsers: cons.rows[0].c,
+      retentionDays: { location: legal.LOCATION_RETENTION_DAYS, access: legal.ACCESS_RETENTION_DAYS },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // 특정 닉에게 테스트 push 전송
@@ -829,9 +849,10 @@ function createRoom(socketA, userA, socketIdB, userB,
   io.sockets.sockets.get(socketIdB)?.join(roomId);
 
   // 두 유저 모두 좌표가 있으면 거리 계산 (프리미엄 전용 표시용)
+  // ⚠️ 스토킹 방지: 정확 좌표·정확 거리는 절대 노출 금지 → 500m 단위 버킷으로 가공 후 전달
   let distanceKm = null;
   if (userA.lat && userA.lng && userB.lat && userB.lng) {
-    distanceKm = Math.round(haversineKm(userA.lat, userA.lng, userB.lat, userB.lng) * 10) / 10;
+    distanceKm = legal.fuzzDistanceKm(haversineKm(userA.lat, userA.lng, userB.lat, userB.lng));
   }
 
   // 프리미엄 유저에게만 상대 성별/생년 공개
@@ -861,6 +882,14 @@ function createRoom(socketA, userA, socketIdB, userB,
   }
 
   console.log(`[match] ${userA.nick} ↔ ${userB.nick}  room=${roomId}  premium=${hasPremium}  [${eventA}/${eventB}]`);
+
+  // 통신비밀보호법: 대화방(매칭) 생성 시점 접속로그 — 양측 IP/기기/시점 기록 (수사기관 대응)
+  const sa = io.sockets.sockets.get(socketA.id);
+  const sb = io.sockets.sockets.get(socketIdB);
+  legal.logAccess(db, { eventType: 'ROOM_CREATED', userId: userA.userId, nick: userA.nick,
+    ip: sa?._ip, deviceId: sa?._deviceId, deviceInfo: sa?._deviceInfo, roomId, peerNick: userB.nick });
+  legal.logAccess(db, { eventType: 'ROOM_CREATED', userId: userB.userId, nick: userB.nick,
+    ip: sb?._ip, deviceId: sb?._deviceId, deviceInfo: sb?._deviceInfo, roomId, peerNick: userA.nick });
   return true;
 }
 
@@ -1107,17 +1136,48 @@ function resolveRoomForSender(socket, roomId, nick) {
 io.on('connection', (socket) => {
   console.log(`[connect] ${socket.id}`);
 
+  // 통신비밀보호법: 접속지 IP·기기식별값 캡처(소켓에 저장) + 접속로그 기록
+  socket._ip         = legal.getClientIp(socket);
+  socket._deviceId   = socket.handshake?.auth?.deviceId || socket.handshake?.query?.deviceId || null;
+  socket._deviceInfo = socket.handshake?.headers?.['user-agent'] || null;
+  legal.logAccess(db, { eventType: 'CONNECT', ip: socket._ip, deviceId: socket._deviceId, deviceInfo: socket._deviceInfo });
+
   // ── join_queue ──────────────────────────────────────────────────
-  socket.on('join_queue', (user) => {
+  socket.on('join_queue', async (user) => {
     const err = validate(user);
     if (err) { socket.emit('error', { message: err }); return; }
     if (socketToRoom.has(socket.id)) { socket.emit('error', { message: '이미 채팅 중이에요' }); return; }
+
+    // 식별/기기값 갱신 (payload 우선)
+    socket.userId    = user.userId || socket.userId || null;
+    if (user.deviceId) socket._deviceId = user.deviceId;
+
+    // 청소년보호법: 성인인증 미완료 차단 (매칭 진입 가드)
+    if (await legal.shouldBlockUnverified(db, { userId: socket.userId, token: user.authToken })) {
+      socket.emit('error', { code: 'adult_required', message: '성인인증이 필요한 서비스입니다.' });
+      return;
+    }
+
+    // 위치정보법: 좌표 동반 시 이용기록 로그(항상) + 동의 확인.
+    // 좌표 폐기(미동의 차단)는 ENFORCE_LOCATION_CONSENT=true 일 때만 — 클라 동의 UX 배포 후 활성화.
+    // (기본 off: 매칭 동작 변경 없이 컴플라이언스 로깅만 가동)
+    if (typeof user.lat === 'number' && typeof user.lng === 'number') {
+      const enforce   = process.env.ENFORCE_LOCATION_CONSENT === 'true';
+      const consented = socket.userId ? await legal.hasLocationConsent(db, socket.userId) : false;
+      if (enforce && !consented) {
+        legal.logLocationUse(db, { requesterId: socket.userId, method: user.locationMethod, status: 'REJECTED_NO_CONSENT', ip: socket._ip });
+        user.lat = null; user.lng = null;   // 동의 없으면 위치 미사용
+      } else {
+        legal.logLocationUse(db, { requesterId: socket.userId, method: user.locationMethod || 'GPS', status: 'SUCCESS', ip: socket._ip });
+      }
+    }
 
     // 매칭 시작 시 standby 풀에서 제거 (중복 상태 방지)
     standby.delete(socket.id);
 
     const entry = {
       socketId    : socket.id,
+      userId      : socket.userId || user.userId || null,   // 접속로그 연결용
       nick        : user.nick.trim(),
       interests   : user.interests,
       region      : user.region.trim(),
@@ -1171,12 +1231,21 @@ io.on('connection', (socket) => {
   });
 
   // ── join_standby ─────────────────────────────────────────────────
-  socket.on('join_standby', (user) => {
+  socket.on('join_standby', async (user) => {
     if (!user?.nick) return;
     if (socketToRoom.has(socket.id)) return;  // 채팅 중이면 무시
 
+    socket.userId = user.userId || socket.userId || null;
+    if (user.deviceId) socket._deviceId = user.deviceId;
+    // 청소년보호법: 미인증자는 매칭 대상(standby)에서도 제외
+    if (await legal.shouldBlockUnverified(db, { userId: socket.userId, token: user.authToken })) {
+      socket.emit('error', { code: 'adult_required', message: '성인인증이 필요한 서비스입니다.' });
+      return;
+    }
+
     const entry = {
       socketId : socket.id,
+      userId   : socket.userId || user.userId || null,
       nick     : (user.nick || '').trim(),
       interests: Array.isArray(user.interests) ? user.interests : [],
       region   : (user.region || '').trim(),
