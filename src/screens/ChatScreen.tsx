@@ -835,7 +835,7 @@ const s = StyleSheet.create({
   leaveTxt:      { fontSize: Typography.caption1, fontWeight: '700', color: '#EF4444' },
 
   list:          { flex: 1 },
-  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 20, gap: 8 },
+  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 36, gap: 8 },
   notice:        { alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: Radius.pill, paddingVertical: 5, paddingHorizontal: 14, marginVertical: 4 },
   noticeTxt:     { fontSize: 11, color: Colors.g4 },
   msgRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
