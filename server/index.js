@@ -1304,7 +1304,7 @@ io.on('connection', (socket) => {
   });
 
   // ── send_image (사진 전송) ────────────────────────────────────────
-  socket.on('send_image', ({ roomId, imageData, width, height } = {}) => {
+  socket.on('send_image', ({ roomId, imageData, width, height, clientId } = {}) => {
     if (!roomId || !imageData) return;
     const room = rooms.get(roomId);
     if (!room || !room.sockets.includes(socket.id)) return;
@@ -1314,7 +1314,8 @@ io.on('connection', (socket) => {
     const senderUser = room.users[senderIdx];
     const otherUser  = room.users[otherIdx];
 
-    const msgId = require('uuid').v4();
+    // 발신자 로컬 id를 그대로 사용해야 '읽음'(read_message)이 발신자 말풍선과 매칭됨
+    const msgId = (typeof clientId === 'string' && clientId) ? clientId : require('uuid').v4();
     const msgTime = koreanTime();
 
     io.to(roomId).except(socket.id).emit('receive_image', {

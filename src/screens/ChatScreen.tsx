@@ -336,6 +336,10 @@ export default function ChatScreen() {
     const onReceiveImage = ({ id, imageData, width, height, time }: any) => {
       setMessages(p => [...p, { id, text: '', mine: false, time, imageData, imgWidth: width, imgHeight: height }]);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
+      // 채팅 화면 포커스 중이면 즉시 읽음 처리 (이미지도 텍스트와 동일)
+      if (isFocusedRef.current && peer?.roomId) {
+        socket.emit('read_message', { roomId: peer.roomId, messageId: id });
+      }
     };
 
     socket.on('chat_history',                 onChatHistory);
@@ -472,7 +476,7 @@ export default function ChatScreen() {
       const socket = getSocket();
       if (socket?.connected && peer?.roomId) {
         const msgId = Date.now().toString();
-        socket.emit('send_image', { roomId: peer.roomId, imageData: `data:image/jpeg;base64,${compressed.base64}`, width: w, height: h });
+        socket.emit('send_image', { roomId: peer.roomId, imageData: `data:image/jpeg;base64,${compressed.base64}`, width: w, height: h, clientId: msgId });
         setMessages(p => [...p, { id: msgId, text: '', mine: true, time: '', imageData: uri, imgWidth: w, imgHeight: h }]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
       }
@@ -488,7 +492,7 @@ export default function ChatScreen() {
       const socket = getSocket();
       if (socket?.connected && peer?.roomId) {
         const msgId = Date.now().toString();
-        socket.emit('send_image', { roomId: peer.roomId, imageData: base64, width: w, height: h });
+        socket.emit('send_image', { roomId: peer.roomId, imageData: base64, width: w, height: h, clientId: msgId });
         setMessages(p => [...p, { id: msgId, text: '', mine: true, time: '', imageData: uri, imgWidth: w, imgHeight: h }]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
       }
