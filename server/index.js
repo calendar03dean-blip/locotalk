@@ -1520,6 +1520,225 @@ io.on('connection', (socket) => {
   });
 });
 
+// ═══════════════════════════════════════════════════════════════════
+//  관리자 패널  (/admin)  — 게시글 삭제 · 회원목록 · 데이터 확인
+//  보안: 레포에 약한 기본 비번을 넣으면 누구나 회원 개인정보·삭제에
+//        접근 가능 → Railway 환경변수 ADMIN_PASSWORD 필수.
+//        미설정 시 패널 전체 비활성(503).
+// ═══════════════════════════════════════════════════════════════════
+function adminAuth(req, res, next) {
+  const PASS = process.env.ADMIN_PASSWORD;
+  if (!PASS) {
+    return res.status(503).send(
+      'ADMIN_PASSWORD 환경변수가 설정되지 않았습니다. Railway → Variables 에서 ADMIN_PASSWORD 를 설정하세요.'
+    );
+  }
+  const hdr = req.headers.authorization || '';
+  const [scheme, b64] = hdr.split(' ');
+  if (scheme === 'Basic' && b64) {
+    const decoded = Buffer.from(b64, 'base64').toString('utf8');
+    const idx = decoded.indexOf(':');
+    const pw = idx >= 0 ? decoded.slice(idx + 1) : '';
+    if (pw === PASS) return next();
+  }
+  res.set('WWW-Authenticate', 'Basic realm="Locotalk Admin", charset="UTF-8"');
+  return res.status(401).send('관리자 인증이 필요합니다.');
+}
+
+// 모든 /admin* 경로 보호
+app.use('/admin', adminAuth);
+
+// ── 통계 ──
+app.get('/admin/api/stats', async (req, res) => {
+  let userCount = 0, premiumCount = 0, verifiedCount = 0;
+  try {
+    if (process.env.DATABASE_URL) {
+      const a = await db.query('SELECT COUNT(*)::int AS c FROM users');
+      const b = await db.query('SELECT COUNT(*)::int AS c FROM users WHERE is_premium = TRUE');
+      const c = await db.query('SELECT COUNT(*)::int AS c FROM users WHERE is_verified = TRUE');
+      userCount = a.rows[0].c; premiumCount = b.rows[0].c; verifiedCount = c.rows[0].c;
+    }
+  } catch (e) { console.error('[admin] stats:', e.message); }
+  let postCount = 0;
+  for (const arr of regionFeeds.values()) postCount += arr.length;
+  res.json({
+    users: userCount,
+    premium: premiumCount,
+    verified: verifiedCount,
+    posts: postCount,
+    regions: regionFeeds.size,
+    pushTokens: (typeof pushTokensByNick !== 'undefined' && pushTokensByNick) ? pushTokensByNick.size : 0,
+  });
+});
+
+// ── 회원목록 ──
+app.get('/admin/api/users', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json([]);
+  try {
+    const { rows } = await db.query(`
+      SELECT id, auth_provider, email, nickname, gender, birth_year,
+             interests, region_gu, region_label, is_premium, is_verified,
+             phone, created_at
+      FROM users ORDER BY created_at DESC NULLS LAST`);
+    const out = rows.map(u => {
+      let interests = [];
+      if (typeof u.interests === 'string') { try { interests = JSON.parse(u.interests); } catch {} }
+      else if (Array.isArray(u.interests)) interests = u.interests;
+      return {
+        id: u.id, provider: u.auth_provider, email: u.email, nickname: u.nickname,
+        gender: u.gender, birthYear: u.birth_year, interests,
+        regionGu: u.region_gu, regionLabel: u.region_label,
+        isPremium: u.is_premium, isVerified: u.is_verified,
+        phone: u.phone, createdAt: u.created_at,
+      };
+    });
+    res.json(out);
+  } catch (e) { console.error('[admin] users:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+// ── 회원 삭제 ──
+app.delete('/admin/api/users/:id', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ ok: true });
+  try {
+    await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) { console.error('[admin] del user:', e.message); res.status(500).json({ error: e.message }); }
+});
+
+// ── 게시글 목록 (전 지역 평탄화) ──
+app.get('/admin/api/feeds', (req, res) => {
+  const out = [];
+  for (const [region, arr] of regionFeeds.entries()) {
+    for (const it of arr) {
+      out.push({ region, id: it.id, nick: it.nick, interest: it.interest, time: it.time, msg: it.msg });
+    }
+  }
+  res.json(out);
+});
+
+// ── 게시글 삭제 ──
+app.delete('/admin/api/feeds/:region/:id', (req, res) => {
+  const { region, id } = req.params;
+  const arr = regionFeeds.get(region);
+  if (!arr) return res.status(404).json({ error: '지역 없음' });
+  const idx = arr.findIndex(it => it.id === id);
+  if (idx < 0) return res.status(404).json({ error: '게시글 없음' });
+  arr.splice(idx, 1);
+  regionFeeds.set(region, arr);
+  saveData();
+  // 접속 중인 같은 동네 유저들에게 삭제 알림 (있으면 클라가 반영)
+  try { io.to(`region:${region}`).emit('feed_deleted', { id }); } catch {}
+  res.json({ ok: true });
+});
+
+// ── 관리자 웹페이지 ──
+app.get('/admin', (req, res) => {
+  res.type('html').send(ADMIN_HTML);
+});
+
+const ADMIN_HTML = `<!DOCTYPE html>
+<html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Locotalk 관리자</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,'Apple SD Gothic Neo',sans-serif; background:#ECFDF5; color:#0f2530; }
+  header { background:#034A93; color:#fff; padding:14px 18px; display:flex; align-items:center; gap:10px; }
+  header h1 { font-size:17px; margin:0; font-weight:700; }
+  header .dot { width:9px; height:9px; border-radius:50%; background:#40D3B6; }
+  .tabs { display:flex; gap:6px; padding:12px 14px 0; }
+  .tab { padding:8px 16px; border:none; background:#d7eef0; color:#08506b; border-radius:10px 10px 0 0; font-size:14px; font-weight:600; cursor:pointer; }
+  .tab.active { background:#fff; color:#034A93; }
+  .panel { background:#fff; margin:0 14px 18px; border-radius:0 12px 12px 12px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.05); }
+  .stats { display:flex; flex-wrap:wrap; gap:12px; }
+  .stat { flex:1 1 130px; background:#ECFDF5; border-radius:12px; padding:14px 16px; }
+  .stat .n { font-size:26px; font-weight:800; color:#034A93; }
+  .stat .l { font-size:13px; color:#3a6172; margin-top:2px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid #eef2f4; vertical-align:top; }
+  th { color:#5a7a88; font-weight:600; font-size:12px; background:#f6fafb; position:sticky; top:0; }
+  tr:hover td { background:#f9fdfd; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; }
+  .pill.prem { background:#FEF3C7; color:#92600a; }
+  .pill.ver { background:#DBEAFE; color:#1e40af; }
+  .msg { max-width:340px; white-space:pre-wrap; word-break:break-word; }
+  .del { background:#fee2e2; color:#b91c1c; border:none; border-radius:8px; padding:5px 11px; font-size:12px; font-weight:700; cursor:pointer; }
+  .del:hover { background:#fecaca; }
+  .empty { color:#90a4ae; padding:30px; text-align:center; }
+  .wrap { overflow:auto; max-height:70vh; }
+  .refresh { margin-left:auto; background:#40D3B6; color:#063; border:none; border-radius:8px; padding:7px 13px; font-weight:700; cursor:pointer; font-size:13px; }
+</style></head><body>
+<header><span class="dot"></span><h1>Locotalk 관리자</h1>
+  <button class="refresh" onclick="loadAll()">↻ 새로고침</button></header>
+<div class="tabs">
+  <button class="tab active" data-t="stats" onclick="tab('stats')">📊 통계</button>
+  <button class="tab" data-t="users" onclick="tab('users')">👥 회원목록</button>
+  <button class="tab" data-t="feeds" onclick="tab('feeds')">📝 게시글</button>
+</div>
+<div class="panel" id="p-stats"><div class="stats" id="stats"></div></div>
+<div class="panel" id="p-users" style="display:none"><div class="wrap"><table id="users"></table></div></div>
+<div class="panel" id="p-feeds" style="display:none"><div class="wrap"><table id="feeds"></table></div></div>
+<script>
+function tab(t){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  ['stats','users','feeds'].forEach(x=>document.getElementById('p-'+x).style.display=x===t?'block':'none');
+}
+function esc(s){return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function fmt(d){ if(!d) return '-'; try{return new Date(d).toLocaleString('ko-KR');}catch{return d;} }
+async function loadStats(){
+  const s=await (await fetch('/admin/api/stats')).json();
+  document.getElementById('stats').innerHTML=[
+    ['회원 수',s.users],['프리미엄',s.premium],['본인인증',s.verified],
+    ['게시글',s.posts],['활성 지역',s.regions],['푸시토큰',s.pushTokens]
+  ].map(([l,n])=>'<div class="stat"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>').join('');
+}
+async function loadUsers(){
+  const list=await (await fetch('/admin/api/users')).json();
+  const t=document.getElementById('users');
+  if(!list.length){t.innerHTML='<tr><td class="empty">회원이 없습니다.</td></tr>';return;}
+  t.innerHTML='<tr><th>닉네임</th><th>이메일</th><th>경로</th><th>성별/출생</th><th>지역</th><th>관심사</th><th>상태</th><th>가입일</th><th></th></tr>'+
+    list.map(u=>'<tr>'+
+      '<td><b>'+esc(u.nickname||'(미설정)')+'</b></td>'+
+      '<td>'+esc(u.email)+'</td>'+
+      '<td>'+esc(u.provider)+'</td>'+
+      '<td>'+esc(u.gender||'-')+' / '+esc(u.birthYear||'-')+'</td>'+
+      '<td>'+esc(u.regionLabel||u.regionGu||'-')+'</td>'+
+      '<td>'+esc((u.interests||[]).join(', '))+'</td>'+
+      '<td>'+(u.isPremium?'<span class="pill prem">프리미엄</span> ':'')+(u.isVerified?'<span class="pill ver">인증</span>':'')+'</td>'+
+      '<td>'+fmt(u.createdAt)+'</td>'+
+      '<td><button class="del" onclick="delUser(\\''+esc(u.id)+'\\',this)">삭제</button></td>'+
+    '</tr>').join('');
+}
+async function loadFeeds(){
+  const list=await (await fetch('/admin/api/feeds')).json();
+  const t=document.getElementById('feeds');
+  if(!list.length){t.innerHTML='<tr><td class="empty">게시글이 없습니다.</td></tr>';return;}
+  t.innerHTML='<tr><th>지역</th><th>닉네임</th><th>관심사</th><th>내용</th><th>시간</th><th></th></tr>'+
+    list.map(f=>'<tr>'+
+      '<td>'+esc(f.region)+'</td>'+
+      '<td>'+esc(f.nick)+'</td>'+
+      '<td>'+esc(f.interest)+'</td>'+
+      '<td class="msg">'+esc(f.msg)+'</td>'+
+      '<td>'+esc(f.time)+'</td>'+
+      '<td><button class="del" onclick="delFeed(\\''+esc(f.region)+'\\',\\''+esc(f.id)+'\\',this)">삭제</button></td>'+
+    '</tr>').join('');
+}
+async function delUser(id,btn){
+  if(!confirm('이 회원을 영구 삭제할까요?\\n'+id))return;
+  btn.disabled=true;
+  const r=await fetch('/admin/api/users/'+encodeURIComponent(id),{method:'DELETE'});
+  if(r.ok){btn.closest('tr').remove();loadStats();}else{alert('삭제 실패');btn.disabled=false;}
+}
+async function delFeed(region,id,btn){
+  if(!confirm('이 게시글을 삭제할까요?'))return;
+  btn.disabled=true;
+  const r=await fetch('/admin/api/feeds/'+encodeURIComponent(region)+'/'+encodeURIComponent(id),{method:'DELETE'});
+  if(r.ok){btn.closest('tr').remove();loadStats();}else{alert('삭제 실패');btn.disabled=false;}
+}
+function loadAll(){loadStats();loadUsers();loadFeeds();}
+loadAll();
+</script></body></html>`;
+
 // ─── Start ───────────────────────────────────────────────────────
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
