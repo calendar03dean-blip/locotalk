@@ -85,6 +85,7 @@ export const translations = {
     login_terms: '계속하면 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.',
     login_back: '뒤로',
 
+    login_failed: '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.',
     // Email OTP
     email_input_title: '이메일 주소',
     email_input_placeholder: '이메일을 입력하세요',
@@ -264,6 +265,7 @@ export const translations = {
     login_terms: 'By continuing, you agree to our Terms of Service and Privacy Policy.',
     login_back: 'Back',
 
+    login_failed: 'Sign-in failed. Please try again in a moment.',
     // Email OTP
     email_input_title: 'Email Address',
     email_input_placeholder: 'Enter your email',

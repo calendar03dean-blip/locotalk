@@ -116,8 +116,36 @@ async function sendOtpToServer(email: string, code: string): Promise<boolean> {
 // ── 이메일 유효성 ────────────────────────────────────────────────────
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
-// ── 🔍 소셜 로그인 진단 헬퍼 (에러 코드/메시지 표면화) ─────────────────
-// 진단 빌드 전용: 각 실패 경로에서 실제 code/name/message를 화면에 그대로 노출.
+// ── base64 디코더 (atob 폴리필) — Apple identityToken(JWT) payload 해석용 ──
+function decodeBase64(b64: string): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const str = b64.replace(/=+$/, '');
+  let out = '';
+  let bc = 0, bs = 0;
+  for (let i = 0; i < str.length; i++) {
+    const idx = chars.indexOf(str.charAt(i));
+    if (idx === -1) continue;
+    bs = bc % 4 ? bs * 64 + idx : idx;
+    if (bc++ % 4) out += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6)));
+  }
+  return out;
+}
+
+// Apple identityToken(JWT)의 payload에서 email 추출.
+// Apple은 credential.email을 "첫 인증" 때만 채워주므로, 토큰에 있으면 폴백으로 사용.
+function emailFromAppleToken(idToken?: string | null): string | undefined {
+  if (!idToken) return undefined;
+  try {
+    const payload = idToken.split('.')[1];
+    if (!payload) return undefined;
+    let b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const obj = JSON.parse(decodeBase64(b64));
+    return typeof obj?.email === 'string' && obj.email ? obj.email : undefined;
+  } catch { return undefined; }
+}
+
+// ── 소셜 로그인 실패 로그 헬퍼 (콘솔 전용 — 사용자에겐 친절 문구만 노출) ──
 function diag(e: any): string {
   if (e == null) return 'error 객체 없음(undefined/null)';
   const parts: string[] = [];
@@ -152,7 +180,7 @@ export default function LoginScreen() {
   const [otpErr,   setOtpErr]   = useState('');
 
   const otpRef  = useRef<TextInput>(null);
-  const diagRef = useRef('');   // 🔍 서버 단계 진단 메시지 저장 (catch 외부 경로용)
+  const diagRef = useRef('');   // 서버 단계 실패 사유 저장 (console.warn 용)
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
 
@@ -241,13 +269,17 @@ export default function LoginScreen() {
         ],
       });
       if (!credential?.user) {
-        Alert.alert('🔍 Apple 진단', 'credential.user 없음 (SDK가 사용자 식별자 미반환)');
+        Alert.alert(t('login_failed'));
         return;
       }
-      const ok = await handleSocialLogin('apple', credential.user, credential.email ?? undefined);
-      if (!ok) Alert.alert('🔍 Apple 진단', diagRef.current || '서버 단계 실패(상세 없음)');
+      // Apple은 credential.email을 첫 인증 때만 줌 → 없으면 identityToken(JWT)에서 보강
+      const appleEmail = credential.email ?? emailFromAppleToken(credential.identityToken) ?? undefined;
+      const ok = await handleSocialLogin('apple', credential.user, appleEmail);
+      if (!ok) { console.warn('[apple] 로그인 실패:', diagRef.current); Alert.alert(t('login_failed')); }
     } catch (e: any) {
-      Alert.alert('🔍 Apple 진단 (catch)', diag(e));
+      if (e?.code === 'ERR_REQUEST_CANCELED') return; // 사용자 취소 — 조용히 종료
+      console.warn('[apple] 예외:', diag(e));
+      Alert.alert(t('login_failed'));
     } finally {
       setAuthLoading(false);
     }
@@ -260,13 +292,22 @@ export default function LoginScreen() {
     try {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       const response = await GoogleSignin.signIn();
+      // 최신 google-signin 은 취소 시 throw 하지 않고 { type: 'cancelled' } 를 반환 → 조용히 종료
+      if ((response as any)?.type === 'cancelled') return;
       const email    = response.data?.user?.email;
       const googleId = response.data?.user?.id ?? email ?? '';
-      if (!googleId) { Alert.alert('🔍 Google 진단', 'googleId/email 없음 — 응답:\n' + diag(response)); return; }
+      if (!googleId) { console.warn('[google] googleId/email 없음:', diag(response)); Alert.alert(t('login_failed')); return; }
       const ok = await handleSocialLogin('google', googleId, email ?? undefined);
-      if (!ok) Alert.alert('🔍 Google 진단', diagRef.current || '서버 단계 실패(상세 없음)');
+      if (!ok) { console.warn('[google] 로그인 실패:', diagRef.current); Alert.alert(t('login_failed')); }
     } catch (e: any) {
-      Alert.alert('🔍 Google 진단 (catch)', diag(e));
+      // 사용자 취소는 조용히 종료. (iOS는 취소 코드가 문자열/숫자 -5 또는 웹세션
+      //  취소로 제각각 → Kakao 처럼 message 에 'cancel' 포함 여부도 함께 검사)
+      const code = String(e?.code ?? '');
+      const msg  = String(e?.message ?? '').toLowerCase();
+      if (code === 'SIGN_IN_CANCELLED' || code === '-5' || code === 'ERR_REQUEST_CANCELED'
+          || msg.includes('cancel')) return;
+      console.warn('[google] 예외:', diag(e));
+      Alert.alert(t('login_failed'));
     } finally {
       setAuthLoading(false);
     }
@@ -293,9 +334,11 @@ export default function LoginScreen() {
       } catch { /* me() 실패해도 진행 */ }
 
       const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail);
-      if (!ok) Alert.alert('🔍 카카오 진단', diagRef.current || '서버 단계 실패(상세 없음)');
+      if (!ok) { console.warn('[kakao] 로그인 실패:', diagRef.current); Alert.alert(t('login_failed')); }
     } catch (e: any) {
-      Alert.alert('🔍 카카오 진단 (catch)', diag(e));
+      if (e?.code === 'CANCELED' || e?.message?.includes('cancel')) return; // 사용자 취소
+      console.warn('[kakao] 예외:', diag(e));
+      Alert.alert(t('login_failed'));
     } finally {
       setAuthLoading(false);
     }
@@ -314,12 +357,12 @@ export default function LoginScreen() {
         `&response_type=code&state=${state}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, 'locotalk://oauth');
 
-      if (result.type !== 'success' || !result.url) { Alert.alert('🔍 네이버 진단', 'WebBrowser 결과:\n' + diag(result)); return; }
+      if (result.type !== 'success' || !result.url) { return; } // 취소/실패 — 조용히 종료
 
       // 콜백 URL에서 code 추출
       const m     = result.url.match(/[?&]code=([^&]+)/);
       const rawCode = m ? decodeURIComponent(m[1]) : '';
-      if (!rawCode) { Alert.alert('🔍 네이버 진단', '인증 코드 없음 — 콜백 URL:\n' + result.url); return; }
+      if (!rawCode) { console.warn('[naver] 인증 코드 없음:', result.url); Alert.alert(t('login_failed')); return; }
 
       // 서버에서 토큰 교환 + 프로필 조회
       const res = await fetch('https://locotalk-production.up.railway.app/auth/naver-callback', {
@@ -329,14 +372,16 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (!res.ok || !data.userId) {
-        Alert.alert('🔍 네이버 진단', `서버 콜백 실패 status=${res.status}\n` + (data.error || diag(data)));
+        console.warn('[naver] 서버 콜백 실패:', res.status, data.error || diag(data));
+        Alert.alert(t('login_failed'));
         return;
       }
       // 인증 UI dismiss 후 전환 (위 handleSocialLogin과 동일한 크래시 레이스 방지)
       await new Promise<void>(r => setTimeout(r, 650));
       applyLoginResult('naver', data, data.email);
     } catch (e: any) {
-      Alert.alert('🔍 네이버 진단 (catch)', diag(e));
+      console.warn('[naver] 예외:', diag(e));
+      Alert.alert(t('login_failed'));
     } finally {
       setAuthLoading(false);
     }
