@@ -1068,6 +1068,41 @@ function cleanupRoom(roomId, leavingSocketId) {
   console.log(`[room] 🚪 ${leavingSocketId} left ${roomId}, other=${otherId || 'none'}`);
 }
 
+/**
+ * send_message/send_image 진입 시 발신 소켓이 방 멤버인지 확인.
+ * 소켓이 조용히 재연결돼 socket.id 가 바뀐 경우(네트워크 끊김·짧은 백그라운드 등
+ * rejoin_room 이 안 온 상황) nick 으로 방 멤버를 찾아 self-heal 재바인딩합니다.
+ * → 이게 없으면 발신자 메시지가 서버에서 조용히 버려져 상대 채팅·푸시 모두 안 감.
+ * @returns {{room, senderIdx}|null}
+ */
+function resolveRoomForSender(socket, roomId, nick) {
+  const room = rooms.get(roomId);
+  if (!room) return null;
+
+  let idx = room.sockets.indexOf(socket.id);
+  if (idx !== -1) return { room, senderIdx: idx };
+
+  // 소켓 id 가 방에 없음 → nick 으로 멤버 찾아 재바인딩
+  if (!nick) return null;
+  idx = room.users.findIndex(u => u.nick === nick);
+  if (idx === -1) return null;
+
+  const oldId = room.sockets[idx];
+  const t = reconnectTimers.get(oldId);
+  if (t) { clearTimeout(t.timer); reconnectTimers.delete(oldId); }
+
+  room.sockets[idx] = socket.id;
+  room.users[idx].socketId = socket.id;
+  socketToRoom.delete(oldId);
+  socketToRoom.set(socket.id, roomId);
+  socket.join(roomId);
+
+  const otherId = room.sockets.find(id => id !== socket.id);
+  if (otherId) io.to(otherId).emit('peer_reconnected');
+  console.log(`[room] 🔧 self-heal rebind ${nick} (${oldId} → ${socket.id}) room=${roomId}`);
+  return { room, senderIdx: idx };
+}
+
 // ─── Socket handlers ──────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[connect] ${socket.id}`);
@@ -1251,14 +1286,13 @@ io.on('connection', (socket) => {
   });
 
   // ── send_message ─────────────────────────────────────────────────
-  socket.on('send_message', ({ roomId, text, clientId }) => {
+  socket.on('send_message', ({ roomId, text, clientId, nick }) => {
     if (!roomId || !text || typeof text !== 'string') return;
     if (text.length > 500) return;
 
-    const room = rooms.get(roomId);
-    if (!room || !room.sockets.includes(socket.id)) return;
-
-    const senderIdx  = room.sockets.indexOf(socket.id);
+    const resolved = resolveRoomForSender(socket, roomId, nick);
+    if (!resolved) return;
+    const { room, senderIdx } = resolved;
     const otherIdx   = senderIdx === 0 ? 1 : 0;
     const senderUser = room.users[senderIdx];
     const otherUser  = room.users[otherIdx];
@@ -1304,12 +1338,11 @@ io.on('connection', (socket) => {
   });
 
   // ── send_image (사진 전송) ────────────────────────────────────────
-  socket.on('send_image', ({ roomId, imageData, width, height, clientId } = {}) => {
+  socket.on('send_image', ({ roomId, imageData, width, height, clientId, nick } = {}) => {
     if (!roomId || !imageData) return;
-    const room = rooms.get(roomId);
-    if (!room || !room.sockets.includes(socket.id)) return;
-
-    const senderIdx = room.sockets.indexOf(socket.id);
+    const resolved = resolveRoomForSender(socket, roomId, nick);
+    if (!resolved) return;
+    const { room, senderIdx } = resolved;
     const otherIdx  = senderIdx === 0 ? 1 : 0;
     const senderUser = room.users[senderIdx];
     const otherUser  = room.users[otherIdx];

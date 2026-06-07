@@ -268,6 +268,13 @@ export default function ChatScreen() {
     const addNotice = (text: string) =>
       setMessages(p => [...p, { id: Date.now().toString(), text, mine: false, time: '', isNotice: true }]);
 
+    // 소켓이 조용히 재연결되면(네트워크 끊김 등 AppState 변화 없는 경우) socket.id 가
+    // 바뀌어 서버 방 멤버십이 stale 해집니다 → 재연결 즉시 rejoin_room 으로 재바인딩.
+    // (서버에도 send 시 self-heal 이 있지만, 읽음·수신 이벤트까지 즉시 복구하려면 필요)
+    const onReconnect = () => {
+      if (peer?.roomId) socket.emit('rejoin_room', { roomId: peer.roomId, nick: user?.nickname });
+    };
+
     const onReceiveMessage = ({ id, text, time }: { id: string; text: string; time: string }) => {
       setMessages(p => [...p, { id, text, mine: false, time }]);
       setLastPeerMsg(text);
@@ -345,8 +352,10 @@ export default function ChatScreen() {
     socket.on('chat_history',                 onChatHistory);
     socket.on('message_read',                 onMessageRead);
     socket.on('receive_image',                onReceiveImage);
+    socket.on('connect',                      onReconnect);
 
     return () => {
+      socket.off('connect',                      onReconnect);
       socket.off('receive_message',              onReceiveMessage);
       socket.off('peer_left',                    onPeerLeft);
       socket.off('peer_temporarily_disconnected', onPeerTemporarilyDisconnected);
@@ -401,7 +410,7 @@ export default function ChatScreen() {
 
     const socket = getSocket();
     if (!isOffline && socket?.connected && peer?.roomId) {
-      socket.emit('send_message', { roomId: peer.roomId, text: text.trim(), clientId: msgId });
+      socket.emit('send_message', { roomId: peer.roomId, text: text.trim(), clientId: msgId, nick: user?.nickname });
       return;
     }
 
@@ -476,7 +485,7 @@ export default function ChatScreen() {
       const socket = getSocket();
       if (socket?.connected && peer?.roomId) {
         const msgId = Date.now().toString();
-        socket.emit('send_image', { roomId: peer.roomId, imageData: `data:image/jpeg;base64,${compressed.base64}`, width: w, height: h, clientId: msgId });
+        socket.emit('send_image', { roomId: peer.roomId, imageData: `data:image/jpeg;base64,${compressed.base64}`, width: w, height: h, clientId: msgId, nick: user?.nickname });
         setMessages(p => [...p, { id: msgId, text: '', mine: true, time: '', imageData: uri, imgWidth: w, imgHeight: h }]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
       }
@@ -492,7 +501,7 @@ export default function ChatScreen() {
       const socket = getSocket();
       if (socket?.connected && peer?.roomId) {
         const msgId = Date.now().toString();
-        socket.emit('send_image', { roomId: peer.roomId, imageData: base64, width: w, height: h, clientId: msgId });
+        socket.emit('send_image', { roomId: peer.roomId, imageData: base64, width: w, height: h, clientId: msgId, nick: user?.nickname });
         setMessages(p => [...p, { id: msgId, text: '', mine: true, time: '', imageData: uri, imgWidth: w, imgHeight: h }]);
         setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
       }
