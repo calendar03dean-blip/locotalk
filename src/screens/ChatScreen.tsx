@@ -634,6 +634,7 @@ export default function ChatScreen() {
         {/* ── Messages ─────────────────────────────────── */}
         <FlatList
           ref={listRef}
+          style={s.list}
           data={messages}
           keyExtractor={m => m.id}
           contentContainerStyle={s.msgList}
@@ -676,9 +677,7 @@ export default function ChatScreen() {
                 {/* 시간 + 읽음 표시 (버블 바깥 하단) */}
                 <View style={item.mine ? s.timeReadRowMine : s.timeReadRow}>
                   {item.mine && (
-                    <Text style={item.read ? s.readDone : s.readPending}>
-                      {item.read ? '읽음' : '✓'}
-                    </Text>
+                    <Text style={item.read ? s.readDone : s.readPending}>✓</Text>
                   )}
                   <Text style={[s.timeStr, item.mine && s.timeStrMine]}>{item.time}</Text>
                 </View>
@@ -813,7 +812,8 @@ const s = StyleSheet.create({
   leaveBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: Radius.pill, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
   leaveTxt:      { fontSize: Typography.caption1, fontWeight: '700', color: '#EF4444' },
 
-  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 28, gap: 8 },
+  list:          { flex: 1 },
+  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 12, gap: 8 },
   notice:        { alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: Radius.pill, paddingVertical: 5, paddingHorizontal: 14, marginVertical: 4 },
   noticeTxt:     { fontSize: 11, color: Colors.g4 },
   msgRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
