@@ -785,8 +785,10 @@ async function sendPushToNick(recipientNick, senderNick, text) {
     data             : { type: 'chat_message' },
     sound            : 'default',
     priority         : 'high',          // iOS 화면꺼짐/백그라운드 즉시 전달
-    _contentAvailable: true,            // iOS background wake (앱 깨워서 배지 갱신용)
-    channelId        : 'default',       // Android 채널
+    // ⚠️ _contentAvailable(=content-available:1)는 "무음 백그라운드 푸시" 플래그라
+    //    잠금화면/타앱 사용 중 가시 배너가 억제될 수 있음 → 채팅은 가시 알림으로 발송.
+    badge            : 1,
+    channelId        : 'default',       // Android 채널 (MAX importance)
   }, `chat→${recipientNick}`);
 }
 
@@ -1238,7 +1240,7 @@ io.on('connection', (socket) => {
   });
 
   // ── send_message ─────────────────────────────────────────────────
-  socket.on('send_message', ({ roomId, text }) => {
+  socket.on('send_message', ({ roomId, text, clientId }) => {
     if (!roomId || !text || typeof text !== 'string') return;
     if (text.length > 500) return;
 
@@ -1250,7 +1252,9 @@ io.on('connection', (socket) => {
     const senderUser = room.users[senderIdx];
     const otherUser  = room.users[otherIdx];
 
-    const msgId   = uuidv4();
+    // 발신자가 만든 로컬 id를 그대로 사용해야 '읽음' 확인(read_message)이
+    // 발신자 말풍선과 매칭됨. (없으면 서버가 생성 — 구버전 클라 호환)
+    const msgId   = (typeof clientId === 'string' && clientId) ? clientId : uuidv4();
     const msgTime = koreanTime();
 
     io.to(roomId).except(socket.id).emit('receive_message', {

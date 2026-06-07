@@ -198,6 +198,19 @@ export default function ChatScreen() {
     };
   }, [isFocused]);
 
+  // 채팅 화면이 포커스(active)일 때, 받은 상대 메시지를 읽음 처리해 상대에게 '읽음' 전송.
+  // (수신 즉시 처리 외에, 다른 탭에 있다가 들어온 경우까지 커버)
+  useEffect(() => {
+    if (!isFocused || AppState.currentState !== 'active' || !peer?.roomId) return;
+    const socket = getSocket();
+    if (!socket?.connected) return;
+    messages.forEach(m => {
+      if (!m.mine && !m.isNotice) {
+        socket.emit('read_message', { roomId: peer.roomId, messageId: m.id });
+      }
+    });
+  }, [isFocused, messages, peer?.roomId]);
+
   // ── 새 매칭 시작 → 대화 내역 초기화 + 프리미엄 히스토리 로드 ──
   useEffect(() => {
     if (!peer) { prevRoomId.current = null; return; }
@@ -384,7 +397,7 @@ export default function ChatScreen() {
 
     const socket = getSocket();
     if (!isOffline && socket?.connected && peer?.roomId) {
-      socket.emit('send_message', { roomId: peer.roomId, text: text.trim() });
+      socket.emit('send_message', { roomId: peer.roomId, text: text.trim(), clientId: msgId });
       return;
     }
 
@@ -800,7 +813,7 @@ const s = StyleSheet.create({
   leaveBtn:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: Radius.pill, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(239,68,68,0.2)' },
   leaveTxt:      { fontSize: Typography.caption1, fontWeight: '700', color: '#EF4444' },
 
-  msgList:       { padding: Spacing.md, gap: 8 },
+  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 28, gap: 8 },
   notice:        { alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: Radius.pill, paddingVertical: 5, paddingHorizontal: 14, marginVertical: 4 },
   noticeTxt:     { fontSize: 11, color: Colors.g4 },
   msgRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
