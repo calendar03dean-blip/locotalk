@@ -217,6 +217,17 @@ app.post('/auth/login', async (req, res) => {
 
     if (rows.length > 0) {
       const user = rows[0];
+
+      // 이메일 백필: 기존 유저인데 email이 비어 있고 이번 로그인에 email이 오면 저장.
+      // (카카오 비즈앱 이메일 동의 신설/애플 첫로그인 등으로 뒤늦게 이메일이 들어오는 경우 커버)
+      if (email && (!user.email || user.email.trim() === '')) {
+        try {
+          await db.query('UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2', [email, user.id]);
+          user.email = email;
+          console.log(`[auth] ✉️ email backfilled for ${user.id} → ${email}`);
+        } catch (e) { console.warn('[auth] email 백필 실패:', e.message); }
+      }
+
       // interests는 TEXT(JSON 문자열)로 저장됨 → 배열로 파싱해 반환.
       // (안 하면 클라에서 user.interests.filter() → "undefined is not a function" 크래시)
       if (typeof user.interests === 'string') {
