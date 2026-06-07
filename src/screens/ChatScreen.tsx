@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  FlatList, KeyboardAvoidingView, Platform, Alert, AppState, AppStateStatus, Share, Image as RNImage,
+  FlatList, KeyboardAvoidingView, Keyboard, Platform, Alert, AppState, AppStateStatus, Share, Image as RNImage,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -197,6 +197,15 @@ export default function ChatScreen() {
       setChatFocused(false);
     };
   }, [isFocused]);
+
+  // 키보드가 열리면 FlatList 콘텐츠 크기는 그대로(프레임만 축소)라 onContentSizeChange
+  // 가 안 터져 마지막 메시지가 가려짐 → 키보드 등장 시 직접 끝으로 스크롤.
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+    });
+    return () => sub.remove();
+  }, []);
 
   // 채팅 화면이 포커스(active)일 때, 받은 상대 메시지를 읽음 처리해 상대에게 '읽음' 전송.
   // (수신 즉시 처리 외에, 다른 탭에 있다가 들어온 경우까지 커버)
@@ -826,7 +835,7 @@ const s = StyleSheet.create({
   leaveTxt:      { fontSize: Typography.caption1, fontWeight: '700', color: '#EF4444' },
 
   list:          { flex: 1 },
-  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 12, gap: 8 },
+  msgList:       { paddingHorizontal: Spacing.md, paddingTop: Spacing.md, paddingBottom: 20, gap: 8 },
   notice:        { alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: Radius.pill, paddingVertical: 5, paddingHorizontal: 14, marginVertical: 4 },
   noticeTxt:     { fontSize: 11, color: Colors.g4 },
   msgRow:        { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
