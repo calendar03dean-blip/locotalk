@@ -345,6 +345,18 @@ app.get('/users/:id', async (req, res) => {
   }
 });
 
+/** 회원 탈퇴 — 계정·프로필 영구 삭제 (네이버/Apple 심사 필수: 계정 삭제 기능) */
+app.delete('/users/:id', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ ok: true });
+  try {
+    await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[users] 탈퇴 오류:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /** 프리미엄 상태 업데이트 */
 app.patch('/users/:id/premium', async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ ok: true });

@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useStore } from '../store';
+import { deleteUserAccount } from '../services/userApi';
 import { Colors, Typography, Spacing, Radius, Shadow, tinted } from '../constants/theme';
 import { LT } from '../constants/lt';
 import { findInterest, INTERESTS, interestLabel } from '../constants/data';
@@ -497,6 +498,23 @@ export default function MyInfoScreen() {
           </View>
         </TouchableOpacity>
 
+        {/* ── 회원탈퇴 (계정 영구 삭제 — 네이버/Apple 심사 필수) ───────── */}
+        <TouchableOpacity style={s.deleteAccountBtn} onPress={() => {
+          Alert.alert(
+            '회원탈퇴',
+            '탈퇴하면 계정과 모든 데이터(프로필·매칭 기록 등)가 영구 삭제되며 복구할 수 없어요. 정말 탈퇴하시겠어요?',
+            [
+              { text: '취소', style: 'cancel' },
+              { text: '탈퇴', style: 'destructive', onPress: async () => {
+                if (user?.id) await deleteUserAccount(user.id);
+                setLoggedOut();
+              }},
+            ],
+          );
+        }}>
+          <Text style={s.deleteAccountTxt}>회원탈퇴</Text>
+        </TouchableOpacity>
+
         <Text style={s.version}>Locotalk Beta · v1.0</Text>
       </ScrollView>
 
@@ -691,6 +709,8 @@ const s = StyleSheet.create({
   logoutBtn:      { margin: Spacing.lg, backgroundColor: Colors.g1, borderRadius: Radius.pill, height: 48, justifyContent: 'center', borderWidth: 0.5, borderColor: Colors.separator },
   logoutBtnInner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   logoutTxt:      { fontSize: Typography.footnote, fontWeight: '700', color: Colors.g4 },
+  deleteAccountBtn: { alignItems: 'center', paddingVertical: 6, marginTop: -6, marginBottom: 4 },
+  deleteAccountTxt: { fontSize: 12, color: Colors.g3, textDecorationLine: 'underline' },
   version:        { textAlign: 'center', fontSize: 11, color: Colors.g3, marginBottom: 110 },
 
   sheetBg:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

@@ -66,6 +66,16 @@ export async function loadUserProfile(userId: string): Promise<UserProfile | nul
   }
 }
 
+/** 회원 탈퇴 — 서버에서 계정·프로필 영구 삭제 */
+export async function deleteUserAccount(userId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** 프리미엄 상태 동기화 */
 export async function syncPremiumStatus(userId: string, isPremium: boolean): Promise<void> {
   try {
