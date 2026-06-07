@@ -76,6 +76,19 @@ export async function deleteUserAccount(userId: string): Promise<boolean> {
   }
 }
 
+/** 위치기반서비스 이용약관 동의/철회 저장 (위치정보법) */
+export async function setLocationConsent(userId: string, agreed: boolean): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/location-consent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agreed }),
+    });
+    const data = await res.json();
+    return data.ok === true;
+  } catch { return false; }
+}
+
 /** 프리미엄 상태 동기화 */
 export async function syncPremiumStatus(userId: string, isPremium: boolean): Promise<void> {
   try {

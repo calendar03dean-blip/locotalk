@@ -521,6 +521,16 @@ app.post('/auth/verify-phone-otp', async (req, res) => {
   res.json({ success: true });
 });
 
+// 개인정보처리방침 (위치기반서비스 약관 동의 모달 등에서 링크) — docs/ HTML 서빙
+app.get('/privacy', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'docs', 'privacy-policy.html'),
+    (err) => { if (err) res.status(404).send('privacy policy not found'); });
+});
+app.get('/privacy/en', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'docs', 'privacy-policy-en.html'),
+    (err) => { if (err) res.status(404).send('not found'); });
+});
+
 app.get('/health', (_req, res) => {
   res.json({
     status  : 'ok',

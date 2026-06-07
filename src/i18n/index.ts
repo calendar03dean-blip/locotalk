@@ -86,6 +86,23 @@ export const translations = {
     login_back: '뒤로',
 
     login_failed: '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.',
+    // 위치기반서비스 이용약관 동의 (위치정보법)
+    loc_consent_title: '위치기반서비스 이용약관',
+    loc_consent_sub: '내 주변 이웃 매칭을 위해 위치정보 이용에 동의가 필요해요.',
+    loc_consent_h1: '1. 수집하는 위치정보',
+    loc_consent_p1: '현재 위치(GPS/네트워크 기반 좌표). 정확한 좌표는 상대에게 공개되지 않으며, 거리만 500m 단위로 표시됩니다.',
+    loc_consent_h2: '2. 이용 목적',
+    loc_consent_p2: '내 주변(동네) 이웃과의 거리 기반 매칭에만 사용됩니다.',
+    loc_consent_h3: '3. 보유 및 이용기간',
+    loc_consent_p3: '위치정보 이용·제공 사실은 위치정보법에 따라 6개월간 보관 후 자동 파기되며, 회원 탈퇴 시 즉시 비식별 처리됩니다.',
+    loc_consent_policy_link: '개인정보처리방침 전문 보기',
+    loc_consent_agree: '동의하고 매칭 시작',
+    loc_consent_cancel: '동의하지 않음',
+    // 성인(본인)인증 필요 안내 (청소년보호법)
+    adult_required_title: '본인인증이 필요해요',
+    adult_required_msg: '안전한 익명 채팅을 위해 매칭 전 본인인증(성인 확인)이 필요합니다.',
+    adult_required_verify: '본인인증 하기',
+    adult_required_cancel: '나중에',
     // Email OTP
     email_input_title: '이메일 주소',
     email_input_placeholder: '이메일을 입력하세요',
@@ -266,6 +283,23 @@ export const translations = {
     login_back: 'Back',
 
     login_failed: 'Sign-in failed. Please try again in a moment.',
+    // Location-based service terms consent (Location Information Act)
+    loc_consent_title: 'Location-Based Service Terms',
+    loc_consent_sub: 'We need your consent to use location data for matching nearby neighbors.',
+    loc_consent_h1: '1. Location data collected',
+    loc_consent_p1: 'Your current location (GPS/network coordinates). Exact coordinates are never shared with others — only distance, rounded to 500m.',
+    loc_consent_h2: '2. Purpose of use',
+    loc_consent_p2: 'Used only for distance-based matching with neighbors in your area.',
+    loc_consent_h3: '3. Retention period',
+    loc_consent_p3: 'Records of location use are kept for 6 months per the Location Information Act, then auto-deleted; de-identified immediately upon account withdrawal.',
+    loc_consent_policy_link: 'View full Privacy Policy',
+    loc_consent_agree: 'Agree & Start Matching',
+    loc_consent_cancel: 'Do not agree',
+    // Identity (adult) verification required (Youth Protection Act)
+    adult_required_title: 'Identity verification required',
+    adult_required_msg: 'For safe anonymous chat, identity (adult) verification is required before matching.',
+    adult_required_verify: 'Verify now',
+    adult_required_cancel: 'Later',
     // Email OTP
     email_input_title: 'Email Address',
     email_input_placeholder: 'Enter your email',

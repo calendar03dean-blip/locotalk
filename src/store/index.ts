@@ -150,6 +150,10 @@ interface AppState {
   userLat: number | null;
   userLng: number | null;
   setUserCoords: (lat: number, lng: number) => void;
+
+  // 위치기반서비스 이용약관 동의 (위치정보법) — 서버 location_consent 와 동기화
+  locationConsent: boolean;
+  setLocationConsent: (v: boolean) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -299,5 +303,8 @@ export const useStore = create<AppState>((set, get) => ({
   userLat: null,
   userLng: null,
   setUserCoords: (lat, lng) => set({ userLat: lat, userLng: lng }),
+
+  locationConsent: false,
+  setLocationConsent: (v) => set({ locationConsent: v }),
 
 }));

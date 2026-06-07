@@ -167,6 +167,7 @@ export default function LoginScreen() {
   const setAuth      = useStore(s => s.setAuth);
   const setLoggedIn  = useStore(s => s.setLoggedIn);
   const setPremium   = useStore(s => s.setPremium);
+  const setLocationConsent = useStore(s => s.setLocationConsent);
 
   const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
   const [step,     setStep]     = useState<Step>('main');
@@ -232,7 +233,11 @@ export default function LoginScreen() {
         email: u.email,
         gender: u.gender,
         birthYear: u.birth_year || u.birthYear,
+        // 법령준수: 기존 인증/동의 상태 복원 — 재로그인 시 재인증·재동의 강요 방지
+        isVerified: u.is_verified === true || u.adult_verified === true,
       });
+      // 위치기반서비스 약관 동의 상태 복원
+      setLocationConsent(u.location_consent === true);
     }
     return true;
   };

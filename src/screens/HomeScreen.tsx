@@ -17,6 +17,8 @@ import { regionIconId } from '../constants/regions';
 import NickAvatar from '../components/NickAvatar';
 import InterestIcon from '../components/InterestIcon';
 import UpgradeModal from '../components/UpgradeModal';
+import PortOneVerifyModal from '../components/PortOneVerifyModal';
+import LocationConsentModal from '../components/LocationConsentModal';
 import { connectSocket, getSocket } from '../services/socket';
 
 // Legacy pool kept for offline/error fallback only
@@ -145,6 +147,7 @@ export default function HomeScreen() {
     customRegionGu, customRegionLabel,
     autoMatchTrigger,
     avoidContacts, contactHashes,
+    authUserId, locationConsent, setLocationConsent, setPhoneVerified,
   } = useStore();
 
   // 내 본인인증 번호 해시 (지인 매칭 피하기용 — 상대 연락처와 대조됨)
@@ -159,6 +162,8 @@ export default function HomeScreen() {
   const [locLoading,    setLocLoading]    = useState(false);
   const [searching,     setSearching]     = useState(false);
   const [showUpgrade,   setShowUpgrade]   = useState(false);
+  const [showAdultVerify,   setShowAdultVerify]   = useState(false);  // 청소년보호법: 본인인증 게이트
+  const [showLocConsent,    setShowLocConsent]    = useState(false);  // 위치정보법: 위치약관 동의 게이트
   const [composeText,   setComposeText]   = useState('');
   const [feed,          setFeed]          = useState<FeedItem[]>(DEFAULT_FEED);
   const [feedLimit,     setFeedLimit]     = useState(5);
@@ -306,6 +311,12 @@ export default function HomeScreen() {
       navigation.navigate('채팅');
       return;
     }
+
+    // ── 법령준수 게이트 (매칭 진입 전) ───────────────────────────────
+    // 1) 청소년보호법: 본인(성인)인증 미완료 → 인증 유도
+    if (!user.isVerified) { setShowAdultVerify(true); return; }
+    // 2) 위치정보법: 위치기반서비스 이용약관 미동의 → 동의 모달
+    if (!locationConsent)  { setShowLocConsent(true);  return; }
 
     // 매칭 횟수 리셋 체크 후 한도 확인
     resetMatchCountIfNeeded();
@@ -682,6 +693,31 @@ export default function HomeScreen() {
         visible={showUpgrade}
         onClose={() => setShowUpgrade(false)}
         reason="limit"
+      />
+
+      {/* ── 청소년보호법: 본인(성인)인증 게이트 ───────────── */}
+      <PortOneVerifyModal
+        visible={showAdultVerify}
+        onClose={() => setShowAdultVerify(false)}
+        userId={user?.id || authUserId || 'guest'}
+        onVerified={(info) => {
+          const yr = parseInt(info.birth.slice(0, 4)) || undefined;
+          setPhoneVerified(info.phone, info.name, yr, info.gender);  // user.isVerified = true
+          setShowAdultVerify(false);
+          setTimeout(startMatch, 300);   // 인증 후 매칭 이어서 진행
+        }}
+      />
+
+      {/* ── 위치정보법: 위치기반서비스 이용약관 동의 게이트 ─── */}
+      <LocationConsentModal
+        visible={showLocConsent}
+        userId={user?.id || authUserId || ''}
+        onClose={() => setShowLocConsent(false)}
+        onAgree={() => {
+          setLocationConsent(true);
+          setShowLocConsent(false);
+          setTimeout(startMatch, 200);   // 동의 후 매칭 이어서 진행
+        }}
       />
 
       {/* ── 탐색 중 모달 — ripple ──────────────────────── */}
