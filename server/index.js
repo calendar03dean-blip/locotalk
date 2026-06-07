@@ -622,6 +622,16 @@ const serverMatchHistory = new Map();
 const chatLogs = new Map();
 const MAX_CHAT_LOG = 200;
 
+// 오프라인 재전송 버퍼 한도 (방별, 이미지 base64 포함이라 과도하게 크지 않게)
+const MAX_ROOM_EVENTS = 40;
+/** 방 이벤트 버퍼에 기록 (rejoin 시 누락분 재전송용) */
+function recordRoomEvent(room, id, kind, payload) {
+  if (!room) return;
+  if (!Array.isArray(room.events)) room.events = [];
+  room.events.push({ id, kind, payload, at: Date.now() });
+  if (room.events.length > MAX_ROOM_EVENTS) room.events.shift();
+}
+
 // ─── 신고 카운트 ──────────────────────────────────────────────────────
 // nick → 신고 횟수
 const reportCounts = new Map();
@@ -850,6 +860,9 @@ function createRoom(socketA, userA, socketIdB, userB,
     sockets  : [socketA.id, socketIdB],
     users    : [userA, userB],
     createdAt: Date.now(),
+    // 오프라인(종료/잠금) 중 도착한 메시지/이미지 재전송용 버퍼 (rejoin 시 누락분 전달)
+    events   : [],                 // { id, kind:'msg'|'img', payload, at }
+    disconnectedAt: [null, null],  // userIdx 별 마지막 끊김 시각
   };
   rooms.set(roomId, room);
   socketToRoom.set(socketA.id, roomId);
@@ -1062,6 +1075,13 @@ function handleDisconnectFromRoom(socketId) {
   if (!room) {
     socketToRoom.delete(socketId);
     return;
+  }
+
+  // 끊긴 유저 인덱스의 disconnectedAt 기록 (rejoin 시 이 시각 이후 이벤트 재전송)
+  const idx = room.sockets.indexOf(socketId);
+  if (idx !== -1) {
+    if (!Array.isArray(room.disconnectedAt)) room.disconnectedAt = [null, null];
+    room.disconnectedAt[idx] = Date.now();
   }
 
   const existing = reconnectTimers.get(socketId);
@@ -1381,11 +1401,10 @@ io.on('connection', (socket) => {
     const msgId   = (typeof clientId === 'string' && clientId) ? clientId : uuidv4();
     const msgTime = koreanTime();
 
-    io.to(roomId).except(socket.id).emit('receive_message', {
-      id  : msgId,
-      text: text.trim(),
-      time: msgTime,
-    });
+    const msgPayload = { id: msgId, text: text.trim(), time: msgTime };
+    io.to(roomId).except(socket.id).emit('receive_message', msgPayload);
+    // 오프라인(종료/잠금) 수신자 rejoin 시 재전송할 수 있도록 버퍼링
+    recordRoomEvent(room, msgId, 'msg', msgPayload);
 
     // 프리미엄 채팅 저장
     if (chatLogs.has(roomId)) {
@@ -1430,9 +1449,10 @@ io.on('connection', (socket) => {
     const msgId = (typeof clientId === 'string' && clientId) ? clientId : require('uuid').v4();
     const msgTime = koreanTime();
 
-    io.to(roomId).except(socket.id).emit('receive_image', {
-      id: msgId, imageData, width, height, time: msgTime,
-    });
+    const imgPayload = { id: msgId, imageData, width, height, time: msgTime };
+    io.to(roomId).except(socket.id).emit('receive_image', imgPayload);
+    // 오프라인 수신자 rejoin 시 재전송(이미지 누락 방지)
+    recordRoomEvent(room, msgId, 'img', imgPayload);
 
     if (otherUser?.nick) {
       sendPushToNick(otherUser.nick, senderUser?.nick || '이웃', '📷 사진을 보냈어요');
@@ -1510,6 +1530,19 @@ io.on('connection', (socket) => {
     // 상대방에게 재연결 알림
     const otherId = room.sockets.find(id => id !== socket.id);
     if (otherId) io.to(otherId).emit('peer_reconnected');
+
+    // ── 오프라인(종료/잠금) 중 놓친 메시지·이미지 재전송 ──────────────
+    // 끊겼던 시각 이후 도착한 이벤트를 재진입한 본인에게만 다시 보냄.
+    // (클라는 id 로 중복 제거하므로 이미 받은 건 무시됨)
+    const since = Array.isArray(room.disconnectedAt) ? room.disconnectedAt[userIdx] : null;
+    if (since && Array.isArray(room.events)) {
+      const missed = room.events.filter(e => e.at > since);
+      missed.forEach(e => {
+        socket.emit(e.kind === 'img' ? 'receive_image' : 'receive_message', e.payload);
+      });
+      if (missed.length) console.log(`[room] 📨 ${nick} 누락 ${missed.length}건 재전송 (room=${roomId})`);
+    }
+    if (Array.isArray(room.disconnectedAt)) room.disconnectedAt[userIdx] = null;
 
     console.log(`[room] 🔄 ${nick} rejoined ${roomId} (${oldSocketId} → ${socket.id})`);
   });

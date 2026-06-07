@@ -198,13 +198,19 @@ export default function ChatScreen() {
     };
   }, [isFocused]);
 
-  // 키보드가 열리면 FlatList 콘텐츠 크기는 그대로(프레임만 축소)라 onContentSizeChange
-  // 가 안 터져 마지막 메시지가 가려짐 → 키보드 등장 시 직접 끝으로 스크롤.
+  // 키보드가 열리면 KeyboardAvoidingView 가 리스트 높이를 줄이는데, 그 리사이즈가
+  // 끝나기 전에 스크롤하면 '줄어들기 전' 바닥으로 가서 마지막 메시지가 가려진다.
+  // → 리사이즈가 안정될 시간을 두고 여러 번(0/120/300ms) 끝으로 스크롤(animated:false).
   useEffect(() => {
+    const scrollEnd = () => listRef.current?.scrollToEnd({ animated: false });
     const sub = Keyboard.addListener('keyboardDidShow', () => {
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50);
+      scrollEnd();
+      setTimeout(scrollEnd, 120);
+      setTimeout(scrollEnd, 300);
     });
-    return () => sub.remove();
+    // 키보드 등장 시작 시점에도 한 번 (iOS keyboardWillShow)
+    const subWill = Keyboard.addListener('keyboardWillShow', () => setTimeout(scrollEnd, 10));
+    return () => { sub.remove(); subWill.remove(); };
   }, []);
 
   // 채팅 화면이 포커스(active)일 때, 받은 상대 메시지를 읽음 처리해 상대에게 '읽음' 전송.
@@ -285,7 +291,8 @@ export default function ChatScreen() {
     };
 
     const onReceiveMessage = ({ id, text, time }: { id: string; text: string; time: string }) => {
-      setMessages(p => [...p, { id, text, mine: false, time }]);
+      // rejoin 재전송분 중복 방지 — 이미 있는 id면 무시
+      setMessages(p => p.some(m => m.id === id) ? p : [...p, { id, text, mine: false, time }]);
       setLastPeerMsg(text);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
       // 채팅 화면 포커스 중이면 즉시 읽음 처리
@@ -350,7 +357,8 @@ export default function ChatScreen() {
 
     // ── 이미지 수신 ────────────────────────────────────────────────
     const onReceiveImage = ({ id, imageData, width, height, time }: any) => {
-      setMessages(p => [...p, { id, text: '', mine: false, time, imageData, imgWidth: width, imgHeight: height }]);
+      // rejoin 재전송분 중복 방지 (오프라인 중 받은 이미지가 복귀 시 채팅창에 나타남)
+      setMessages(p => p.some(m => m.id === id) ? p : [...p, { id, text: '', mine: false, time, imageData, imgWidth: width, imgHeight: height }]);
       setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80);
       // 채팅 화면 포커스 중이면 즉시 읽음 처리 (이미지도 텍스트와 동일)
       if (isFocusedRef.current && peer?.roomId) {
