@@ -508,7 +508,7 @@ export default function HomeScreen() {
     }
   };
 
-  const myInts = (user?.interests || []).filter(i => i !== 'none');
+  const myInts = (Array.isArray(user?.interests) ? user!.interests : []).filter(i => i !== 'none');
 
   const INFO_ITEMS = [
     { Icon: IcoShield, title: t('home_info_anon'),     desc: t('home_info_anon_desc') },

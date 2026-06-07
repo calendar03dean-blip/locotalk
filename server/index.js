@@ -217,6 +217,12 @@ app.post('/auth/login', async (req, res) => {
 
     if (rows.length > 0) {
       const user = rows[0];
+      // interests는 TEXT(JSON 문자열)로 저장됨 → 배열로 파싱해 반환.
+      // (안 하면 클라에서 user.interests.filter() → "undefined is not a function" 크래시)
+      if (typeof user.interests === 'string') {
+        try { user.interests = JSON.parse(user.interests); } catch { user.interests = []; }
+      }
+      if (!Array.isArray(user.interests)) user.interests = [];
       // 온보딩 완료 기준: 닉네임 보유 (관심사는 선택)
       const isComplete = !!user.nickname;
       return res.json({ userId: user.id, isNew: false, isComplete, user });

@@ -116,6 +116,20 @@ async function sendOtpToServer(email: string, code: string): Promise<boolean> {
 // ── 이메일 유효성 ────────────────────────────────────────────────────
 const isValidEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
+// ── 🔍 소셜 로그인 진단 헬퍼 (에러 코드/메시지 표면화) ─────────────────
+// 진단 빌드 전용: 각 실패 경로에서 실제 code/name/message를 화면에 그대로 노출.
+function diag(e: any): string {
+  if (e == null) return 'error 객체 없음(undefined/null)';
+  const parts: string[] = [];
+  if (e.code !== undefined && e.code !== null) parts.push(`code=${e.code}`);
+  if (e.name) parts.push(`name=${e.name}`);
+  if (e.domain) parts.push(`domain=${e.domain}`);
+  const msg = e.message ?? (typeof e === 'string' ? e : '');
+  if (msg) parts.push(`msg=${msg}`);
+  if (parts.length === 0) { try { return JSON.stringify(e); } catch { return String(e); } }
+  return parts.join('\n');
+}
+
 // ── 컴포넌트 ─────────────────────────────────────────────────────────
 type Step = 'main' | 'email_input' | 'email_otp';
 
@@ -138,6 +152,7 @@ export default function LoginScreen() {
   const [otpErr,   setOtpErr]   = useState('');
 
   const otpRef  = useRef<TextInput>(null);
+  const diagRef = useRef('');   // 🔍 서버 단계 진단 메시지 저장 (catch 외부 경로용)
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
 
@@ -173,10 +188,17 @@ export default function LoginScreen() {
     // 기존 완성된 프로필이 있으면 바로 홈으로
     if (!result.isNew && result.isComplete && result.user) {
       const u = result.user;
+      // interests 방어: 서버가 배열/JSON문자열/null 어느 것으로 줘도 항상 배열로.
+      // (문자열이면 .filter() 호출 시 "undefined is not a function" → HomeScreen 크래시)
+      let interests: string[] = [];
+      if (Array.isArray(u.interests)) interests = u.interests;
+      else if (typeof u.interests === 'string') {
+        try { const p = JSON.parse(u.interests); if (Array.isArray(p)) interests = p; } catch {}
+      }
       setLoggedIn({
         id: result.userId,
         nickname: u.nickname || '',
-        interests: u.interests || [],
+        interests,
         regionGu: u.region_gu || u.regionGu || '',
         regionLabel: u.region_label || u.regionLabel || '',
         email: u.email,
@@ -191,8 +213,18 @@ export default function LoginScreen() {
   const handleSocialLogin = async (provider: string, authId: string, email?: string): Promise<boolean> => {
     try {
       const result = await serverLogin(provider, authId, email);
+      diagRef.current = `[서버 단계] userId=${result?.userId ?? '없음'} isNew=${result?.isNew} isComplete=${result?.isComplete}`;
+      if (!result?.userId) return false;
+      // ── 크래시 수정 (BUG: 소셜 로그인 후 앱 충돌) ───────────────────────
+      // 소셜 인증 네이티브 UI(ASWebAuthenticationSession/ASAuthorizationController)의
+      // dismiss 애니메이션이 끝나기 전에 화면 전환(RootNavigator)이 시작되면,
+      // react-native-screens 전환 스냅샷(resizableSnapshotView)이 사라지는 인증 뷰와
+      // 겹쳐 네이티브 NSException(turbomodule void) → terminate 가 발생한다(타이밍 레이스).
+      // 인증 UI가 완전히 닫힐 시간을 준 뒤 전환하여 레이스를 제거한다.
+      await new Promise<void>(r => setTimeout(r, 650));
       return applyLoginResult(provider, result, email);
-    } catch {
+    } catch (e: any) {
+      diagRef.current = '[서버 단계] serverLogin 예외:\n' + diag(e);
       return false;
     }
   };
@@ -209,15 +241,13 @@ export default function LoginScreen() {
         ],
       });
       if (!credential?.user) {
-        Alert.alert('Apple 로그인 실패', '인증 정보를 가져올 수 없습니다.');
+        Alert.alert('🔍 Apple 진단', 'credential.user 없음 (SDK가 사용자 식별자 미반환)');
         return;
       }
       const ok = await handleSocialLogin('apple', credential.user, credential.email ?? undefined);
-      if (!ok) Alert.alert('Apple 로그인 실패', '잠시 후 다시 시도해주세요.');
+      if (!ok) Alert.alert('🔍 Apple 진단', diagRef.current || '서버 단계 실패(상세 없음)');
     } catch (e: any) {
-      if (e?.code !== 'ERR_REQUEST_CANCELED' && e?.code !== 'ERR_CANCELED') {
-        Alert.alert('Apple 로그인 실패', '다시 시도해주세요.');
-      }
+      Alert.alert('🔍 Apple 진단 (catch)', diag(e));
     } finally {
       setAuthLoading(false);
     }
@@ -232,13 +262,11 @@ export default function LoginScreen() {
       const response = await GoogleSignin.signIn();
       const email    = response.data?.user?.email;
       const googleId = response.data?.user?.id ?? email ?? '';
-      if (!googleId) { Alert.alert('Google 로그인 실패', '계정 정보를 가져올 수 없습니다.'); return; }
+      if (!googleId) { Alert.alert('🔍 Google 진단', 'googleId/email 없음 — 응답:\n' + diag(response)); return; }
       const ok = await handleSocialLogin('google', googleId, email ?? undefined);
-      if (!ok) Alert.alert('Google 로그인 실패', '잠시 후 다시 시도해주세요.');
+      if (!ok) Alert.alert('🔍 Google 진단', diagRef.current || '서버 단계 실패(상세 없음)');
     } catch (e: any) {
-      if (e?.code !== 'SIGN_IN_CANCELLED') {
-        Alert.alert('Google 로그인 실패', '다시 시도해주세요.');
-      }
+      Alert.alert('🔍 Google 진단 (catch)', diag(e));
     } finally {
       setAuthLoading(false);
     }
@@ -265,13 +293,9 @@ export default function LoginScreen() {
       } catch { /* me() 실패해도 진행 */ }
 
       const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail);
-      if (!ok) Alert.alert('카카오 로그인 실패', '잠시 후 다시 시도해주세요.');
+      if (!ok) Alert.alert('🔍 카카오 진단', diagRef.current || '서버 단계 실패(상세 없음)');
     } catch (e: any) {
-      // 사용자가 취소한 경우는 조용히 무시
-      const msg = String(e?.message ?? '');
-      if (!/cancel/i.test(msg)) {
-        Alert.alert('카카오 로그인 실패', '카카오 계정을 확인해주세요.');
-      }
+      Alert.alert('🔍 카카오 진단 (catch)', diag(e));
     } finally {
       setAuthLoading(false);
     }
@@ -290,12 +314,12 @@ export default function LoginScreen() {
         `&response_type=code&state=${state}`;
       const result = await WebBrowser.openAuthSessionAsync(authUrl, 'locotalk://oauth');
 
-      if (result.type !== 'success' || !result.url) return; // 취소 → 무시
+      if (result.type !== 'success' || !result.url) { Alert.alert('🔍 네이버 진단', 'WebBrowser 결과:\n' + diag(result)); return; }
 
       // 콜백 URL에서 code 추출
       const m     = result.url.match(/[?&]code=([^&]+)/);
       const rawCode = m ? decodeURIComponent(m[1]) : '';
-      if (!rawCode) { Alert.alert('네이버 로그인 실패', '인증 코드를 받지 못했습니다.'); return; }
+      if (!rawCode) { Alert.alert('🔍 네이버 진단', '인증 코드 없음 — 콜백 URL:\n' + result.url); return; }
 
       // 서버에서 토큰 교환 + 프로필 조회
       const res = await fetch('https://locotalk-production.up.railway.app/auth/naver-callback', {
@@ -305,12 +329,14 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (!res.ok || !data.userId) {
-        Alert.alert('네이버 로그인 실패', data.error || '잠시 후 다시 시도해주세요.');
+        Alert.alert('🔍 네이버 진단', `서버 콜백 실패 status=${res.status}\n` + (data.error || diag(data)));
         return;
       }
+      // 인증 UI dismiss 후 전환 (위 handleSocialLogin과 동일한 크래시 레이스 방지)
+      await new Promise<void>(r => setTimeout(r, 650));
       applyLoginResult('naver', data, data.email);
-    } catch {
-      Alert.alert('네이버 로그인 실패', '다시 시도해주세요.');
+    } catch (e: any) {
+      Alert.alert('🔍 네이버 진단 (catch)', diag(e));
     } finally {
       setAuthLoading(false);
     }
