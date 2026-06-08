@@ -238,10 +238,11 @@ export default function ChatScreen() {
       setPeerGone(false);
       setIsOffline(peer.roomId.startsWith('room-local-'));
 
-      // 프리미엄: 이전 대화 히스토리 요청
-      if (isPremium && !peer.roomId.startsWith('room-local-')) {
+      // 이전 대화 히스토리 복원 (무료=7일/프리미엄=90일 — 서버가 차등). + 활성 방이면 rejoin 선행.
+      if (!peer.roomId.startsWith('room-local-')) {
         const socket = getSocket();
         if (socket?.connected) {
+          socket.emit('rejoin_room',     { roomId: peer.roomId, nick: user?.nickname });
           socket.emit('get_chat_history', { roomId: peer.roomId });
         }
       }
@@ -329,7 +330,7 @@ export default function ChatScreen() {
     };
 
     // 프리미엄 채팅 히스토리 수신
-    const onChatHistory = ({ messages: history }: { messages: Array<{id:string;senderNick:string;text:string;time:string}> }) => {
+    const onChatHistory = ({ messages: history }: { messages: Array<{id:string;senderNick:string;text:string;time:string;imageData?:string;imgWidth?:number;imgHeight?:number}> }) => {
       if (!history?.length) return;
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.id));
@@ -338,6 +339,9 @@ export default function ChatScreen() {
           text: m.text,
           mine: m.senderNick === user?.nickname,
           time: m.time,
+          imageData: m.imageData,            // 이미지 history 실제 렌더(renderItem이 imageData 처리)
+          imgWidth : m.imgWidth,
+          imgHeight: m.imgHeight,
         })).filter(m => !existingIds.has(m.id));
         return historyMsgs.length > 0
           ? [prev[0], ...historyMsgs, ...prev.slice(1)] // 공지 다음에 히스토리 삽입

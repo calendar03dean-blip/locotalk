@@ -147,7 +147,7 @@ export const translations = {
     alert_compose_blocked_msg: '사용할 수 없는 단어가 포함되어 있어요',
 
     // Chat
-    chat_notice_no_save: '🔥 대화 내역은 저장되지 않아요',
+    chat_notice_no_save: '🕒 최근 대화는 일정 기간만 보관돼요',
     chat_empty_title: '아직 진행 중인 대화가 없어요',
     chat_empty_desc: '내 동네 이웃과 익명으로\n새로운 이야기를 시작해보세요 ✨',
     chat_empty_btn: '이웃 만나러 가기',
@@ -344,7 +344,7 @@ export const translations = {
     alert_compose_blocked_msg: 'This word is not allowed',
 
     // Chat
-    chat_notice_no_save: '🔥 Chat history is not saved',
+    chat_notice_no_save: '🕒 Recent chats are kept for a limited time',
     chat_empty_title: 'No conversations yet',
     chat_empty_desc: 'Start a new story anonymously\nwith a neighbor nearby ✨',
     chat_empty_btn: 'Meet a Neighbor',

@@ -37,6 +37,8 @@ const fs             = require('fs');
 const path           = require('path');
 const { Pool }       = require('pg');
 const legal          = require('./legal');   // 법령준수(위치/통비/청소년/개인정보) 모듈
+const chat           = require('./chat');    // 채팅 영속화(PostgreSQL) + 차등 보관 모듈
+const pushtokens     = require('./pushtokens'); // 푸시 토큰 영속화(PostgreSQL, userId 기준)
 
 // ─── PostgreSQL 연결 ─────────────────────────────────────────────────
 const db = new Pool({
@@ -79,6 +81,13 @@ async function initDB() {
     // 법령준수 스키마(위치/접속 로그 + users 보강) 준비 후 보관기간 자동파기 스케줄러 가동
     await legal.initLegalSchema(db);
     legal.startRetentionCron(db);
+    // 채팅 영속화 스키마 + 보관기간 자동파기(기동 1회 + 24h)
+    await chat.initChatSchema(db);
+    chat.purgeExpiredChats(db);
+    setInterval(() => chat.purgeExpiredChats(db), 24 * 60 * 60 * 1000);
+    console.log('[chat] ✅ 채팅 영속화 스키마 준비 + 보관파기 스케줄러 가동');
+    // 푸시 토큰 영속화 스키마(userId 기준 — 재배포 생존 + 닉 충돌 제거)
+    await pushtokens.initPushTokenSchema(db);
   } catch (e) {
     console.error('[db] 초기화 실패:', e.message);
   }
@@ -364,6 +373,10 @@ app.get('/users/:id', async (req, res) => {
 app.delete('/users/:id', async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ ok: true });
   const r = await legal.withdrawUser(db, req.params.id);
+  // 채팅 영속화 연동: 탈퇴자 발신메시지 비식별화(상대 대화맥락은 보존) — best-effort
+  try { await chat.scrubUserFromChats(db, req.params.id); } catch (e) { console.warn('[chat] scrub 실패:', e.message); }
+  // 푸시 토큰 제거 (삭제된 계정에 푸시 방지) — best-effort
+  try { await pushtokens.deleteByUserId(db, req.params.id); } catch (e) { console.warn('[push] token 삭제 실패:', e.message); }
   if (r.ok) return res.json({ ok: true, deleted: r.deletedUser });
   console.error('[users] 탈퇴 오류:', r.error);
   return res.status(500).json({ error: r.error || 'withdraw_failed' });
@@ -694,6 +707,22 @@ function koreanTime() {
   });
 }
 
+// 주어진 시각(Date/ISO)을 채팅 표시용 한국시간 문자열로 (DB 복원 메시지용)
+function fmtKoreanTime(d) {
+  try {
+    return new Date(d).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } catch { return ''; }
+}
+
+// 요청자 등급(프리미엄) DB 조회 — room 캐시 대신 진실의 원천(DB) 기준 (chat 가시범위 판정)
+async function isUserPremium(userId) {
+  if (!userId || !process.env.DATABASE_URL) return false;
+  try {
+    const { rows } = await db.query('SELECT is_premium FROM users WHERE id = $1', [userId]);
+    return rows[0]?.is_premium === true;
+  } catch { return false; }
+}
+
 function validate(user) {
   if (!user || typeof user !== 'object')               return '잘못된 데이터예요';
   if (!user.nick || user.nick.length > 8)              return '닉네임이 올바르지 않아요';
@@ -803,11 +832,17 @@ async function _sendExpoPush(payload, label) {
   }
 }
 
+/** 수신자 토큰 조회 — DB(userId) 우선, 인메모리(nick) 폴백. (배포 생존 + 닉 충돌 제거) */
+async function resolvePushToken(userId, nick) {
+  const dbToken = await pushtokens.getTokenByUserId(db, userId);
+  return dbToken || pushTokensByNick.get(nick) || null;
+}
+
 /** 매칭 요청 push — 앱이 닫혀 있어도 잠금 화면에 알림 */
-async function sendMatchRequestPush(toNick, fromNick, fromRegion, requestId) {
-  const token = pushTokensByNick.get(toNick);
+async function sendMatchRequestPush(toNick, fromNick, fromRegion, requestId, toUserId) {
+  const token = await resolvePushToken(toUserId, toNick);
   if (!token) {
-    console.warn(`[push] ⚠️  no token for ${toNick} (match_request) — skipped`);
+    console.warn(`[push] ⚠️  no token for ${toNick}/${toUserId || 'no-uid'} (match_request) — skipped`);
     return;
   }
   await _sendExpoPush({
@@ -823,10 +858,10 @@ async function sendMatchRequestPush(toNick, fromNick, fromRegion, requestId) {
 }
 
 /** 채팅 메시지 push (앱이 종료/백그라운드/화면꺼짐 상태에서도 전달) */
-async function sendPushToNick(recipientNick, senderNick, text) {
-  const token = pushTokensByNick.get(recipientNick);
+async function sendPushToNick(recipientNick, senderNick, text, recipientUserId) {
+  const token = await resolvePushToken(recipientUserId, recipientNick);
   if (!token) {
-    console.warn(`[push] ⚠️  no token for ${recipientNick} — push skipped`);
+    console.warn(`[push] ⚠️  no token for ${recipientNick}/${recipientUserId || 'no-uid'} — push skipped`);
     return;
   }
   await _sendExpoPush({
@@ -867,6 +902,9 @@ function createRoom(socketA, userA, socketIdB, userB,
   rooms.set(roomId, room);
   socketToRoom.set(socketA.id, roomId);
   socketToRoom.set(socketIdB, roomId);
+
+  // 채팅 영속화: 대화방 레코드 생성(conversation id = roomId 재사용). userId 없으면 null 저장(best-effort)
+  chat.upsertConversation(db, { roomId, userAId: userA.userId || null, userBId: userB.userId || null });
 
   socketA.join(roomId);
   io.sockets.sockets.get(socketIdB)?.join(roomId);
@@ -994,7 +1032,7 @@ function tryMatch(socket, user) {
     fromInterest: user.interests?.[0] || '',
     fromRegion  : user.region,
   });
-  sendMatchRequestPush(candidate.nick, user.nick, user.region, requestId);
+  sendMatchRequestPush(candidate.nick, user.nick, user.region, requestId, candidate.userId);
 
   console.log(`[queue] 📨 ${user.nick} → ${candidate.nick}  req=${requestId}  queue↔queue`);
   return true;
@@ -1054,7 +1092,7 @@ function requestToStandby(fromSocket, fromUser, fromPassive = false) {
   });
 
   // 앱이 닫혀 있거나 화면이 꺼져 있어도 수신할 수 있도록 push 발송
-  sendMatchRequestPush(candidate.nick, fromUser.nick, fromUser.region, requestId);
+  sendMatchRequestPush(candidate.nick, fromUser.nick, fromUser.region, requestId, candidate.userId);
 
   console.log(`[standby] 📨 ${fromUser.nick} → ${candidate.nick}  req=${requestId}  passive=${fromPassive}`);
   return true;
@@ -1162,10 +1200,56 @@ function resolveRoomForSender(socket, roomId, nick) {
   return { room, senderIdx: idx };
 }
 
+/**
+ * 재배포 등으로 인메모리 room 이 사라진 뒤에도 '이어쓰기'가 되도록 DB conversation 으로 방 부활.
+ *  - 인메모리에 있으면 그대로 반환.
+ *  - 없으면 DB conversation 조회 → 요청자(socket.userId)가 참여자일 때만 부활.
+ *  - 부활 시 '호출 소켓만' 방에 join(상대 강제 join 금지 — 상대는 본인 rejoin 때 nick로 바인딩,
+ *    그 전엔 푸시+get_chat_history(DB)로 수신). conversations status='active' upsert.
+ *  - best-effort: DB 없거나 비참여자면 null 반환(기존 흐름 유지).
+ * @returns {Room|null}
+ */
+async function reviveRoomFromDB(socket, roomId) {
+  if (rooms.has(roomId)) return rooms.get(roomId);
+  if (!process.env.DATABASE_URL) return null;
+  const me = socket.userId || null;
+  if (!me) return null;
+  let conv = null;
+  try { conv = (await db.query('SELECT user_a_id, user_b_id FROM conversations WHERE id = $1', [roomId])).rows[0] || null; } catch {}
+  if (!conv) return null;
+  if (conv.user_a_id !== me && conv.user_b_id !== me) return null; // 참여자만(IDOR 방지)
+  const peerId = conv.user_a_id === me ? conv.user_b_id : conv.user_a_id;
+  let myNick = null, peerNick = null;
+  try {
+    const ids = [me, peerId].filter(Boolean);
+    const nrows = ids.length ? (await db.query('SELECT id, nickname FROM users WHERE id = ANY($1)', [ids])).rows : [];
+    const nk = id => nrows.find(r => r.id === id)?.nickname || null;
+    myNick = nk(me); peerNick = nk(peerId);
+  } catch {}
+  const room = {
+    roomId,
+    sockets : [socket.id, 'offline:' + (peerId || 'unknown')],   // 상대 슬롯은 placeholder(미접속)
+    users   : [{ socketId: socket.id, userId: me,     nick: myNick   || '나',   isPremium: false },
+               { socketId: null,      userId: peerId, nick: peerNick || '상대', isPremium: false }],
+    createdAt: Date.now(), events: [], disconnectedAt: [null, null], revived: true,
+  };
+  rooms.set(roomId, room);
+  socketToRoom.set(socket.id, roomId);
+  socket.join(roomId);
+  chat.upsertConversation(db, { roomId, userAId: conv.user_a_id, userBId: conv.user_b_id }); // status='active'
+  console.log(`[room] ♻️  revive ${roomId} me=${me} peer=${peerId} (상대는 본인 rejoin 시 바인딩)`);
+  return room;
+}
+
 // ─── Socket handlers ──────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[connect] ${socket.id}`);
 
+  // 핸드셰이크 auth 에서 userId 확보(connect 시점부터 socket.userId 살아있게) →
+  // list_conversations/get_chat_history 가 join 없이도 식별됨. join 핸들러가 이후 갱신.
+  // ⚠️ 보안: 이 userId 는 서버 미검증값 → 스푸핑 가능. get_chat_history 참여자 인가가 임시 가드.
+  //   근본 해결: 로그인 토큰을 서버에서 검증해 신뢰 가능한 userId 로 대체(다음 차수).
+  socket.userId      = socket.handshake?.auth?.userId || null;
   // 통신비밀보호법: 접속지 IP·기기식별값 캡처(소켓에 저장) + 접속로그 기록
   socket._ip         = legal.getClientIp(socket);
   socket._deviceId   = socket.handshake?.auth?.deviceId || socket.handshake?.query?.deviceId || null;
@@ -1385,11 +1469,13 @@ io.on('connection', (socket) => {
   });
 
   // ── send_message ─────────────────────────────────────────────────
-  socket.on('send_message', ({ roomId, text, clientId, nick }) => {
+  socket.on('send_message', async ({ roomId, text, clientId, nick }) => {
     if (!roomId || !text || typeof text !== 'string') return;
     if (text.length > 500) return;
 
-    const resolved = resolveRoomForSender(socket, roomId, nick);
+    // 인메모리 room 우선, 없으면(재배포 등) DB conversation 으로 부활 → 이어쓰기 가능
+    let resolved = resolveRoomForSender(socket, roomId, nick);
+    if (!resolved) { await reviveRoomFromDB(socket, roomId); resolved = resolveRoomForSender(socket, roomId, nick); }
     if (!resolved) return;
     const { room, senderIdx } = resolved;
     const otherIdx   = senderIdx === 0 ? 1 : 0;
@@ -1420,8 +1506,14 @@ io.on('connection', (socket) => {
     }
 
     if (otherUser?.nick) {
-      sendPushToNick(otherUser.nick, senderUser?.nick || '이웃', text.trim());
+      sendPushToNick(otherUser.nick, senderUser?.nick || '이웃', text.trim(), otherUser.userId);
     }
+
+    // 채팅 영속화(DB) — 릴레이·버퍼·푸시 직후, best-effort(흐름 안 막음)
+    chat.persistMessage(db, {
+      conversationId: roomId, senderId: senderUser?.userId || null,
+      kind: 'text', payload: text.trim(), clientId: msgId,
+    });
   });
 
   // ── read_message (읽음 확인) ─────────────────────────────────────
@@ -1433,12 +1525,15 @@ io.on('connection', (socket) => {
     if (otherId) {
       io.to(otherId).emit('message_read', { messageId });
     }
+    // DB 읽음 영속화 — messageId 는 클라 id(=client_id), conversation_id 로 스코프
+    chat.markRead(db, { conversationId: roomId, clientId: messageId });
   });
 
   // ── send_image (사진 전송) ────────────────────────────────────────
-  socket.on('send_image', ({ roomId, imageData, width, height, clientId, nick } = {}) => {
+  socket.on('send_image', async ({ roomId, imageData, width, height, clientId, nick } = {}) => {
     if (!roomId || !imageData) return;
-    const resolved = resolveRoomForSender(socket, roomId, nick);
+    let resolved = resolveRoomForSender(socket, roomId, nick);
+    if (!resolved) { await reviveRoomFromDB(socket, roomId); resolved = resolveRoomForSender(socket, roomId, nick); }
     if (!resolved) return;
     const { room, senderIdx } = resolved;
     const otherIdx  = senderIdx === 0 ? 1 : 0;
@@ -1455,27 +1550,86 @@ io.on('connection', (socket) => {
     recordRoomEvent(room, msgId, 'img', imgPayload);
 
     if (otherUser?.nick) {
-      sendPushToNick(otherUser.nick, senderUser?.nick || '이웃', '📷 사진을 보냈어요');
+      sendPushToNick(otherUser.nick, senderUser?.nick || '이웃', '📷 사진을 보냈어요', otherUser.userId);
     }
+
+    // 채팅 영속화(DB) — 이미지 payload(base64) + 원본 치수(history 왜곡 방지)
+    chat.persistMessage(db, {
+      conversationId: roomId, senderId: senderUser?.userId || null,
+      kind: 'image', payload: imageData, clientId: msgId, width, height,
+    });
   });
 
-  // ── get_chat_history (프리미엄 전용) ────────────────────────────
-  socket.on('get_chat_history', ({ roomId } = {}) => {
+  // ── get_chat_history (DB 영속화 — 무료 7일 / 프리미엄 90일, 재시작 후에도 복원) ──
+  socket.on('get_chat_history', async ({ roomId } = {}) => {
+    if (!roomId) return;
     const room = rooms.get(roomId);
-    if (!room || !room.sockets.includes(socket.id)) return;
+    const inRoom = !!(room && room.sockets.includes(socket.id));
 
-    const senderIdx = room.sockets.indexOf(socket.id);
-    const user      = room.users[senderIdx];
-
-    // 프리미엄 유저만 이전 대화 조회 가능
-    if (!user?.isPremium) {
-      socket.emit('chat_history_error', { message: '프리미엄 전용 기능이에요' });
-      return;
+    // 요청자 식별: 활성 room 우선, 없으면(재시작 후) 소켓에 저장된 userId
+    let requesterId = null, myNick = null, peerNick = null;
+    if (inRoom) {
+      const idx = room.sockets.indexOf(socket.id);
+      requesterId = room.users[idx]?.userId || socket.userId || null;
+      myNick   = room.users[idx]?.nick || null;
+      peerNick = room.users[idx === 0 ? 1 : 0]?.nick || null;
+    } else {
+      requesterId = socket.userId || null;
     }
 
-    const log = chatLogs.get(roomId) || [];
-    socket.emit('chat_history', { messages: log });
-    console.log(`[chat] 📜 ${user.nick} 히스토리 조회 (${log.length}개) room=${roomId}`);
+    // 대화방 조회 + 참여자 인가 (IDOR 차단). 활성 room 멤버이거나, DB conversation 의
+    // user_a/b_id 중 하나가 요청자(socket.userId)여야 함. 아니면 '빈 결과' 반환.
+    // ⚠️ 보안 한계: handshake.auth.userId 는 서버에서 미검증 → 스푸핑 가능(다른 userId 사칭).
+    //   본 참여자 체크는 그에 대한 '임시 가드'일 뿐. 근본 해결은 로그인 토큰(JWT 등)
+    //   서버 검증으로 socket.userId 를 신뢰값으로 만드는 것(다음 차수 과제).
+    let conv = null;
+    try { conv = (await db.query('SELECT user_a_id, user_b_id FROM conversations WHERE id = $1', [roomId])).rows[0] || null; } catch {}
+    const isParticipant = inRoom
+      || (conv && requesterId && (conv.user_a_id === requesterId || conv.user_b_id === requesterId));
+    if (!isParticipant) { socket.emit('chat_history', { messages: [] }); return; } // 비참여자 → 빈 결과
+
+    // 닉 보강 (재시작 후 room 없을 때 users 테이블에서) — 클라가 'mine' 판정에 senderNick 사용
+    if ((!myNick || !peerNick) && conv) {
+      try {
+        const ids = [conv.user_a_id, conv.user_b_id].filter(Boolean);
+        const nrows = ids.length ? (await db.query('SELECT id, nickname FROM users WHERE id = ANY($1)', [ids])).rows : [];
+        const nickOf = id => nrows.find(r => r.id === id)?.nickname || '상대';
+        myNick   = myNick   || nickOf(requesterId);
+        const peerId = conv.user_a_id === requesterId ? conv.user_b_id : conv.user_a_id;
+        peerNick = peerNick || nickOf(peerId);
+      } catch {}
+    }
+
+    const requesterIsPremium = await isUserPremium(requesterId);
+    const rows = await chat.getHistory(db, roomId, { requesterIsPremium });
+    // 기존 클라 onChatHistory 가 기대하는 형태로 매핑(클라 UI 미변경) — id/text/senderNick/time
+    const messages = rows.map(r => ({
+      id        : r.client_id || String(r.id),
+      // 이미지 history: 현재 클라 onChatHistory가 imageData 렌더 미지원 → text '[사진]' 폴백으로
+      // 빈 말풍선 방지(깔끔히 표시). imageData는 그대로 실어 다음 클라 차수에 실제 렌더로 교체.
+      text      : r.kind === 'image' ? '[사진]' : r.payload,
+      imageData : r.kind === 'image' ? r.payload : undefined,
+      imgWidth  : r.img_width || undefined,
+      imgHeight : r.img_height || undefined,
+      senderNick: r.sender_id && requesterId && r.sender_id === requesterId ? myNick : peerNick,
+      time      : fmtKoreanTime(r.created_at),
+      read      : !!r.read_at,
+    }));
+    socket.emit('chat_history', { messages });
+    console.log(`[chat] 📜 history DB조회 ${messages.length}개 premium=${requesterIsPremium} room=${roomId}`);
+  });
+
+  // ── list_conversations (회원 활동 내역 — 서버 핸들러만, 클라 연결은 다음 차수) ──
+  // ⚠️ 보안: 요청자 userId 는 인증된 소켓에 저장된 socket.userId 를 우선 사용.
+  //    소켓에 userId 가 없을 때만 payload userId 로 폴백(이 경우 위조 가능 → 다음 차수에
+  //    소켓 인증값 강제로 좁힐 것). payload 만 신뢰하면 남의 대화목록 조회 위험.
+  socket.on('list_conversations', async () => {
+    // 보안: 인증된 소켓값(socket.userId, 핸드셰이크/join에서 세팅)만 신뢰. payload 폴백 제거.
+    const requesterId = socket.userId || null;
+    if (!requesterId) { socket.emit('conversations', { items: [] }); return; } // graceful 빈 목록(크래시X)
+    const requesterIsPremium = await isUserPremium(requesterId);
+    const items = await chat.listConversations(db, requesterId, { requesterIsPremium });
+    socket.emit('conversations', { items });
   });
 
   // ── leave_room ───────────────────────────────────────────────────
@@ -1497,10 +1651,13 @@ io.on('connection', (socket) => {
 
   // ── rejoin_room (Feature 5) ──────────────────────────────────────
   // nick + roomId 기반으로 매칭 → 소켓 ID 가 바뀌어도 복구 가능
-  socket.on('rejoin_room', ({ roomId, nick } = {}) => {
-    const room = rooms.get(roomId);
+  socket.on('rejoin_room', async ({ roomId, nick } = {}) => {
+    let room = rooms.get(roomId);
     if (!room) {
-      // 방이 삭제됨 → 스테일 socketToRoom 정리 후 peer_left 전달
+      // 방이 인메모리에 없음(재배포 등) → DB conversation 으로 부활 시도(참여자만) → 이어쓰기 가능.
+      // 부활 성공 시 호출 소켓은 방에 join 됨 → peer_reconnected(입력 활성). 실패 시 peer_left(읽기전용).
+      const revived = await reviveRoomFromDB(socket, roomId);
+      if (revived) { socket.emit('peer_reconnected'); return; }
       socketToRoom.delete(socket.id);
       socket.emit('peer_left');
       return;
@@ -1608,11 +1765,17 @@ io.on('connection', (socket) => {
   });
 
   // ── register_push_token (Feature 3) ─────────────────────────────
-  socket.on('register_push_token', ({ token, nick } = {}) => {
-    if (token && nick && typeof token === 'string') {
-      pushTokensByNick.set(nick, token);
-      saveData(); // 서버 재시작 후에도 토큰 유지
-      console.log(`[push] 🔑 token registered for ${nick}`);
+  // userId 기준 DB 영속화(재배포 생존 + 닉 충돌 제거). userId 없으면 인메모리 폴백만(graceful).
+  socket.on('register_push_token', ({ token, nick, userId, platform } = {}) => {
+    if (!(token && nick && typeof token === 'string')) return;
+    pushTokensByNick.set(nick, token);  // 폴백 유지
+    saveData();
+    const uid = userId || socket.userId || null;
+    if (uid) {
+      pushtokens.upsertPushToken(db, { userId: uid, token, nick, platform }); // best-effort
+      console.log(`[push] 🔑 token registered ${nick} (userId=${uid}) → DB upsert`);
+    } else {
+      console.log(`[push] 🔑 token registered ${nick} (no userId — 인메모리 폴백만)`);
     }
   });
 

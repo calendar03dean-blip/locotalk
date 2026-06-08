@@ -19,6 +19,8 @@ import RegionPickerModal from '../components/RegionPickerModal';
 import IdentityVerifyModal from '../components/IdentityVerifyModal';
 import PhoneVerifyModal from '../components/PhoneVerifyModal';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
+import ConversationListModal, { type ConversationItem } from '../components/ConversationListModal';
+import { useNavigation } from '@react-navigation/native';
 import { loadContactPhoneHashes } from '../utils/contacts';
 
 const SW = 1.8;
@@ -148,6 +150,17 @@ export default function MyInfoScreen() {
   const [showPhoneVerify,  setShowPhoneVerify]  = useState(false);
   const [showPortOne,      setShowPortOne]      = useState(false);
   const [contactsLoading,  setContactsLoading]  = useState(false);
+  const [showConvList,     setShowConvList]     = useState(false);
+  const navigation = useNavigation<any>();
+
+  // 대화 내역에서 방 열기 → setPeer + 채팅 탭 이동 → ChatScreen이 히스토리(rejoin+get_chat_history) 복원
+  const openConversation = (c: ConversationItem) => {
+    const { setPeer, setRoomId } = useStore.getState();
+    setPeer({ nick: c.peer_nick || '상대', interests: [], region: '', roomId: c.id } as any);
+    setRoomId(c.id);
+    setShowConvList(false);
+    setTimeout(() => navigation.navigate('채팅'), 250);
+  };
 
   // ── 지인 매칭 피하기 (프리미엄) ────────────────────────────
   const handleToggleAvoidContacts = async (next: boolean) => {
@@ -354,6 +367,17 @@ export default function MyInfoScreen() {
         {/* ── 설정 ──────────────────────────────────────── */}
         <Text style={s.sectionLabel}>{t('myinfo_settings_section')}</Text>
         <View style={s.card}>
+          {/* 대화 내역 (회원 활동 내역) — 영속화된 대화 목록 */}
+          <TouchableOpacity style={s.row} onPress={() => setShowConvList(true)}>
+            <View style={s.rowLeft}>
+              <IcoChatReceive color={Colors.g4} />
+              <Text style={s.rowTitle}>대화 내역</Text>
+            </View>
+            <View style={s.rowRight}>
+              <IcoChevron color={Colors.g3} />
+            </View>
+          </TouchableOpacity>
+
           <TouchableOpacity style={s.row}
             onPress={() => { setTmpInts(user?.interests || []); setIntModal(true); }}>
             <View style={s.rowLeft}>
@@ -520,6 +544,13 @@ export default function MyInfoScreen() {
 
       {/* ── 업그레이드 모달 ──────────────────────────────── */}
       <UpgradeModal visible={showUpgrade} onClose={() => setShowUpgrade(false)} reason="region" />
+
+      {/* ── 대화 내역 모달 ─────────────────────────────────── */}
+      <ConversationListModal
+        visible={showConvList}
+        onClose={() => setShowConvList(false)}
+        onOpen={openConversation}
+      />
 
       {/* ── 본인인증 모달 ─────────────────────────────────── */}
       <IdentityVerifyModal visible={showVerify} onClose={() => setShowVerify(false)} />

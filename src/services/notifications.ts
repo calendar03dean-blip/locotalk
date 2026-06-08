@@ -100,9 +100,14 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
  * 소켓이 아직 연결 중이면 connect 이벤트 후 자동 전송합니다.
  */
 export function sendPushTokenToServer(token: string, nick: string): void {
+  // userId 동봉(서버 push_tokens userId 기준 영속). store 에서 조회.
+  let userId: string | null = null;
+  try { const { useStore } = require('../store'); const st = useStore.getState(); userId = st.user?.id || st.authUserId || null; } catch {}
+  const payload = { token, nick, userId, platform: Platform.OS };
+
   const socket = getSocket();
   if (socket?.connected) {
-    socket.emit('register_push_token', { token, nick });
+    socket.emit('register_push_token', payload);
     return;
   }
   // 소켓이 연결 중이거나 아직 없음 → 연결되면 등록
@@ -111,7 +116,7 @@ export function sendPushTokenToServer(token: string, nick: string): void {
     // 온보딩 직후처럼 nick이 store에 없을 수 있으므로 직접 once 등록
     const { connectSocket } = require('./socket') as typeof import('./socket');
     const s = connectSocket();
-    const emit = () => s.emit('register_push_token', { token, nick });
+    const emit = () => s.emit('register_push_token', payload);
     if (s.connected) emit();
     else s.once('connect', emit);
   } catch { /* 무시 */ }

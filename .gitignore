@@ -27,3 +27,6 @@ Thumbs.db
 tokens/
 .github/workflows/
 .env.notion
+
+# 런타임 푸시토큰/피드 캐시 — 배포마다 스테일 토큰 덮어쓰기 방지(토큰은 DB 영속)
+server/data.json

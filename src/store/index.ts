@@ -172,6 +172,9 @@ export const useStore = create<AppState>((set, get) => ({
   setLoggedIn: (user) => set({ isLoggedIn: true, user }),
   setLoggedOut: () => {
     clearChatSession().catch(() => {});
+    // 로그아웃 시 소켓 정리 → 재로그인 시 새 소켓이 새 userId 로 핸드셰이크 재연결.
+    // (안 끊으면 connectSocket 이 기존 연결 재사용 → 서버 socket.userId 가 이전 유저로 고착)
+    try { (require('../services/socket') as typeof import('../services/socket')).disconnectSocket(); } catch {}
     set({ hasAuth: false, authProvider: null, authEmail: null, isLoggedIn: false, user: null, peer: null, roomId: null });
   },
   setVerified: (gender, birthYear) =>

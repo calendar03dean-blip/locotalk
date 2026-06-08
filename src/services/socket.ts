@@ -64,6 +64,17 @@ export function connectSocket(): Socket {
       reconnectionDelay   : 1500,
       reconnectionAttempts: 10,
       timeout             : 10000,
+      // 핸드셰이크에 userId/deviceId 탑재(재연결마다 재평가) → 서버가 connect 시점부터
+      // socket.userId 확보 → list_conversations/get_chat_history 가 join 없이도 인증됨.
+      auth: (cb: (data: Record<string, any>) => void) => {
+        let userId: string | null = null;
+        try {
+          const { useStore } = require('../store');
+          const st = useStore.getState();
+          userId = st.user?.id || st.authUserId || null;
+        } catch { /* onboarding 등 */ }
+        cb({ userId, deviceId: _deviceId });
+      },
     });
 
     // 매칭 emit(join_queue/join_standby)에 '지인 매칭 피하기' 식별자 자동 주입
@@ -96,10 +107,16 @@ export function connectSocket(): Socket {
       try {
         const { getPushToken } = require('./notifications');
         const { useStore }     = require('../store');
+        const st    = useStore.getState();
         const token = getPushToken();
-        const nick  = useStore.getState().user?.nickname;
+        const nick  = st.user?.nickname;
         if (token && nick && _socket) {
-          _socket.emit('register_push_token', { token, nick });
+          // userId 동봉 → 서버가 push_tokens 에 userId 기준 영속(재배포 생존 + 닉 충돌 제거)
+          _socket.emit('register_push_token', {
+            token, nick,
+            userId: st.user?.id || st.authUserId || null,
+            platform: Platform.OS,
+          });
         }
       } catch { /* onboarding 단계엔 무시 */ }
     });
