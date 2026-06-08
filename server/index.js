@@ -39,6 +39,15 @@ const { Pool }       = require('pg');
 const legal          = require('./legal');   // 법령준수(위치/통비/청소년/개인정보) 모듈
 const chat           = require('./chat');    // 채팅 영속화(PostgreSQL) + 차등 보관 모듈
 const pushtokens     = require('./pushtokens'); // 푸시 토큰 영속화(PostgreSQL, userId 기준)
+const authVerify     = require('./authVerify'); // 소셜 provider 토큰 서버검증(JWT Stage A)
+
+// ─── 인증 강제 스위치 (JWT Stage A/B = OFF, Stage C 에서만 ON) ────────────────
+// OFF(기본): 검증 실패/토큰 없음도 로그인·매칭 허용(폴백). userVerified 만 기록.
+// ON(C단계): 미검증 식별요청(list/history) 차단 → IDOR 가드를 정식 인가로 승격.
+const ENFORCE_AUTH = process.env.ENFORCE_AUTH === 'true';
+
+// ── 메트릭: 핸드셰이크 검증 비율(점등 판단 + 오설정 탐지) ─────────────────────
+const authMetrics = { hsTotal: 0, hsVerified: 0 };
 
 // ─── PostgreSQL 연결 ─────────────────────────────────────────────────
 const db = new Pool({
@@ -143,6 +152,29 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// ── HTTP soft-auth: Authorization: Bearer <jwt> 있으면 검증해 req 에 컨텍스트 부착.
+//    절대 차단하지 않음(폴백 무중단). 강제 인가가 필요한 라우트는 requireAuth(db) 별도 사용.
+app.use((req, _res, next) => {
+  const a = req.headers.authorization || '';
+  const t = a.startsWith('Bearer ') ? a.slice(7) : null;
+  const p = t ? legal.verifySessionToken(t) : null;
+  req.userId = p?.sub || null;
+  req.userVerified = !!p?.sub;
+  next();
+});
+
+// 강제 인가 미들웨어(일반화) — ENFORCE_AUTH=true 일 때만 미검증 401. 기본 OFF=통과(폴백).
+// 적용은 보수적으로: 본 차수엔 정의만 두고, 라우트 부착은 C단계에서 점진 적용.
+function requireAuth() {
+  return (req, res, next) => {
+    if (ENFORCE_AUTH && !req.userVerified) {
+      return res.status(401).json({ error: 'auth_required' });
+    }
+    next();
+  };
+}
+void requireAuth; // 정의만(미적용) — Stage C 부착 예정
+
 // ─── 이메일 OTP 발송 ──────────────────────────────────────────────────
 app.post('/auth/send-otp', async (req, res) => {
   const { email, code } = req.body;
@@ -206,19 +238,34 @@ app.post('/auth/verify-otp', (req, res) => {
   if (entry.code !== code)          return res.status(400).json({ error: 'otp_invalid' });
 
   otpStore.delete(email.toLowerCase()); // 사용 후 삭제
-  console.log(`[OTP] ✅ 인증 완료 → ${email}`);
-  res.json({ success: true });
+  // OTP = 서버검증 통과 경로 → 신뢰 JWT 발급. sub 는 /auth/login 의 userId 스킴(email:<authId>)과 일치.
+  // (클라는 send/verify/login 에 동일 email 문자열 사용 — 대소문자도 동일해야 sub 일치)
+  const token = legal.issueSessionToken(`email:${email}`);
+  console.log(`[OTP] ✅ 인증 완료 → ${email}  (trusted token 발급)`);
+  res.json({ success: true, token });
 });
 
 // ─── 사용자 API ──────────────────────────────────────────────────────
 
 /** 로그인/회원가입 — 소셜 로그인 후 호출 */
 app.post('/auth/login', async (req, res) => {
-  const { provider, authId, email } = req.body;
+  const { provider, authId, email, providerToken } = req.body;
   if (!provider || !authId) return res.status(400).json({ error: 'provider, authId 필수' });
 
+  // provider 증명 서버검증(apple/google idToken·kakao access token). 통과해야만 신뢰 JWT 발급.
+  // ⚠️ 롤아웃 안전: 검증 실패/미동봉이어도 로그인은 그대로 허용(token=null=폴백). 차단은 C단계.
+  let trusted = false;
+  if (providerToken) {
+    const v = await authVerify.verifyProviderToken({ provider, authId, providerToken });
+    trusted = v.ok;
+    console.log(`[authv] login provider=${provider} verified=${v.ok}${v.ok ? '' : ' reason=' + v.reason}`);
+  } else {
+    console.log(`[authv] login provider=${provider} verified=false reason=no_provider_token`);
+  }
+
   if (!process.env.DATABASE_URL) {
-    return res.json({ userId: authId, isNew: true, user: null });
+    return res.json({ userId: authId, isNew: true, user: null,
+      token: trusted ? legal.issueSessionToken(authId) : null });
   }
 
   try {
@@ -249,7 +296,8 @@ app.post('/auth/login', async (req, res) => {
       if (!Array.isArray(user.interests)) user.interests = [];
       // 온보딩 완료 기준: 닉네임 보유 (관심사는 선택)
       const isComplete = !!user.nickname;
-      return res.json({ userId: user.id, isNew: false, isComplete, user });
+      return res.json({ userId: user.id, isNew: false, isComplete, user,
+        token: trusted ? legal.issueSessionToken(user.id) : null });
     }
 
     // 신규 유저 생성
@@ -257,7 +305,8 @@ app.post('/auth/login', async (req, res) => {
       'INSERT INTO users (id, auth_provider, auth_id, email) VALUES ($1, $2, $3, $4)',
       [userId, provider, authId, email || null]
     );
-    return res.json({ userId, isNew: true, isComplete: false, user: null });
+    return res.json({ userId, isNew: true, isComplete: false, user: null,
+      token: trusted ? legal.issueSessionToken(userId) : null });
   } catch (e) {
     console.error('[db] login error:', e.message);
     res.status(500).json({ error: e.message });
@@ -301,21 +350,24 @@ app.post('/auth/naver-callback', async (req, res) => {
     const email    = np.email || null;
     const userId   = `${provider}:${authId}`;
 
+    // 네이버는 서버 OAuth 교환으로 신원 검증됨 → 항상 신뢰 JWT 발급
+    const naverToken = legal.issueSessionToken(userId);
+
     if (!process.env.DATABASE_URL) {
-      return res.json({ userId, isNew: true, isComplete: false, user: null, email });
+      return res.json({ userId, isNew: true, isComplete: false, user: null, email, token: naverToken });
     }
 
     const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
     if (rows.length > 0) {
       const user = rows[0];
       const isComplete = !!(user.nickname);
-      return res.json({ userId, isNew: false, isComplete, user, email });
+      return res.json({ userId, isNew: false, isComplete, user, email, token: naverToken });
     }
     await db.query(
       'INSERT INTO users (id, auth_provider, auth_id, email) VALUES ($1, $2, $3, $4)',
       [userId, provider, authId, email]
     );
-    res.json({ userId, isNew: true, isComplete: false, user: null, email });
+    res.json({ userId, isNew: true, isComplete: false, user: null, email, token: naverToken });
   } catch (e) {
     console.error('[naver] 콜백 오류:', e.message);
     res.status(500).json({ error: e.message });
@@ -1242,15 +1294,30 @@ async function reviveRoomFromDB(socket, roomId) {
   return room;
 }
 
+// ─── 핸드셰이크 인증 미들웨어 (JWT Stage A) ────────────────────────
+// auth.token(legal HS256 JWT) 검증 → 통과 시 _verifiedUserId/userVerified=true.
+// 토큰 없음/무효 → 통과시키되 userVerified=false (build 38 등 토큰 없는 클라 호환).
+// ⚠️ 여기서 절대 연결 거부 안 함(무중단). 인가 강제는 ENFORCE_AUTH(C단계).
+io.use((socket, next) => {
+  const t = socket.handshake?.auth?.token || null;
+  const payload = t ? legal.verifySessionToken(t) : null;
+  socket._verifiedUserId = payload?.sub || null;
+  socket.userVerified    = !!payload?.sub;
+  authMetrics.hsTotal++;
+  if (socket.userVerified) authMetrics.hsVerified++;
+  next();
+});
+
 // ─── Socket handlers ──────────────────────────────────────────────
 io.on('connection', (socket) => {
-  console.log(`[connect] ${socket.id}`);
+  // 검증값 우선, 없으면 클라 주장값 폴백. 메트릭: 검증 비율(점등 판단 + 오설정 탐지).
+  const ratio = authMetrics.hsTotal ? Math.round((authMetrics.hsVerified / authMetrics.hsTotal) * 100) : 0;
+  console.log(`[connect] ${socket.id} verified=${socket.userVerified} (누적 ${authMetrics.hsVerified}/${authMetrics.hsTotal}=${ratio}%)`);
 
-  // 핸드셰이크 auth 에서 userId 확보(connect 시점부터 socket.userId 살아있게) →
+  // 핸드셰이크에서 userId 확보(connect 시점부터 socket.userId 살아있게) →
   // list_conversations/get_chat_history 가 join 없이도 식별됨. join 핸들러가 이후 갱신.
-  // ⚠️ 보안: 이 userId 는 서버 미검증값 → 스푸핑 가능. get_chat_history 참여자 인가가 임시 가드.
-  //   근본 해결: 로그인 토큰을 서버에서 검증해 신뢰 가능한 userId 로 대체(다음 차수).
-  socket.userId      = socket.handshake?.auth?.userId || null;
+  // 신뢰값(검증된 sub) 우선 → 없을 때만 클라 주장값(auth.userId) 폴백.
+  socket.userId      = socket._verifiedUserId || socket.handshake?.auth?.userId || null;
   // 통신비밀보호법: 접속지 IP·기기식별값 캡처(소켓에 저장) + 접속로그 기록
   socket._ip         = legal.getClientIp(socket);
   socket._deviceId   = socket.handshake?.auth?.deviceId || socket.handshake?.query?.deviceId || null;
@@ -1263,8 +1330,8 @@ io.on('connection', (socket) => {
     if (err) { socket.emit('error', { message: err }); return; }
     if (socketToRoom.has(socket.id)) { socket.emit('error', { message: '이미 채팅 중이에요' }); return; }
 
-    // 식별/기기값 갱신 (payload 우선)
-    socket.userId    = user.userId || socket.userId || null;
+    // 식별/기기값 갱신. 단 검증된 소켓(userVerified)은 신뢰값 유지 — payload override 금지(스푸핑 방지).
+    socket.userId    = socket.userVerified ? socket.userId : (user.userId || socket.userId || null);
     if (user.deviceId) socket._deviceId = user.deviceId;
 
     // 청소년보호법: 성인인증 미완료 차단 (매칭 진입 가드)
@@ -1350,7 +1417,8 @@ io.on('connection', (socket) => {
     if (!user?.nick) return;
     if (socketToRoom.has(socket.id)) return;  // 채팅 중이면 무시
 
-    socket.userId = user.userId || socket.userId || null;
+    // 검증된 소켓은 신뢰값 유지(payload override 금지). 미검증은 기존대로 payload 폴백.
+    socket.userId = socket.userVerified ? socket.userId : (user.userId || socket.userId || null);
     if (user.deviceId) socket._deviceId = user.deviceId;
     // 청소년보호법: 미인증자는 매칭 대상(standby)에서도 제외
     if (await legal.shouldBlockUnverified(db, { userId: socket.userId, token: user.authToken })) {
@@ -1564,6 +1632,8 @@ io.on('connection', (socket) => {
   // ── get_chat_history (DB 영속화 — 무료 7일 / 프리미엄 90일, 재시작 후에도 복원) ──
   socket.on('get_chat_history', async ({ roomId } = {}) => {
     if (!roomId) return;
+    // [3] 승격: ENFORCE_AUTH=true 면 검증된 소켓만 인가(미검증=빈 결과). 기본 OFF=현행 참여자가드 유지.
+    if (ENFORCE_AUTH && !socket.userVerified) { socket.emit('chat_history', { messages: [] }); return; }
     const room = rooms.get(roomId);
     const inRoom = !!(room && room.sockets.includes(socket.id));
 
@@ -1580,9 +1650,9 @@ io.on('connection', (socket) => {
 
     // 대화방 조회 + 참여자 인가 (IDOR 차단). 활성 room 멤버이거나, DB conversation 의
     // user_a/b_id 중 하나가 요청자(socket.userId)여야 함. 아니면 '빈 결과' 반환.
-    // ⚠️ 보안 한계: handshake.auth.userId 는 서버에서 미검증 → 스푸핑 가능(다른 userId 사칭).
-    //   본 참여자 체크는 그에 대한 '임시 가드'일 뿐. 근본 해결은 로그인 토큰(JWT 등)
-    //   서버 검증으로 socket.userId 를 신뢰값으로 만드는 것(다음 차수 과제).
+    // 보안: socket.userVerified=true 면 socket.userId 는 서버검증된 JWT sub(신뢰값) → 정식 인가.
+    //   미검증(토큰 없는 클라)일 땐 handshake.auth.userId(주장값) + 본 참여자 체크가 임시 가드.
+    //   ENFORCE_AUTH=true 시 미검증 요청은 위에서 이미 빈 결과로 차단됨(Stage C).
     let conv = null;
     try { conv = (await db.query('SELECT user_a_id, user_b_id FROM conversations WHERE id = $1', [roomId])).rows[0] || null; } catch {}
     const isParticipant = inRoom
@@ -1625,6 +1695,8 @@ io.on('connection', (socket) => {
   //    소켓에 userId 가 없을 때만 payload userId 로 폴백(이 경우 위조 가능 → 다음 차수에
   //    소켓 인증값 강제로 좁힐 것). payload 만 신뢰하면 남의 대화목록 조회 위험.
   socket.on('list_conversations', async () => {
+    // [3] 승격: ENFORCE_AUTH=true 면 검증된 소켓만 인가(미검증 빈 목록). 기본 OFF=현행 폴백 유지.
+    if (ENFORCE_AUTH && !socket.userVerified) { socket.emit('conversations', { items: [] }); return; }
     // 보안: 인증된 소켓값(socket.userId, 핸드셰이크/join에서 세팅)만 신뢰. payload 폴백 제거.
     const requesterId = socket.userId || null;
     if (!requesterId) { socket.emit('conversations', { items: [] }); return; } // graceful 빈 목록(크래시X)
