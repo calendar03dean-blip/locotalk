@@ -564,10 +564,33 @@ app.get('/server-ip', async (_req, res) => {
 });
 
 // ─── 디버그 엔드포인트 ────────────────────────────────────────────
+// ⚠️ 공개 출시 전 OFF/제거 예정. 무인증 노출 금지 — 게이트:
+//    ENABLE_DEBUG=true(기본 OFF) 또는 ?key=<DEBUG_KEY env>. 둘 다 없으면 403.
+//    (기존 /debug/tokens(원본토큰)·/debug/push 도 함께 게이트해 노출 차단)
+app.use('/debug', (req, res, next) => {
+  const enabled = process.env.ENABLE_DEBUG === 'true';
+  const keyOk   = !!process.env.DEBUG_KEY && req.query.key === process.env.DEBUG_KEY;
+  if (enabled || keyOk) return next();
+  return res.status(403).json({ error: 'debug_disabled' });
+});
+
 // 등록된 토큰 목록 확인
 app.get('/debug/tokens', (_req, res) => {
   const tokens = Object.fromEntries(pushTokensByNick);
   res.json({ count: pushTokensByNick.size, tokens });
+});
+
+// 푸시토큰 DB 적재 확인 (원본 토큰·닉 미노출). ?userId=<test> 면 존재/갱신시각만.
+app.get('/debug/pushtokens', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ db: false });
+  if (req.query.userId) return res.json(await pushtokens.checkUserToken(db, String(req.query.userId)));
+  res.json(await pushtokens.statsPushTokens(db));
+});
+
+// 채팅 영속 적재 카운트
+app.get('/debug/chat', async (_req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ db: false });
+  res.json(await chat.statsChat(db));
 });
 
 // 법령준수 로그 카운트 확인 (운영 점검용)

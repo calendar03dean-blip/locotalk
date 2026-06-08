@@ -239,9 +239,20 @@ async function scrubUserFromChats(db, userId, { purgeImmediately = false } = {})
   );
 }
 
+// ── 디버그(카운트 전용) ──────────────────────────────────────────────
+async function statsChat(db) {
+  if (!db) return { conversations: 0, messages: 0, oldest: null };
+  try {
+    const c = await db.query('SELECT COUNT(*)::int n FROM conversations');
+    const m = await db.query('SELECT COUNT(*)::int n, MIN(created_at) oldest FROM messages');
+    return { conversations: c.rows[0].n, messages: m.rows[0].n, oldest: m.rows[0].oldest };
+  } catch (e) { return { conversations: 0, messages: 0, oldest: null, error: e.message }; }
+}
+
 module.exports = {
   FREE_RETENTION_DAYS,
   PREMIUM_RETENTION_DAYS,
+  statsChat,
   initChatSchema,
   upsertConversation,
   persistMessage,

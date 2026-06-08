@@ -78,4 +78,23 @@ async function deleteByUserId(db, userId) {
   catch (e) { console.warn('[push] deleteByUserId failed:', e.message); }
 }
 
-module.exports = { initPushTokenSchema, upsertPushToken, getTokenByUserId, deleteByUserId };
+// ── 디버그(카운트 전용 — 원본 토큰/닉 노출 금지) ──────────────────────
+async function statsPushTokens(db) {
+  if (!db) return { count: 0, byPlatform: {} };
+  try {
+    const c = await db.query('SELECT COUNT(*)::int n FROM push_tokens');
+    const p = await db.query("SELECT COALESCE(platform,'unknown') pf, COUNT(*)::int n FROM push_tokens GROUP BY 1");
+    const byPlatform = {}; p.rows.forEach(r => { byPlatform[r.pf] = r.n; });
+    return { count: c.rows[0].n, byPlatform };
+  } catch (e) { return { count: 0, byPlatform: {}, error: e.message }; }
+}
+/** 특정 userId 토큰 존재/갱신시각만 (토큰·닉 미반환) */
+async function checkUserToken(db, userId) {
+  if (!db || !userId) return { exists: false };
+  try {
+    const { rows } = await db.query('SELECT updated_at FROM push_tokens WHERE user_id = $1', [userId]);
+    return rows[0] ? { exists: true, updated_at: rows[0].updated_at } : { exists: false };
+  } catch (e) { return { exists: false, error: e.message }; }
+}
+
+module.exports = { initPushTokenSchema, upsertPushToken, getTokenByUserId, deleteByUserId, statsPushTokens, checkUserToken };
