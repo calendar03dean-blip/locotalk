@@ -81,10 +81,19 @@ async function verifyGoogle(idToken, authId) {
 
 // ── Kakao access token 검증 (토큰 인트로스펙션: /v2/user/me) ──────────────────
 async function verifyKakao(accessToken, authId) {
-  const r = await fetch('https://kapi.kakao.com/v2/user/me', {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  // 카카오 API 지연이 로그인을 매달지 않게 4s 타임아웃 → 초과 시 abort(throw) → 호출부에서 ok:false 폴백.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 4000);
+  let r;
+  try {
+    r = await fetch('https://kapi.kakao.com/v2/user/me', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!r.ok) return { ok: false, reason: `kakao_http_${r.status}` };
   const data = await r.json().catch(() => null);
   if (!data || data.id == null) return { ok: false, reason: 'kakao_no_id' };

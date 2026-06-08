@@ -238,9 +238,10 @@ app.post('/auth/verify-otp', (req, res) => {
   if (entry.code !== code)          return res.status(400).json({ error: 'otp_invalid' });
 
   otpStore.delete(email.toLowerCase()); // 사용 후 삭제
-  // OTP = 서버검증 통과 경로 → 신뢰 JWT 발급. sub 는 /auth/login 의 userId 스킴(email:<authId>)과 일치.
-  // (클라는 send/verify/login 에 동일 email 문자열 사용 — 대소문자도 동일해야 sub 일치)
-  const token = legal.issueSessionToken(`email:${email}`);
+  // OTP = 서버검증 통과 경로 → 신뢰 JWT 발급. sub 는 /auth/login 의 userId 스킴과 정확히 일치시켜야 함.
+  //   login: authId = email.trim() → userId = `email:${authId}`. 따라서 sub 도 email.trim() 으로 정규화.
+  //   (대소문자는 login이 보존하므로 lowercase 금지 — 동일 입력이면 일치. 현재 이 클라는 verify-otp 미사용)
+  const token = legal.issueSessionToken(`email:${String(email).trim()}`);
   console.log(`[OTP] ✅ 인증 완료 → ${email}  (trusted token 발급)`);
   res.json({ success: true, token });
 });
