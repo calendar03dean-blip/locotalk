@@ -563,82 +563,60 @@ app.get('/server-ip', async (_req, res) => {
   } catch { res.json({ ip: 'unknown' }); }
 });
 
-// ─── 디버그 엔드포인트 ────────────────────────────────────────────
-// ⚠️ 공개 출시 전 OFF/제거 예정. 무인증 노출 금지 — 게이트:
-//    ENABLE_DEBUG=true(기본 OFF) 또는 ?key=<DEBUG_KEY env>. 둘 다 없으면 403.
-//    (기존 /debug/tokens(원본토큰)·/debug/push 도 함께 게이트해 노출 차단)
-app.use('/debug', (req, res, next) => {
-  const enabled = process.env.ENABLE_DEBUG === 'true';
-  const keyOk   = !!process.env.DEBUG_KEY && req.query.key === process.env.DEBUG_KEY;
-  if (enabled || keyOk) return next();
-  return res.status(403).json({ error: 'debug_disabled' });
-});
+// ─── 디버그 엔드포인트 (READ-ONLY · 출시 전 정리됨) ────────────────────
+// 보안 3중:
+//  ① 게이트 — ENABLE_DEBUG=true 또는 ?key=<DEBUG_KEY env>. 무인증 403.
+//  ② 출시 빌드(NODE_ENV=production)에서 DEBUG_KEY 미설정 시 라우트 자체 미등록(→404).
+//  ③ 테스트 푸시 송신(POST /debug/push)은 스팸 위험으로 완전 제거됨.
+const DEBUG_DISABLED = process.env.NODE_ENV === 'production' && !process.env.DEBUG_KEY;
+if (DEBUG_DISABLED) {
+  console.log('[debug] 출시 모드(production · DEBUG_KEY 없음) — /debug 라우트 미등록');
+} else {
+  // 게이트
+  app.use('/debug', (req, res, next) => {
+    const enabled = process.env.ENABLE_DEBUG === 'true';
+    const keyOk   = !!process.env.DEBUG_KEY && req.query.key === process.env.DEBUG_KEY;
+    if (enabled || keyOk) return next();
+    return res.status(403).json({ error: 'debug_disabled' });
+  });
 
-// 등록된 토큰 목록 확인
-app.get('/debug/tokens', (_req, res) => {
-  const tokens = Object.fromEntries(pushTokensByNick);
-  res.json({ count: pushTokensByNick.size, tokens });
-});
+  // 등록된 토큰 목록 확인 (인메모리)
+  app.get('/debug/tokens', (_req, res) => {
+    res.json({ count: pushTokensByNick.size, tokens: Object.fromEntries(pushTokensByNick) });
+  });
 
-// 푸시토큰 DB 적재 확인 (원본 토큰·닉 미노출). ?userId=<test> 면 존재/갱신시각만.
-app.get('/debug/pushtokens', async (req, res) => {
-  if (!process.env.DATABASE_URL) return res.json({ db: false });
-  if (req.query.userId) return res.json(await pushtokens.checkUserToken(db, String(req.query.userId)));
-  res.json(await pushtokens.statsPushTokens(db));
-});
+  // 푸시토큰 DB 적재 확인 (원본 토큰·닉 미노출). ?userId=<test> 면 존재/갱신시각만.
+  app.get('/debug/pushtokens', async (req, res) => {
+    if (!process.env.DATABASE_URL) return res.json({ db: false });
+    if (req.query.userId) return res.json(await pushtokens.checkUserToken(db, String(req.query.userId)));
+    res.json(await pushtokens.statsPushTokens(db));
+  });
 
-// 채팅 영속 적재 카운트
-app.get('/debug/chat', async (_req, res) => {
-  if (!process.env.DATABASE_URL) return res.json({ db: false });
-  res.json(await chat.statsChat(db));
-});
+  // 채팅 영속 적재 카운트
+  app.get('/debug/chat', async (_req, res) => {
+    if (!process.env.DATABASE_URL) return res.json({ db: false });
+    res.json(await chat.statsChat(db));
+  });
 
-// 법령준수 로그 카운트 확인 (운영 점검용)
-app.get('/debug/legal', async (_req, res) => {
-  if (!process.env.DATABASE_URL) return res.json({ db: false });
-  try {
-    const loc = await db.query('SELECT COUNT(*)::int c, MIN(used_at) oldest FROM location_history_log');
-    const acc = await db.query('SELECT COUNT(*)::int c, MIN(event_at) oldest FROM access_log');
-    const adult = await db.query('SELECT COUNT(*)::int c FROM users WHERE adult_verified = TRUE');
-    const cons  = await db.query('SELECT COUNT(*)::int c FROM users WHERE location_consent = TRUE');
-    res.json({
-      db: true,
-      locationLog: loc.rows[0], accessLog: acc.rows[0],
-      adultVerifiedUsers: adult.rows[0].c, locationConsentUsers: cons.rows[0].c,
-      retentionDays: { location: legal.LOCATION_RETENTION_DAYS, access: legal.ACCESS_RETENTION_DAYS },
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-// 특정 닉에게 테스트 push 전송
-// 사용: curl -X POST http://localhost:4000/debug/push/닉네임
-app.post('/debug/push/:nick', async (req, res) => {
-  const { nick } = req.params;
-  const token    = pushTokensByNick.get(nick);
-  if (!token) {
-    return res.status(404).json({ error: `no token for "${nick}"`, registered: [...pushTokensByNick.keys()] });
-  }
-  try {
-    const fetchRes = await fetch('https://exp.host/--/api/v2/push/send', {
-      method : 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body   : JSON.stringify({
-        to              : token,
-        title           : '🔔 테스트 알림',
-        body            : `${nick}에게 보낸 테스트 메시지입니다`,
-        sound           : 'default',
-        priority        : 'high',
-        _contentAvailable: true,
-        channelId       : 'default',
-      }),
-    });
-    const json = await fetchRes.json();
-    console.log(`[debug] test push to ${nick}:`, JSON.stringify(json));
-    res.json({ token, expoResponse: json });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+  // 법령준수 로그 카운트 확인 (운영 점검용)
+  app.get('/debug/legal', async (_req, res) => {
+    if (!process.env.DATABASE_URL) return res.json({ db: false });
+    try {
+      const loc = await db.query('SELECT COUNT(*)::int c, MIN(used_at) oldest FROM location_history_log');
+      const acc = await db.query('SELECT COUNT(*)::int c, MIN(event_at) oldest FROM access_log');
+      const adult = await db.query('SELECT COUNT(*)::int c FROM users WHERE adult_verified = TRUE');
+      const cons  = await db.query('SELECT COUNT(*)::int c FROM users WHERE location_consent = TRUE');
+      res.json({
+        db: true,
+        locationLog: loc.rows[0], accessLog: acc.rows[0],
+        adultVerifiedUsers: adult.rows[0].c, locationConsentUsers: cons.rows[0].c,
+        retentionDays: { location: legal.LOCATION_RETENTION_DAYS, access: legal.ACCESS_RETENTION_DAYS },
+      });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+}
+// (POST /debug/push/:nick — 테스트 푸시 송신: 키 유출 시 스팸 위험 → 완전 제거됨.
+//  실제 푸시 경로 sendPushToNick/sendMatchRequestPush/_sendExpoPush 는 유지)
 
 // ─── In-memory state ──────────────────────────────────────────────
 const queue              = new Map(); // socketId → QueueEntry
