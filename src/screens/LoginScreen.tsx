@@ -212,7 +212,8 @@ export default function LoginScreen() {
   // ── 서버 로그인 결과 적용 (성공 시에만 페이지 이동) ──────────────
   const applyLoginResult = (provider: string, result: any, email?: string): boolean => {
     if (!result?.userId) return false;
-    setAuth(provider as any, email ?? result.email, result.userId);
+    // JWT Stage B: provider 검증 통과 시 서버가 준 신뢰 JWT 저장(실패/구버전=null=폴백)
+    setAuth(provider as any, email ?? result.email, result.userId, result.token ?? null);
 
     // 기존 완성된 프로필이 있으면 바로 홈으로
     if (!result.isNew && result.isComplete && result.user) {
@@ -243,9 +244,9 @@ export default function LoginScreen() {
   };
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
-  const handleSocialLogin = async (provider: string, authId: string, email?: string): Promise<boolean> => {
+  const handleSocialLogin = async (provider: string, authId: string, email?: string, providerToken?: string): Promise<boolean> => {
     try {
-      const result = await serverLogin(provider, authId, email);
+      const result = await serverLogin(provider, authId, email, providerToken);
       diagRef.current = `[서버 단계] userId=${result?.userId ?? '없음'} isNew=${result?.isNew} isComplete=${result?.isComplete}`;
       if (!result?.userId) return false;
       // ── 크래시 수정 (BUG: 소셜 로그인 후 앱 충돌) ───────────────────────
@@ -279,7 +280,8 @@ export default function LoginScreen() {
       }
       // Apple은 credential.email을 첫 인증 때만 줌 → 없으면 identityToken(JWT)에서 보강
       const appleEmail = credential.email ?? emailFromAppleToken(credential.identityToken) ?? undefined;
-      const ok = await handleSocialLogin('apple', credential.user, appleEmail);
+      // providerToken = Apple identityToken(JWT) → 서버가 Apple JWKS 로 검증
+      const ok = await handleSocialLogin('apple', credential.user, appleEmail, credential.identityToken ?? undefined);
       if (!ok) { console.warn('[apple] 로그인 실패:', diagRef.current); Alert.alert(t('login_failed')); }
     } catch (e: any) {
       if (e?.code === 'ERR_REQUEST_CANCELED') return; // 사용자 취소 — 조용히 종료
@@ -302,7 +304,15 @@ export default function LoginScreen() {
       const email    = response.data?.user?.email;
       const googleId = response.data?.user?.id ?? email ?? '';
       if (!googleId) { console.warn('[google] googleId/email 없음:', diag(response)); Alert.alert(t('login_failed')); return; }
-      const ok = await handleSocialLogin('google', googleId, email ?? undefined);
+      // providerToken = Google idToken(JWT) → 서버가 Google JWKS 로 검증(aud=iOS 클라ID).
+      // idToken: signIn 응답에 있으면 사용, 없으면 getTokens() 로 취득(타입 스텁 미선언 → as any). 실패=폴백.
+      let googleIdToken: string | undefined;
+      try {
+        googleIdToken = (response.data as any)?.idToken
+          ?? (await (GoogleSignin as any).getTokens())?.idToken
+          ?? undefined;
+      } catch {}
+      const ok = await handleSocialLogin('google', googleId, email ?? undefined, googleIdToken);
       if (!ok) { console.warn('[google] 로그인 실패:', diagRef.current); Alert.alert(t('login_failed')); }
     } catch (e: any) {
       // 사용자 취소는 조용히 종료. (iOS는 취소 코드가 문자열/숫자 -5 또는 웹세션
@@ -328,7 +338,8 @@ export default function LoginScreen() {
       // 카카오톡 앱이 설치돼 있으면 앱 로그인(로그인된 계정 사용), 없으면 웹 계정 로그인
       let talkAvailable = false;
       try { talkAvailable = await KakaoUser.isKakaoTalkLoginAvailable(); } catch {}
-      await (KakaoUser.login as any)(talkAvailable ? {} : { useKakaoAccountLogin: true });
+      // login() 은 KakaoLoginToken({ accessToken, ... }) 반환 → providerToken 으로 사용
+      const kakaoToken = await (KakaoUser.login as any)(talkAvailable ? {} : { useKakaoAccountLogin: true });
 
       let kakaoId    = `kakao-${Date.now()}`;
       let kakaoEmail: string | undefined = undefined;
@@ -338,7 +349,8 @@ export default function LoginScreen() {
         kakaoEmail = kakaoUser?.kakaoAccount?.email ?? undefined;
       } catch { /* me() 실패해도 진행 */ }
 
-      const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail);
+      // providerToken = Kakao access token → 서버가 kapi /v2/user/me 로 검증(응답 id===authId)
+      const ok = await handleSocialLogin('kakao', kakaoId, kakaoEmail, kakaoToken?.accessToken ?? undefined);
       if (!ok) { console.warn('[kakao] 로그인 실패:', diagRef.current); Alert.alert(t('login_failed')); }
     } catch (e: any) {
       if (e?.code === 'CANCELED' || e?.message?.includes('cancel')) return; // 사용자 취소

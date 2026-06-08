@@ -68,12 +68,15 @@ export function connectSocket(): Socket {
       // socket.userId 확보 → list_conversations/get_chat_history 가 join 없이도 인증됨.
       auth: (cb: (data: Record<string, any>) => void) => {
         let userId: string | null = null;
+        let token: string | null = null;
         try {
           const { useStore } = require('../store');
           const st = useStore.getState();
           userId = st.user?.id || st.authUserId || null;
+          token  = st.authToken || null;   // 서버검증 신뢰 JWT(있으면) → 서버 io.use 가 검증해 userVerified 설정.
         } catch { /* onboarding 등 */ }
-        cb({ userId, deviceId: _deviceId });
+        // token 없으면 서버가 claim(userId) 폴백 → build 38 등 무중단.
+        cb({ userId, deviceId: _deviceId, token });
       },
     });
 
@@ -95,6 +98,9 @@ export function connectSocket(): Socket {
             userId        : st.user?.id || st.authUserId || null,
             deviceId      : _deviceId,
             locationMethod: 'GPS',
+            // JWT Stage B: 신뢰 토큰 동봉 → 서버 shouldBlockUnverified/인가가 토큰으로도 검증.
+            //   (모든 join 호출부 — HomeScreen/RootNavigator/ChatScreen — 무수정으로 중앙 주입)
+            authToken     : st.authToken || null,
             ...args[0],
           };
         } catch { /* onboarding 단계 등 — 무시 */ }

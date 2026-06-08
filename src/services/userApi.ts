@@ -20,25 +20,40 @@ export interface LoginResult {
   isNew: boolean;
   isComplete: boolean;   // 닉네임/성별/생년 입력 완료 여부
   user: UserProfile | null;
+  token?: string | null; // 서버 발급 신뢰 JWT (provider 검증 통과 시에만; 실패/구버전=null)
 }
 
-/** 소셜 로그인 후 서버에 등록/확인 */
+/** 저장된 신뢰 JWT 로 Authorization 헤더 생성(없으면 생략). 순환참조 방지 위해 지연 require. */
+function authHeader(): Record<string, string> {
+  try {
+    const { useStore } = require('../store');
+    const t = useStore.getState().authToken;
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  } catch { return {}; }
+}
+function jsonAuthHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', ...authHeader() };
+}
+
+/** 소셜 로그인 후 서버에 등록/확인. providerToken(Apple identityToken/Google idToken/Kakao access token)
+ *  동봉 시 서버가 검증 → 통과하면 응답 token(신뢰 JWT) 반환. 미동봉/실패면 token=null(로그인은 유지). */
 export async function serverLogin(
   provider: string,
   authId: string,
   email?: string,
+  providerToken?: string,
 ): Promise<LoginResult> {
   try {
     const res = await fetch(`${BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, authId, email }),
+      body: JSON.stringify({ provider, authId, email, providerToken }),
     });
     const data = await res.json();
     return data;
   } catch (e) {
-    // 서버 오류 시 로컬 fallback
-    return { userId: `${provider}:${authId}`, isNew: true, isComplete: false, user: null };
+    // 서버 오류 시 로컬 fallback (토큰 없음 = 미검증)
+    return { userId: `${provider}:${authId}`, isNew: true, isComplete: false, user: null, token: null };
   }
 }
 
@@ -47,7 +62,7 @@ export async function saveUserProfile(userId: string, profile: Partial<UserProfi
   try {
     await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify(profile),
     });
   } catch (e) {
@@ -58,7 +73,7 @@ export async function saveUserProfile(userId: string, profile: Partial<UserProfi
 /** 프로필 불러오기 */
 export async function loadUserProfile(userId: string): Promise<UserProfile | null> {
   try {
-    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`);
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, { headers: authHeader() });
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -69,7 +84,7 @@ export async function loadUserProfile(userId: string): Promise<UserProfile | nul
 /** 회원 탈퇴 — 서버에서 계정·프로필 영구 삭제 */
 export async function deleteUserAccount(userId: string): Promise<boolean> {
   try {
-    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, { method: 'DELETE', headers: authHeader() });
     return res.ok;
   } catch {
     return false;
@@ -81,7 +96,7 @@ export async function setLocationConsent(userId: string, agreed: boolean): Promi
   try {
     const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/location-consent`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({ agreed }),
     });
     const data = await res.json();
@@ -94,7 +109,7 @@ export async function syncPremiumStatus(userId: string, isPremium: boolean): Pro
   try {
     await fetch(`${BASE}/users/${encodeURIComponent(userId)}/premium`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({ isPremium }),
     });
   } catch { /* silent */ }
@@ -110,7 +125,7 @@ export async function verifyIdentity(
   try {
     const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/verify`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: jsonAuthHeaders(),
       body: JSON.stringify({ gender, birthYear, phone }),
     });
     const data = await res.json();
