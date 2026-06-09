@@ -35,6 +35,7 @@ const cors           = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const fs             = require('fs');
 const path           = require('path');
+const crypto         = require('crypto');
 const { Pool }       = require('pg');
 const legal          = require('./legal');   // 법령준수(위치/통비/청소년/개인정보) 모듈
 const chat           = require('./chat');    // 채팅 영속화(PostgreSQL) + 차등 보관 모듈
@@ -664,7 +665,8 @@ if (DEBUG_DISABLED) {
     res.json(await chat.statsChat(db));
   });
 
-  // 신고 영속 — 카운트/사유분포 + 최신 목록(?limit=). /admin 은 무인증이라 PII(스냅샷) 보호 위해 게이트된 debug 에만.
+  // 신고 영속 — 카운트/사유분포 + 최신 목록(?limit=).
+  //   /admin 은 Basic Auth(fail-closed)지만, 신고 스냅샷은 PII라 한 단계 더 잠긴 게이트형 /debug 에 둔다.
   app.get('/debug/reports', async (req, res) => {
     if (!process.env.DATABASE_URL) return res.json({ db: false });
     const stats = await reports.statsReports(db);
@@ -1979,6 +1981,14 @@ io.on('connection', (socket) => {
 //        접근 가능 → Railway 환경변수 ADMIN_PASSWORD 필수.
 //        미설정 시 패널 전체 비활성(503).
 // ═══════════════════════════════════════════════════════════════════
+// 상수시간 문자열 비교(타이밍 사이드채널 차단). 양쪽 SHA-256 해시(고정 길이) → timingSafeEqual.
+//   - 입력 길이가 달라도 throw 안 함(해시가 항상 32바이트).
+function timingSafeEqualStr(a, b) {
+  const ha = crypto.createHash('sha256').update(String(a)).digest();
+  const hb = crypto.createHash('sha256').update(String(b)).digest();
+  return crypto.timingSafeEqual(ha, hb);
+}
+
 function adminAuth(req, res, next) {
   const PASS = process.env.ADMIN_PASSWORD;
   if (!PASS) {
@@ -1992,7 +2002,8 @@ function adminAuth(req, res, next) {
     const decoded = Buffer.from(b64, 'base64').toString('utf8');
     const idx = decoded.indexOf(':');
     const pw = idx >= 0 ? decoded.slice(idx + 1) : '';
-    if (pw === PASS) return next();
+    // timing-safe 비교: 양쪽을 SHA-256(고정 32바이트)으로 해시 → 길이불일치 throw 없이 상수시간 비교.
+    if (timingSafeEqualStr(pw, PASS)) return next();
   }
   res.set('WWW-Authenticate', 'Basic realm="Locotalk Admin", charset="UTF-8"');
   return res.status(401).send('관리자 인증이 필요합니다.');
