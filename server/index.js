@@ -395,7 +395,9 @@ app.post('/auth/naver-callback', async (req, res) => {
 /** 사용자 프로필 저장/업데이트 */
 app.post('/users/:id', async (req, res) => {
   const { id } = req.params;
-  const { nickname, email, gender, birthYear, interests, regionGu, regionLabel } = req.body;
+  // [하드닝] 사용자 선택 필드만 수용. gender/birthYear(검증파생)는 req.body 에서 무시 —
+  //   본인인증(PortOne CI) 시점에 서버가 세팅한 권위값을 클라가 덮어쓰지 못하게(검증≠바인딩 차단).
+  const { nickname, email, interests, regionGu, regionLabel } = req.body;
 
   if (!process.env.DATABASE_URL) return res.json({ ok: true });
 
@@ -404,14 +406,12 @@ app.post('/users/:id', async (req, res) => {
       UPDATE users SET
         nickname     = COALESCE($2, nickname),
         email        = COALESCE($3, email),
-        gender       = COALESCE($4, gender),
-        birth_year   = COALESCE($5, birth_year),
-        interests    = COALESCE($6, interests),
-        region_gu    = COALESCE($7, region_gu),
-        region_label = COALESCE($8, region_label),
+        interests    = COALESCE($4, interests),
+        region_gu    = COALESCE($5, region_gu),
+        region_label = COALESCE($6, region_label),
         updated_at   = NOW()
       WHERE id = $1
-    `, [id, nickname, email, gender, birthYear, JSON.stringify(interests), regionGu, regionLabel]);
+    `, [id, nickname, email, JSON.stringify(interests), regionGu, regionLabel]);
 
     res.json({ ok: true });
   } catch (e) {
@@ -471,22 +471,11 @@ app.patch('/users/:id/premium', async (req, res) => {
   }
 });
 
-/** 본인인증 완료 — 성별/생년 저장 + 인증 마크 */
-app.patch('/users/:id/verify', async (req, res) => {
-  const { gender, birthYear, phone } = req.body;
-  if (!gender || !birthYear) return res.status(400).json({ error: 'gender, birthYear 필수' });
-  if (!process.env.DATABASE_URL) {
-    return res.json({ ok: true, isVerified: true });
-  }
-  try {
-    await db.query('UPDATE users SET phone = COALESCE($2, phone), updated_at = NOW() WHERE id = $1',
-      [req.params.id, phone || null]);
-    // 청소년보호법: 성인여부 판정·반영 + 세션 JWT 발급
-    const r = await legal.setAdultVerified(db, req.params.id, { provider: 'self', birth: birthYear, gender });
-    res.json({ ok: true, isVerified: true, adultVerified: r.adult, token: r.token || null });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+/** [비활성·하드닝] 레거시 self-verify — 클라 gender/birth 로 is_verified·adult_verified·토큰을 부여하던
+ *  P0급 우회 경로(임의 :id, 검증≠바인딩). 검증 권위는 오직 PortOne CI(/auth/portone-verify)로 일원화.
+ *  → 어떤 신원 속성도 세팅하지 않고 거부. (클린 전환 플로우는 본 라우트를 사용하지 않음) */
+app.patch('/users/:id/verify', (_req, res) => {
+  return res.status(410).json({ error: 'deprecated_use_identity_login' });
 });
 
 // ─── 포트원 본인인증 검증 ──────────────────────────────────────
@@ -602,11 +591,13 @@ app.post('/auth/verify-phone-otp', async (req, res) => {
 
   phoneOtpStore.delete(phone);
 
-  // DB 업데이트 (있는 경우)
+  // DB 업데이트 (있는 경우) — [하드닝] is_verified 부여 제거.
+  //   검증 권위(is_verified/adult)는 PortOne CI(/auth/portone-verify)로만 세팅. 여기선 phone 만 기록.
+  //   (클라가 임의 userId 로 is_verified 를 켜던 IDOR 구멍 차단)
   if (process.env.DATABASE_URL && userId) {
     try {
       await db.query(
-        `UPDATE users SET phone = $1, is_verified = true, verified_at = NOW() WHERE id = $2`,
+        `UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2`,
         [phone, userId]
       ).catch(() => {});
     } catch {}
