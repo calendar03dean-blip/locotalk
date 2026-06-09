@@ -43,6 +43,7 @@ const pushtokens     = require('./pushtokens'); // 푸시 토큰 영속화(Postg
 const authVerify     = require('./authVerify'); // 소셜 provider 토큰 서버검증(JWT Stage A)
 const reports        = require('./reports');    // 신고 영속화(PostgreSQL — 사유 + 서버구성 스냅샷)
 const feeds          = require('./feeds');       // 동네 피드 영속화(PostgreSQL — 재시작 생존 + 부팅 워밍)
+const identity       = require('./identity');    // 본인인증=로그인(PortOne V2) + CI 바인딩 + IVID 1회소비
 
 // ─── 인증 강제 스위치 (JWT Stage A/B = OFF, Stage C 에서만 ON) ────────────────
 // OFF(기본): 검증 실패/토큰 없음도 로그인·매칭 허용(폴백). userVerified 만 기록.
@@ -102,6 +103,8 @@ async function initDB() {
     await pushtokens.initPushTokenSchema(db);
     // 신고 영속화 스키마(사유 + 서버구성 스냅샷)
     await reports.initReportSchema(db);
+    // 본인인증=로그인 스키마(users.ci/di + uq_users_ci + used_identity_verifications)
+    await identity.initIdentitySchema(db);
     // 동네 피드 영속화 스키마 + 부팅 워밍(region별 최신 100 → 인메모리 캐시 보존)
     await feeds.initFeedSchema(db);
     try {
@@ -487,48 +490,46 @@ app.patch('/users/:id/verify', async (req, res) => {
 });
 
 // ─── 포트원 본인인증 검증 ──────────────────────────────────────
+// 본인인증 = 로그인 (P0 재설계). 신원-세션 바인딩: userId 는 '서버가' CI 로 결정.
+//   ⚠️ req.body.userId 는 신뢰하지 않음(폐기) — 사칭 차단. IVID 만 입력.
 app.post('/auth/portone-verify', async (req, res) => {
-  const { identityVerificationId, userId } = req.body;
-  if (!identityVerificationId) {
-    return res.status(400).json({ error: 'identityVerificationId required' });
+  const { identityVerificationId } = req.body;   // userId 폐기(받더라도 무시)
+  if (!identityVerificationId) return res.status(400).json({ error: 'identityVerificationId required' });
+  if (!process.env.PORTONE_V2_API_SECRET) {
+    console.error('[identity] PORTONE_V2_API_SECRET 미설정');
+    return res.status(500).json({ error: '서버 본인인증 설정이 필요합니다 (API Secret).' });
   }
-
+  if (!process.env.DATABASE_URL) {
+    return res.status(503).json({ error: '본인인증 저장소(DB)가 필요합니다.' });
+  }
   try {
-    // ── PortOne V2 인증결과 조회 ──────────────────────────────
-    const secret = process.env.PORTONE_V2_API_SECRET;
-    if (!secret) {
-      console.error('[PortOne V2] PORTONE_V2_API_SECRET 미설정');
-      return res.status(500).json({ error: '서버 본인인증 설정이 필요합니다 (API Secret).' });
-    }
-    const r = await fetch(
-      `https://api.portone.io/identity-verifications/${encodeURIComponent(identityVerificationId)}`,
-      { headers: { Authorization: `PortOne ${secret}` } }
-    );
-    const data = await r.json();
-
-    if (data.status !== 'VERIFIED' || !data.verifiedCustomer) {
-      console.warn('[PortOne V2] 미인증:', data.status, data.message || '');
+    // 1) IVID 로 PortOne 결과를 '서버'가 조회·검증 (채널 무관). 클라 신원값 신뢰 안 함.
+    const v = await identity.verifyByIVID(identityVerificationId);
+    if (!v.ok) {
+      console.warn('[identity] 미인증:', v.reason);
       return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
     }
-    const c = data.verifiedCustomer;
-    const name   = c.name;
-    const birth  = (c.birthDate || '').replace(/-/g, '');             // YYYY-MM-DD → YYYYMMDD
-    const gender = (c.gender === 'MALE') ? 'male' : 'female';
-    const phone  = (c.phoneNumber || '').replace(/[^0-9]/g, '');
+    // 2) CI 해시 기준 계정 조회/생성 (사전 userId 없음 = 신원이 곧 계정)
+    const ciHash = identity.hashId(v.ci);
+    const diHash = identity.hashId(v.di);
+    const { userId, isNew } = await identity.resolveOrCreateUserByCI(db, { ciHash, diHash, phone: v.phone });
 
-    // ── DB 업데이트 (성인인증 반영 + 전화 저장) ──────────────────
-    // ⚠️ 기존 버그 수정: 'pool'(undefined)·없는 컬럼(name/birth_date) 사용 → db + 실제 컬럼으로 교체.
-    let sessionToken = null;
-    if (userId) {
-      try { await db.query('UPDATE users SET phone=$1, updated_at=NOW() WHERE id=$2', [phone, userId]); } catch {}
-      const r = await legal.setAdultVerified(db, userId, { provider: 'portone', birth, gender });
-      sessionToken = r.token || null;   // 청소년보호법: 성인여부 JWT 반영
+    // 3) IVID 1회 소비 — 재사용(리플레이) 거부. (계정 resolve 후 userId 바인딩해 기록)
+    const consumed = await identity.consumeIVID(db, identityVerificationId, userId);
+    if (!consumed) {
+      console.warn('[identity] IVID 재사용 거부:', identityVerificationId);
+      return res.status(409).json({ error: '이미 사용된 인증입니다.' });
     }
 
-    console.log(`[PortOne] ✅ 인증 완료 → ${name} (${birth}) ${gender} ${phone} adult-token=${!!sessionToken}`);
-    res.json({ success: true, name, birth, gender, phone, token: sessionToken });
+    // 4) 성인여부 반영(서버가 PortOne birth 로 판정) + 신뢰 JWT 발급(sub=서버결정 userId)
+    const r = await legal.setAdultVerified(db, userId, { provider: 'portone', birth: v.birth, gender: v.gender });
+    const token = r.token || legal.issueSessionToken(userId, { adultVerified: r.adult });
+
+    console.log(`[identity] ✅ 본인인증=로그인 userId=${userId} isNew=${isNew} adult=${r.adult}`);
+    // name/birth 등 PII 는 응답으로 돌려보내되(온보딩 표시용) 서버 신원 결정은 CI 기준.
+    res.json({ success: true, userId, isNew, adult: r.adult, name: v.name, birth: v.birth, gender: v.gender, phone: v.phone, token });
   } catch (e) {
-    console.error('[PortOne] 오류:', e.message);
+    console.error('[identity] 오류:', e.message);
     res.status(500).json({ error: '인증 처리 중 오류가 발생했습니다.' });
   }
 });
