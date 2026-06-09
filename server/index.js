@@ -238,12 +238,14 @@ app.post('/auth/verify-otp', (req, res) => {
   if (entry.code !== code)          return res.status(400).json({ error: 'otp_invalid' });
 
   otpStore.delete(email.toLowerCase()); // 사용 후 삭제
-  // OTP = 서버검증 통과 경로 → 신뢰 JWT 발급. sub 는 /auth/login 의 userId 스킴과 정확히 일치시켜야 함.
-  //   login: authId = email.trim() → userId = `email:${authId}`. 따라서 sub 도 email.trim() 으로 정규화.
-  //   (대소문자는 login이 보존하므로 lowercase 금지 — 동일 입력이면 일치. 현재 이 클라는 verify-otp 미사용)
-  const token = legal.issueSessionToken(`email:${String(email).trim()}`);
-  console.log(`[OTP] ✅ 인증 완료 → ${email}  (trusted token 발급)`);
-  res.json({ success: true, token });
+  // ⚠️ 신뢰 JWT 미발급(의도적·보안). 현재 OTP 코드는 '클라가 생성'해 /auth/send-otp 로 전달하는 구조 →
+  //    서버가 독립 생성·검증한 게 아니라 클라가 준 코드를 되비교할 뿐. 게다가 send-otp 의 code 가 클라 제어값이라
+  //    공격자가 send-otp{email:피해자, code:임의} → verify-otp{동일 code} 로 임의 email userId 토큰을 위조 가능.
+  //    여기서 trusted token 을 발급하면 ENFORCE_AUTH 시 이메일 유저 사칭 구멍이 됨 → 발급하지 않는다.
+  //    이메일을 서버 신뢰로 승격하려면: OTP 를 '서버가 생성'(클라 비전달)하도록 재설계 → verify 가 진짜
+  //    서버검증이 된 뒤에만 issueSessionToken 발급(소셜 provider 검증과 동일 신뢰수준). [PO 결정거리]
+  console.log(`[OTP] ✅ 코드 일치 → ${email} (서버 신뢰 토큰 미발급 — 클라생성 OTP 구조)`);
+  res.json({ success: true });
 });
 
 // ─── 사용자 API ──────────────────────────────────────────────────────
