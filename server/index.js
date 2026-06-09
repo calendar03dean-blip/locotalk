@@ -999,6 +999,12 @@ function createRoom(socketA, userA, socketIdB, userB,
     distanceKm = legal.fuzzDistanceKm(haversineKm(userA.lat, userA.lng, userB.lat, userB.lng));
   }
 
+  // G2(위치 ephemeral): 거리 산출 직후 정밀좌표 참조 해제.
+  //   room.users 는 userA/userB 객체를 참조 → 여기서 null 처리하면 룸 상태에 lat/lng 미잔존.
+  //   매칭 점수·거리필터는 createRoom 호출 전에 이미 계산됨 → 결과 불변. queue 엔트리는 위에서 delete 됨.
+  userA.lat = userA.lng = null;
+  userB.lat = userB.lng = null;
+
   // 프리미엄 유저에게만 상대 성별/생년 공개
   const peerForA = {
     nick: userB.nick, interests: userB.interests, region: userB.region, roomId, distanceKm,
@@ -1407,7 +1413,8 @@ io.on('connection', (socket) => {
       joinedAt    : Date.now(),
     };
     queue.set(socket.id, entry);
-    const coordStr = entry.lat ? `(${entry.lat.toFixed(4)}, ${entry.lng.toFixed(4)})` : '(좌표없음)';
+    // G1(위치 ephemeral): 정밀좌표를 로그(stdout→Railway)에 노출 금지 → 보유여부 불리언만.
+    const coordStr = entry.lat ? '(위치보유)' : '(좌표없음)';
     console.log(`[queue] +${entry.nick} ${coordStr} premium=${entry.isPremium}  queue=${queue.size}`);
 
     if (tryMatch(socket, entry)) return;          // queue↔queue
