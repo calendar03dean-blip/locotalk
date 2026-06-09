@@ -85,7 +85,7 @@ function IcoStar({ color }: { color: string }) {
 }
 
 export default function OnboardingScreen() {
-  const { setLoggedIn, authEmail, authUserId } = useStore();
+  const { setLoggedIn, authEmail, authUserId, pendingVerified, setPendingVerified } = useStore();
   const t    = useT();
   const lang = useLang();
   const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
@@ -156,6 +156,9 @@ export default function OnboardingScreen() {
     if (selected.length === 0) { Alert.alert(t('alert_interest_min')); return; }
 
     const userId = authUserId || ('local-' + Date.now());
+    // 본인인증=로그인: 진입이 곧 본인인증이므로 온보딩 완료 유저는 isVerified=true.
+    // 성별/생년은 로그인 시 stash 한 pendingVerified 에서 반영(서버는 이미 is_verified·birth_year 저장됨).
+    const pv = pendingVerified;
     const profile = {
       id: userId,
       nickname: nick.trim(),
@@ -163,12 +166,16 @@ export default function OnboardingScreen() {
       regionGu: '',
       regionLabel: '',
       email: authEmail || undefined,
+      isVerified: true,
+      ...(pv?.gender    ? { gender: pv.gender }       : {}),
+      ...(pv?.birthYear ? { birthYear: pv.birthYear } : {}),
     };
 
     // DB에 저장 (백그라운드)
     saveUserProfile(userId, profile).catch(() => {});
 
     setLoggedIn(profile);
+    setPendingVerified(null); // 1회성 — 소비 후 정리
   };
 
   return (

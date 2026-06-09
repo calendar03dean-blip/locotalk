@@ -28,6 +28,11 @@ import { useT } from '../i18n';
 import { Colors, Typography, Radius } from '../constants/theme';
 import { LT } from '../constants/lt';
 import { serverLogin } from '../services/userApi';
+import PortOneVerifyModal from '../components/PortOneVerifyModal';
+
+// 본인인증 단일 진입으로 전환(프리런치 클린). 소셜/이메일 진입 UI 비활성 —
+// 핸들러·모듈 코드는 보존(차기 auth-kit 추출용). true 로 돌리면 즉시 복구.
+const SOCIAL_LOGIN_ENABLED = false;
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -168,7 +173,9 @@ export default function LoginScreen() {
   const setLoggedIn  = useStore(s => s.setLoggedIn);
   const setPremium   = useStore(s => s.setPremium);
   const setLocationConsent = useStore(s => s.setLocationConsent);
+  const setPendingVerified = useStore(s => s.setPendingVerified);
 
+  const [showIdentity, setShowIdentity] = useState(false); // 본인인증=로그인 모달
   const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
   const [step,     setStep]     = useState<Step>('main');
   const [email,    setEmail]    = useState('');
@@ -241,6 +248,21 @@ export default function LoginScreen() {
       setLocationConsent(u.location_consent === true);
     }
     return true;
+  };
+
+  // ── 본인인증 = 로그인 (단일 진입) ─────────────────────────────
+  // PortOne 모달이 서버 /auth/portone-verify(IVID만) 응답을 전달 → 서버가 CI로 결정한
+  // 신원 userId + 신뢰 JWT 로 로그인. 신규는 온보딩(검증정보 stash), 복귀완성은 바로 홈.
+  const handleIdentityVerified = (info: any) => {
+    setShowIdentity(false);
+    if (!info?.userId || !info?.token) { Alert.alert(t('login_failed')); return; }
+    // 신규/미완성 유저는 온보딩이 isVerified·성별·생년을 채우도록 stash
+    if (info.isNew || !info.isComplete) {
+      const yr = info.birth ? parseInt(String(info.birth).slice(0, 4), 10) : undefined;
+      setPendingVerified({ gender: info.gender, birthYear: Number.isFinite(yr) ? yr : undefined, phone: info.phone, name: info.name });
+    }
+    // 소셜 applyLoginResult 재사용: setAuth(+신뢰토큰) / 복귀완성유저면 setLoggedIn(isVerified 포함)
+    applyLoginResult('portone', info);
   };
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
@@ -497,45 +519,54 @@ export default function LoginScreen() {
           {/* ── MAIN ────────────────────────────────── */}
           {step === 'main' && (
             <View style={s.btnGroup}>
-              <Text style={s.sheetLabel}>간편 로그인</Text>
-              {/* Apple 로그인 — iOS 전용 */}
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                cornerRadius={Radius.pill}
-                style={{ height: 54 }}
-                onPress={handleApple}
-              />
-
-              <TouchableOpacity style={[s.btn, s.btnGoogle]} onPress={handleGoogle} activeOpacity={0.85}>
-                <IcoGoogle size={20} />
-                <Text style={[s.btnTxt, s.btnTxtDark]}>{t('login_google')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[s.btn, s.btnKakao]} onPress={handleKakao} activeOpacity={0.85}>
-                <IcoKakao size={20} />
-                <Text style={[s.btnTxt, s.btnTxtDark]}>{t('login_kakao')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[s.btn, s.btnNaver]} onPress={handleNaver} activeOpacity={0.85}>
-                <IcoNaver size={20} />
-                <Text style={[s.btnTxt, s.btnTxtLight]}>{t('login_naver')}</Text>
-              </TouchableOpacity>
-
-              <View style={s.divRow}>
-                <View style={s.divLine} />
-                <Text style={s.divTxt}>{t('login_divider')}</Text>
-                <View style={s.divLine} />
-              </View>
-
+              {/* 본인인증 = 로그인 (단일 진입) */}
               <TouchableOpacity
                 style={[s.btn, s.btnEmail]}
-                onPress={() => { setStep('email_input'); animateIn(); }}
+                onPress={() => setShowIdentity(true)}
                 activeOpacity={0.85}
+                disabled={authLoading}
               >
-                <IcoEmail size={20} color={LT.brandStrong} />
-                <Text style={[s.btnTxt, { color: LT.brandStrong }]}>{t('login_email')}</Text>
+                <Text style={[s.btnTxt, { color: LT.brandStrong }]}>📱 본인인증으로 시작</Text>
               </TouchableOpacity>
+
+              {/* 소셜/이메일 진입 — 비활성(코드 보존, auth-kit 추출용). SOCIAL_LOGIN_ENABLED=true 시 즉시 복구 */}
+              {SOCIAL_LOGIN_ENABLED && (
+                <>
+                  <Text style={s.sheetLabel}>간편 로그인</Text>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={Radius.pill}
+                    style={{ height: 54 }}
+                    onPress={handleApple}
+                  />
+                  <TouchableOpacity style={[s.btn, s.btnGoogle]} onPress={handleGoogle} activeOpacity={0.85}>
+                    <IcoGoogle size={20} />
+                    <Text style={[s.btnTxt, s.btnTxtDark]}>{t('login_google')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.btn, s.btnKakao]} onPress={handleKakao} activeOpacity={0.85}>
+                    <IcoKakao size={20} />
+                    <Text style={[s.btnTxt, s.btnTxtDark]}>{t('login_kakao')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[s.btn, s.btnNaver]} onPress={handleNaver} activeOpacity={0.85}>
+                    <IcoNaver size={20} />
+                    <Text style={[s.btnTxt, s.btnTxtLight]}>{t('login_naver')}</Text>
+                  </TouchableOpacity>
+                  <View style={s.divRow}>
+                    <View style={s.divLine} />
+                    <Text style={s.divTxt}>{t('login_divider')}</Text>
+                    <View style={s.divLine} />
+                  </View>
+                  <TouchableOpacity
+                    style={[s.btn, s.btnEmail]}
+                    onPress={() => { setStep('email_input'); animateIn(); }}
+                    activeOpacity={0.85}
+                  >
+                    <IcoEmail size={20} color={LT.brandStrong} />
+                    <Text style={[s.btnTxt, { color: LT.brandStrong }]}>{t('login_email')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
 
               <Text style={s.terms}>{t('login_terms')}</Text>
 
@@ -646,6 +677,14 @@ export default function LoginScreen() {
 
         </Animated.View>
       </KeyboardAvoidingView>
+
+      {/* 본인인증 = 로그인 모달 (IVID만 전송, 서버가 CI로 신원 결정) */}
+      <PortOneVerifyModal
+        visible={showIdentity}
+        onClose={() => setShowIdentity(false)}
+        onVerified={handleIdentityVerified}
+        userId=""
+      />
     </SafeAreaView>
   );
 }

@@ -525,9 +525,23 @@ app.post('/auth/portone-verify', async (req, res) => {
     const r = await legal.setAdultVerified(db, userId, { provider: 'portone', birth: v.birth, gender: v.gender });
     const token = r.token || legal.issueSessionToken(userId, { adultVerified: r.adult });
 
-    console.log(`[identity] ✅ 본인인증=로그인 userId=${userId} isNew=${isNew} adult=${r.adult}`);
+    // 복귀 유저(기존 CI)면 프로필 반환 → 클라가 온보딩 스킵하고 홈 진입 판단(소셜 applyLoginResult 패턴 동일)
+    let user = null, isComplete = false;
+    if (!isNew) {
+      try {
+        const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
+        if (rows[0]) {
+          user = rows[0];
+          if (typeof user.interests === 'string') { try { user.interests = JSON.parse(user.interests); } catch { user.interests = []; } }
+          if (!Array.isArray(user.interests)) user.interests = [];
+          isComplete = !!user.nickname;
+        }
+      } catch {}
+    }
+
+    console.log(`[identity] ✅ 본인인증=로그인 userId=${userId} isNew=${isNew} adult=${r.adult} complete=${isComplete}`);
     // name/birth 등 PII 는 응답으로 돌려보내되(온보딩 표시용) 서버 신원 결정은 CI 기준.
-    res.json({ success: true, userId, isNew, adult: r.adult, name: v.name, birth: v.birth, gender: v.gender, phone: v.phone, token });
+    res.json({ success: true, userId, isNew, isComplete, user, adult: r.adult, name: v.name, birth: v.birth, gender: v.gender, phone: v.phone, token });
   } catch (e) {
     console.error('[identity] 오류:', e.message);
     res.status(500).json({ error: '인증 처리 중 오류가 발생했습니다.' });

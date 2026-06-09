@@ -90,6 +90,9 @@ interface AppState {
   authToken: string | null;    // 서버 발급 신뢰 JWT (provider 검증 통과 시) — 핸드셰이크/HTTP 인증용
   setAuth: (provider: AuthProvider, email?: string, userId?: string, token?: string | null) => void;
   clearAuth: () => void;
+  // 본인인증=로그인: 신규 유저 온보딩이 isVerified/성별/생년을 채우도록 전달하는 임시 보관값
+  pendingVerified: { gender?: 'male' | 'female'; birthYear?: number; phone?: string; name?: string } | null;
+  setPendingVerified: (info: { gender?: 'male' | 'female'; birthYear?: number; phone?: string; name?: string } | null) => void;
 
   // 프로필 설정 완료
   isLoggedIn: boolean;
@@ -168,6 +171,8 @@ export const useStore = create<AppState>((set, get) => ({
   authToken: null,
   setAuth: (provider, email, userId, token) => set({ hasAuth: true, authProvider: provider, authEmail: email ?? null, authUserId: userId ?? null, authToken: token ?? null }),
   clearAuth: () => set({ hasAuth: false, authProvider: null, authEmail: null, authUserId: null, authToken: null }),
+  pendingVerified: null,
+  setPendingVerified: (info) => set({ pendingVerified: info }),
 
   isLoggedIn: false,
   user: null,
@@ -177,7 +182,7 @@ export const useStore = create<AppState>((set, get) => ({
     // 로그아웃 시 소켓 정리 → 재로그인 시 새 소켓이 새 userId 로 핸드셰이크 재연결.
     // (안 끊으면 connectSocket 이 기존 연결 재사용 → 서버 socket.userId 가 이전 유저로 고착)
     try { (require('../services/socket') as typeof import('../services/socket')).disconnectSocket(); } catch {}
-    set({ hasAuth: false, authProvider: null, authEmail: null, authToken: null, isLoggedIn: false, user: null, peer: null, roomId: null });
+    set({ hasAuth: false, authProvider: null, authEmail: null, authToken: null, pendingVerified: null, isLoggedIn: false, user: null, peer: null, roomId: null });
   },
   setVerified: (gender, birthYear) =>
     set((s) => ({ user: s.user ? { ...s.user, isVerified: true, verifiedAt: new Date().toISOString(), gender, birthYear } : null })),

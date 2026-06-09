@@ -27,6 +27,13 @@ interface VerifiedInfo {
   birth: string;       // YYYYMMDD
   gender: 'male' | 'female';
   phone: string;
+  // 본인인증=로그인(P0): 서버가 CI로 결정한 신원 + 신뢰 토큰. (기존 호출부는 위 4필드만 써도 무방 — additive)
+  userId?: string;
+  token?: string | null;
+  isNew?: boolean;
+  isComplete?: boolean;
+  user?: any;
+  adult?: boolean;
 }
 
 interface Props {
@@ -64,9 +71,9 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
       const res = await fetch(`${BASE}/auth/portone-verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        // P0: userId 미전송. 서버가 IVID→CI 로 신원 결정(사칭 차단). (userId prop 은 레거시 — 무시)
         body: JSON.stringify({
           identityVerificationId: response?.identityVerificationId || identityVerificationId,
-          userId,
         }),
       });
       const result = await res.json();
@@ -77,6 +84,13 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
           birth:  result.birth,
           gender: result.gender,
           phone:  result.phone,
+          // 본인인증=로그인: 서버 신원/토큰 전달
+          userId:     result.userId,
+          token:      result.token ?? null,
+          isNew:      result.isNew,
+          isComplete: result.isComplete,
+          user:       result.user,
+          adult:      result.adult,
         });
       } else {
         Alert.alert('인증 실패', result.error || '잠시 후 다시 시도해주세요.');
