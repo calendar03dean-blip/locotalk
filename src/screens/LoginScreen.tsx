@@ -547,6 +547,8 @@ export default function LoginScreen() {
       }
       // 인증 UI dismiss 후 전환 (위 handleSocialLogin과 동일한 크래시 레이스 방지)
       await new Promise<void>(r => setTimeout(r, 650));
+      // 위치 권한 필수 게이트 — 허용 전에는 진입(applyLoginResult) 진행 안 됨. (다른 경로와 동일 패턴)
+      await requestLocationGate();
       applyLoginResult('naver', data, data.email);
     } catch (e: any) {
       console.warn('[naver] 예외:', diag(e));
