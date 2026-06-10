@@ -101,6 +101,8 @@ interface AppState {
   setLoggedOut: () => void;
   updateRegion: (gu: string, label: string) => void;
   updateInterests: (interests: string[]) => void;
+  // 코드네임(표시명) 갱신 — 오프라인 진입 후 flush 중 충돌(409) 재배정 시 클라/서버 일치 동기화용
+  updateNickname: (nickname: string) => void;
   setVerified: (gender: 'male'|'female', birthYear: number) => void;
   setPhoneVerified: (phone: string, name?: string, birthYear?: number, gender?: 'male' | 'female') => void;
   updateEmail: (email: string) => void;
@@ -212,6 +214,8 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({ user: s.user ? { ...s.user, regionGu: gu, regionLabel: label } : null })),
   updateInterests: (interests) =>
     set((s) => ({ user: s.user ? { ...s.user, interests } : null })),
+  updateNickname: (nickname) =>
+    set((s) => ({ user: s.user ? { ...s.user, nickname } : null })),
 
   peer: null,
   roomId: null,

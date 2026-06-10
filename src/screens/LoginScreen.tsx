@@ -29,6 +29,8 @@ import { Colors, Typography, Radius } from '../constants/theme';
 import { LT } from '../constants/lt';
 import { serverLogin } from '../services/userApi';
 import { recordConsentWithQueue, flushPendingConsents } from '../services/consentQueue';
+import { flushPendingProfiles } from '../services/profileQueue';
+import { ensureLocationPermission } from '../services/location';
 import { TERMS, consentPayload, type TermsDoc } from '../constants/terms';
 import { IDENTITY_LIVE } from '../constants/release';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
@@ -255,10 +257,14 @@ export default function LoginScreen() {
   //   auth 상태는 영속되지 않아 모든 로그인은 이 화면을 거친다 → 이전 세션에서
   //   서버 영속에 실패해 큐에 잔류한 동의 이력을 다음 로그인·앱 포그라운드·네트워크
   //   복귀 시점에 재시도한다. 진입을 막지 않는 백그라운드 best-effort.
+  //   동의 증빙(consentQueue)과 코드네임(profileQueue) 모두 같은 시점에 재시도한다.
+  //   auth 미영속이라 앱 재시작 시 반드시 이 화면을 거치므로, 오프라인 진입분의 서버 영속은
+  //   다음 세션 이 flush 가 책임진다(코드네임 오프라인 봉합의 재연결 경로).
+  const flushQueues = () => { flushPendingConsents(); flushPendingProfiles(); };
   useEffect(() => {
-    flushPendingConsents(); // 화면 진입(앱 시작/로그아웃 복귀) 시 1회
+    flushQueues(); // 화면 진입(앱 시작/로그아웃 복귀) 시 1회
     const sub = AppState.addEventListener('change', s => {
-      if (s === 'active') flushPendingConsents(); // 포그라운드 복귀 시 재시도
+      if (s === 'active') flushQueues(); // 포그라운드 복귀 시 재시도
     });
     return () => sub.remove();
   }, []);
@@ -315,6 +321,8 @@ export default function LoginScreen() {
     //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(큐 잔류→다음 flush).
     recordConsentWithQueue(info.userId, consentPayload());
     setLocationConsent(true);
+    // 진입 통합: 위치기반서비스 약관 동의 직후 OS 위치 권한도 함께 요청(동의→권한→진입 단일 흐름).
+    ensureLocationPermission();
   };
 
   // ── [테스트 우회] PortOne 실연동 전 본인인증 화면 잠금 해제 ──────────────
@@ -344,6 +352,7 @@ export default function LoginScreen() {
       applyLoginResult('email', result, email);
       recordConsentWithQueue(result.userId, consentPayload());
       setLocationConsent(true);
+      ensureLocationPermission(); // 진입 통합: 약관 동의 직후 OS 위치 권한 요청
     } catch {
       Alert.alert(t('login_failed'));
     } finally {

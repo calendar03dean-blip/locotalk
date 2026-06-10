@@ -14,6 +14,7 @@ import InterestIcon from '../components/InterestIcon';
 import NickAvatar from '../components/NickAvatar';
 import { useStore } from '../store';
 import { generateCodename, rerollHex } from '../constants/codename';
+import { recordProfileWithQueue } from '../services/profileQueue';
 import { useT, useLang } from '../i18n';
 
 interface Props {}
@@ -153,21 +154,30 @@ export default function OnboardingScreen() {
       ...(pv?.birthYear ? { birthYear: pv.birthYear } : {}),
     };
 
-    // 코드네임 확정: 서버 영속 성공을 '요구'(오프라인 침묵 진행 제거 — 클라/서버 코드네임 불일치 방지).
-    //   충돌(409) 시 hex 재생성 후 재시도. 네트워크 실패(status 0)·기타 오류는 진행 차단 → 재시도 유도.
+    // 코드네임 확정(온라인 1차): 충돌(409)은 즉시 hex 재생성 후 재시도(사용자가 보는 그 자리에서 해소).
     let finalCode = code;
     let saved = false;
+    let lastStatus = -1;
     for (let attempt = 0; attempt < 5; attempt++) {
       const r = await saveUserProfile(userId, { ...baseProfile, nickname: finalCode });
-      if (r.ok) { saved = true; break; }                     // 서버 영속 성공만 통과
+      lastStatus = r.status;
+      if (r.ok) { saved = true; break; }                     // 서버 영속 성공
       if (r.status === 409) { finalCode = rerollHex(finalCode); continue; }  // 중복 → 재생성
-      break;  // 400(형식)·0(네트워크)·5xx 등 — 더 시도하지 않음
+      break;  // 400(형식)·0(네트워크)·5xx — 루프 종료(아래서 분기)
     }
+
+    // 오프라인 봉합: 온라인 영속 실패 시 분기.
+    //   400(형식 위반 — 생성 코드네임에선 사실상 불가)은 진짜 오류 → 차단/재시도 유도.
+    //   0(네트워크)·5xx(서버 일시오류)는 로컬 큐에 적재하고 '진입 허용'(하드 차단 제거).
+    //   백그라운드 flush 가 재연결 시 서버 영속(+409 시 재배정→표시 닉 동기화)을 책임진다.
     if (!saved) {
-      setSaving(false);
-      setCode(finalCode);
-      Alert.alert(t('alert_codename_retry'));
-      return;
+      if (lastStatus === 400) {
+        setSaving(false);
+        setCode(finalCode);
+        Alert.alert(t('alert_codename_retry'));
+        return;
+      }
+      await recordProfileWithQueue(userId, { ...baseProfile, nickname: finalCode });
     }
 
     setCode(finalCode);
