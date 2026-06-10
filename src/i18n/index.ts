@@ -27,16 +27,22 @@ export const translations = {
     save: '저장',
     confirm: '확인',
 
-    // Onboarding — nick step
-    onboarding_preview: '미리보기',
+    // Onboarding — nick step (자동 생성 코드네임)
+    onboarding_preview: '내 코드네임',
     onboarding_nick_title: '어떻게\n불릴까요?',
     onboarding_nick_sub: '닉네임은 매칭된 이웃에게만 보여요',
+    onboarding_codename_sub: '익명 코드네임이 자동으로 배정돼요',
+    onboarding_codename_reroll: '다시 생성',
+    onboarding_codename_hint1: '자동 생성',
+    onboarding_codename_hint2: '완전 익명',
+    onboarding_codename_hint3: '매칭 이웃에게만 표시',
     onboarding_nick_input_placeholder: '닉네임을 입력하세요',
     onboarding_nick_hint1: '최대 6자',
     onboarding_nick_hint2: '완전 익명',
     onboarding_nick_hint3: '언제든 변경 가능',
     onboarding_nick_next: '다음으로',
-    onboarding_back_btn: '닉네임 수정',
+    onboarding_back_btn: '코드네임',
+    alert_codename_retry: '코드네임 배정에 실패했어요. 다시 생성 후 시도해주세요.',
 
     // Onboarding — interest step
     onboarding_interest_title: '관심사를\n골라주세요',
@@ -224,16 +230,22 @@ export const translations = {
     save: 'Save',
     confirm: 'OK',
 
-    // Onboarding — nick step
-    onboarding_preview: 'Preview',
+    // Onboarding — nick step (auto-generated codename)
+    onboarding_preview: 'Your codename',
     onboarding_nick_title: "What's your\nnickname?",
     onboarding_nick_sub: 'Only shown to your matched neighbor',
+    onboarding_codename_sub: 'An anonymous codename is assigned automatically',
+    onboarding_codename_reroll: 'Regenerate',
+    onboarding_codename_hint1: 'Auto-generated',
+    onboarding_codename_hint2: 'Fully anonymous',
+    onboarding_codename_hint3: 'Shown only to your match',
     onboarding_nick_input_placeholder: 'Enter a nickname',
     onboarding_nick_hint1: 'Up to 6 chars',
     onboarding_nick_hint2: 'Fully anonymous',
     onboarding_nick_hint3: 'Change anytime',
     onboarding_nick_next: 'Next',
-    onboarding_back_btn: 'Edit nickname',
+    onboarding_back_btn: 'Codename',
+    alert_codename_retry: 'Could not assign a codename. Please regenerate and try again.',
 
     // Onboarding — interest step
     onboarding_interest_title: 'Pick your\ninterests',

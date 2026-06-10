@@ -2,54 +2,34 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useFonts } from 'expo-font';
 import { saveUserProfile } from '../services/userApi';
 import {
-  View, Text, TextInput, TouchableOpacity, Animated,
+  View, Text, TouchableOpacity, Animated,
   StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import { LT } from '../constants/lt';
 import { INTERESTS, findInterest, interestLabel } from '../constants/data';
 import InterestIcon from '../components/InterestIcon';
 import NickAvatar from '../components/NickAvatar';
 import { useStore } from '../store';
-import { containsProfanity } from '../utils/filter';
+import { generateCodename, rerollHex } from '../constants/codename';
 import { useT, useLang } from '../i18n';
-
-const NICK_MAX = 6;
-
-/** Twitter-style circular character counter — visible only near limit */
-function CharRing({ count, max, size = 20 }: { count: number; max: number; size?: number }) {
-  const r = size / 2 - 2;
-  const circ = 2 * Math.PI * r;
-  const ratio = count / max;
-  const offset = circ * (1 - Math.min(ratio, 1));
-  const remaining = max - count;
-  const color = ratio >= 1 ? '#EF4444' : ratio >= 0.85 ? '#F59E0B' : Colors.primary;
-  // Show only when ≥ 70% of limit used
-  if (remaining > Math.ceil(max * 0.3)) return null;
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke={Colors.g2} strokeWidth={1.5} fill="none" />
-        <Circle cx={size / 2} cy={size / 2} r={r}
-          stroke={color} strokeWidth={1.5} fill="none"
-          strokeDasharray={[circ, circ]}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          rotation={-90} originX={size / 2} originY={size / 2}
-        />
-      </Svg>
-      {remaining <= 2 && (
-        <Text style={{ position: 'absolute', fontSize: 7, fontWeight: '800', color }}>{remaining}</Text>
-      )}
-    </View>
-  );
-}
 
 interface Props {}
 
 const SW = 1.8;
+
+function IcoRefresh({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M23 4v6h-6M1 20v-6h6"
+        stroke={color} strokeWidth={SW} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"
+        stroke={color} strokeWidth={SW} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 function IcoArrow({ color }: { color: string }) {
   return (
@@ -90,8 +70,13 @@ export default function OnboardingScreen() {
   const lang = useLang();
   const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
   const [step,      setStep]     = useState<'nick'|'interest'>('nick');
-  const [nick,      setNick]     = useState('');
+  const [code,      setCode]     = useState<string>(() => generateCodename());
+  const [rolling,   setRolling]  = useState(false);
+  const [saving,    setSaving]   = useState(false);
   const [selected,  setSelected] = useState<string[]>([]);
+
+  // ── 코드네임 리롤 spin 애니메이션 ──────────────────────────
+  const spin = useRef(new Animated.Value(0)).current;
 
   // ── 관심사 ScrollView ref (자동 스크롤용) ───────────────────
   const interestScrollRef = useRef<any>(null);
@@ -119,19 +104,15 @@ export default function OnboardingScreen() {
     ]).start();
   }
 
-  const handleNickChange = (text: string) => {
-    // Block if adding new char would introduce profanity
-    if (containsProfanity(text)) {
-      Alert.alert(t('alert_profanity'));
-      return;
-    }
-    setNick(text);
+  const handleReroll = () => {
+    setCode(generateCodename());
+    spin.setValue(0);
+    setRolling(true);
+    Animated.timing(spin, { toValue: 1, duration: 420, useNativeDriver: true })
+      .start(() => setRolling(false));
   };
 
   const handleNickNext = () => {
-    const trimmed = nick.trim();
-    if (trimmed.length < 1) { Alert.alert(t('alert_nick_empty')); return; }
-    if (containsProfanity(trimmed)) { Alert.alert(t('alert_nick_bad')); return; }
     setStep('interest');
   };
 
@@ -154,14 +135,15 @@ export default function OnboardingScreen() {
 
   const handleStart = async () => {
     if (selected.length === 0) { Alert.alert(t('alert_interest_min')); return; }
+    if (saving) return;
+    setSaving(true);
 
     const userId = authUserId || ('local-' + Date.now());
     // 본인인증=로그인: 진입이 곧 본인인증이므로 온보딩 완료 유저는 isVerified=true.
     // 성별/생년은 로그인 시 stash 한 pendingVerified 에서 반영(서버는 이미 is_verified·birth_year 저장됨).
     const pv = pendingVerified;
-    const profile = {
+    const baseProfile = {
       id: userId,
-      nickname: nick.trim(),
       interests: selected,
       regionGu: '',
       regionLabel: '',
@@ -171,10 +153,24 @@ export default function OnboardingScreen() {
       ...(pv?.birthYear ? { birthYear: pv.birthYear } : {}),
     };
 
-    // DB에 저장 (백그라운드)
-    saveUserProfile(userId, profile).catch(() => {});
+    // 코드네임 확정: 서버 검증/유일성 통과까지 충돌(409) 시 hex 재생성 후 재시도.
+    let finalCode = code;
+    let saved = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const r = await saveUserProfile(userId, { ...baseProfile, nickname: finalCode });
+      if (r.ok || r.status === 0) { saved = true; break; }   // 성공 또는 네트워크 실패(오프라인 허용)
+      if (r.status === 409) { finalCode = rerollHex(finalCode); continue; }  // 중복 → 재생성
+      break;  // 400 등 그 외 — 더 시도하지 않음
+    }
+    if (!saved) {
+      setSaving(false);
+      setCode(finalCode);
+      Alert.alert(t('alert_codename_retry'));
+      return;
+    }
 
-    setLoggedIn(profile);
+    setCode(finalCode);
+    setLoggedIn({ ...baseProfile, nickname: finalCode });
     setPendingVerified(null); // 1회성 — 소비 후 정리
   };
 
@@ -188,42 +184,38 @@ export default function OnboardingScreen() {
             <View style={s.nickPage}>
               {/* ── 아바타 미리보기 ── */}
               <View style={s.nickAvatarSection}>
-                <View style={[s.nickAvatarRing, nick.trim().length > 0 && s.nickAvatarRingActive]}>
-                  <NickAvatar nick={nick.trim() || '?'} size={90} />
+                <View style={[s.nickAvatarRing, s.nickAvatarRingActive]}>
+                  <NickAvatar nick={code} size={90} />
                 </View>
-                <Text style={[s.nickAvatarLabel, nick.trim().length > 0 && s.nickAvatarLabelActive]}>
-                  {nick.trim().length > 0 ? nick.trim() : t('onboarding_preview')}
+                <Text style={[s.nickAvatarLabel, s.nickAvatarLabelActive]}>
+                  {t('onboarding_preview')}
                 </Text>
               </View>
 
               {/* ── 타이틀 ── */}
               <View style={s.nickTitleBlock}>
                 <Text style={s.nickTitle}>{t('onboarding_nick_title')}</Text>
-                <Text style={s.nickSub}>{t('onboarding_nick_sub')}</Text>
+                <Text style={s.nickSub}>{t('onboarding_codename_sub')}</Text>
               </View>
 
-              {/* ── 입력 ── */}
-              <View style={s.nickInputWrap}>
-                <TextInput
-                  style={[s.nickInput, nick.trim().length > 0 && s.nickInputActive]}
-                  value={nick}
-                  onChangeText={handleNickChange}
-                  placeholder={t('onboarding_nick_input_placeholder')}
-                  placeholderTextColor={Colors.g3}
-                  maxLength={NICK_MAX}
-                  textAlign="center"
-                  returnKeyType="next"
-                  onSubmitEditing={handleNickNext}
-                  autoFocus
-                />
-                <View style={s.nickRingWrap}>
-                  <CharRing count={[...nick].length} max={NICK_MAX} size={22} />
-                </View>
+              {/* ── 코드네임 표시 ── */}
+              <View style={s.codeCard}>
+                <Text style={s.codeText}>{code}</Text>
               </View>
+
+              {/* ── 다시 생성(리롤) ── */}
+              <TouchableOpacity style={s.rerollBtn} onPress={handleReroll} activeOpacity={0.7} disabled={rolling}>
+                <Animated.View style={{
+                  transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+                }}>
+                  <IcoRefresh color={Colors.primary} />
+                </Animated.View>
+                <Text style={s.rerollTxt}>{t('onboarding_codename_reroll')}</Text>
+              </TouchableOpacity>
 
               {/* ── 힌트 칩 ── */}
               <View style={s.nickHintRow}>
-                {([t('onboarding_nick_hint1'), t('onboarding_nick_hint2'), t('onboarding_nick_hint3')] as string[]).map(h => (
+                {([t('onboarding_codename_hint1'), t('onboarding_codename_hint2'), t('onboarding_codename_hint3')] as string[]).map(h => (
                   <View key={h} style={s.nickHintPill}>
                     <Text style={s.nickHintTxt}>{h}</Text>
                   </View>
@@ -232,14 +224,13 @@ export default function OnboardingScreen() {
 
               {/* ── 다음 버튼 ── */}
               <TouchableOpacity
-                style={[s.btn, nick.trim().length === 0 && s.btnOff]}
+                style={s.btn}
                 onPress={handleNickNext}
-                disabled={nick.trim().length === 0}
                 activeOpacity={0.85}
               >
                 <View style={s.btnInner}>
                   <Text style={s.btnTxt}>{t('onboarding_nick_next')}</Text>
-                  <IcoArrow color={nick.trim().length > 0 ? '#fff' : Colors.g3} />
+                  <IcoArrow color="#fff" />
                 </View>
               </TouchableOpacity>
             </View>
@@ -322,9 +313,9 @@ export default function OnboardingScreen() {
 
               {/* 시작하기 버튼 */}
               <TouchableOpacity
-                style={[s.btn, selected.length === 0 && s.btnOff]}
+                style={[s.btn, (selected.length === 0 || saving) && s.btnOff]}
                 onPress={handleStart}
-                disabled={selected.length === 0}
+                disabled={selected.length === 0 || saving}
               >
                 <View style={s.btnInner}>
                   <Text style={s.btnTxt}>{t('onboarding_start')}</Text>
@@ -364,11 +355,13 @@ const s = StyleSheet.create({
   nickTitle:           { fontSize:38, fontWeight:'900', color:Colors.dark, letterSpacing:-1.2, textAlign:'center', lineHeight:46 },
   nickSub:             { fontSize:Typography.footnote, color:Colors.g4, textAlign:'center' },
 
-  // 입력
-  nickInputWrap:       { width:'100%', position:'relative' },
-  nickInput:           { borderWidth:1.5, borderColor:Colors.separator, borderRadius:Radius.pill, paddingVertical:17, paddingHorizontal:52, fontSize:Typography.title3, fontWeight:'700', color:Colors.dark, backgroundColor:'rgba(255,255,255,0.9)', textAlign:'center', width:'100%' },
-  nickInputActive:     { borderColor:Colors.primary, backgroundColor:'#fff', shadowColor:Colors.primary, shadowOffset:{width:0,height:4}, shadowOpacity:0.12, shadowRadius:12, elevation:4 },
-  nickRingWrap:        { position:'absolute', right:16, top:0, bottom:0, justifyContent:'center' },
+  // 코드네임 표시 카드
+  codeCard:            { width:'100%', borderWidth:1.5, borderColor:Colors.primary, borderRadius:Radius.pill, paddingVertical:17, paddingHorizontal:24, backgroundColor:'#fff', alignItems:'center', shadowColor:Colors.primary, shadowOffset:{width:0,height:4}, shadowOpacity:0.12, shadowRadius:12, elevation:4 },
+  codeText:            { fontSize:Typography.title3, fontWeight:'800', color:Colors.dark, letterSpacing:0.2 },
+
+  // 다시 생성(리롤)
+  rerollBtn:           { flexDirection:'row', alignItems:'center', gap:7, paddingVertical:8, paddingHorizontal:16, borderRadius:Radius.pill, backgroundColor:'rgba(26,158,110,0.09)', borderWidth:1, borderColor:'rgba(26,158,110,0.2)' },
+  rerollTxt:           { fontSize:Typography.footnote, fontWeight:'800', color:Colors.primaryD },
 
   // 힌트 칩
   nickHintRow:         { flexDirection:'row', gap:7, flexWrap:'wrap', justifyContent:'center' },

@@ -57,16 +57,22 @@ export async function serverLogin(
   }
 }
 
-/** 프로필 저장 (회원가입 완료 시) */
-export async function saveUserProfile(userId: string, profile: Partial<UserProfile>): Promise<void> {
+/** 프로필 저장 (회원가입 완료 시). 코드네임 검증 결과 확인용으로 상태 반환
+ *  (400=형식 위반, 409=코드네임 중복 → 재생성 후 재시도). 네트워크 실패 시 status=0. */
+export async function saveUserProfile(
+  userId: string,
+  profile: Partial<UserProfile>,
+): Promise<{ ok: boolean; status: number }> {
   try {
-    await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, {
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}`, {
       method: 'POST',
       headers: jsonAuthHeaders(),
       body: JSON.stringify(profile),
     });
+    return { ok: res.ok, status: res.status };
   } catch (e) {
     console.warn('[userApi] saveProfile 실패:', e);
+    return { ok: false, status: 0 };
   }
 }
 
