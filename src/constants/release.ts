@@ -24,6 +24,14 @@ export const RELEASE_STAGE: ReleaseStage =
   RAW === 'appstore' || RAW === 'testflight' ? RAW : 'dev';
 
 /**
+ * ⚠️ [운영 규칙 — TestFlight 우회 노출 한계] 이 가드는 'appstore' 단계만 물리 차단한다.
+ *   'testflight' 단계는 IDENTITY_LIVE=false 라도 throw 하지 않으므로 본인인증 우회 진입
+ *   (handleTestIdentity)이 포함된 빌드가 TestFlight 에 올라갈 수 있다. 내부 e2e 목적상
+ *   의도된 동작이나, 다음을 반드시 지킨다:
+ *     • build 42(testflight)는 **내부 테스터 한정**. 외부/오픈베타 배포 금지.
+ *     • 외부 테스터 추가·오픈베타 전환 전: IDENTITY_LIVE=true 전환 + 실 PortOne 채널 확정 +
+ *       테스트 진입(A/B) 제거가 선행되어야 한다. 외부 테스터 추가가 임박하면 STOP·보고.
+ *
  * 부팅 시점 안전가드. App Store 제출 빌드(RELEASE_STAGE='appstore')인데 본인인증
  * 게이트가 꺼져 있으면(IDENTITY_LIVE=false) throw 하여 앱 자체가 뜨지 않게 한다.
  * → 연령확인 없는 바이너리의 제출을 fail-fast 로 차단. 빌드 직후 스모크 테스트에서

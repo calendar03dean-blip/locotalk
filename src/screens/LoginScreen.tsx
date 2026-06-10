@@ -309,20 +309,26 @@ export default function LoginScreen() {
   //   경로를 재사용해 '실제 유저 행 + 실제 userId' 로 진입한다(온보딩 저장이 실제로
   //   영속됨 → 다음 화면들 정상 테스트 가능). 신규면 온보딩, 복귀(닉네임 보유)면 바로 홈.
   //   ⚠️ token=null(미검증) — 매칭 성인게이트는 ENFORCE_ADULT 기본 OFF 라 무방.
-  const TEST_IDENTITY_EMAIL = 'tester@locotalk.dev';
-  const handleTestIdentity = async () => {
+  // ⚠️ 테스트 진입을 '기기별로 다른 테스터'로 분리한다(택1: 테스터 A / 테스터 B).
+  //   단일 하드코드 이메일이면 모든 기기가 동일 userId 로 진입 → 위치기반 1:1 채팅
+  //   e2e(서로 다른 두 사용자 필요)가 구조적으로 불가능. 서로 다른 이메일 → 서버가
+  //   서로 다른 user 행/userId 를 발급 → A·B 두 기기가 매칭 큐에 동시 입장해 1:1 채팅 검증 가능.
+  type TestSlot = 'A' | 'B';
+  const testIdentityEmail = (slot: TestSlot) => `tester+${slot}@locotalk.dev`;
+  const handleTestIdentity = async (slot: TestSlot) => {
     if (authLoading) return;
     if (!allAgreed) { Alert.alert(t('consent_need')); return; }
     setAuthLoading(true);
     try {
-      const result = await serverLogin('email', TEST_IDENTITY_EMAIL, TEST_IDENTITY_EMAIL);
+      const email = testIdentityEmail(slot);
+      const result = await serverLogin('email', email, email);
       if (!result?.userId) { Alert.alert(t('login_failed')); return; }
       // 신규/미완성이면 온보딩이 성별/생년을 채우도록 stash(테스트 더미값)
       if (result.isNew || !result.isComplete) {
-        setPendingVerified({ gender: 'male', birthYear: 1995, phone: '01000000000', name: '테스터' });
+        setPendingVerified({ gender: 'male', birthYear: 1995, phone: '01000000000', name: `테스터${slot}` });
       }
       // 소셜 applyLoginResult 재사용: 신규=온보딩 / 복귀완성=홈
-      applyLoginResult('email', result, TEST_IDENTITY_EMAIL);
+      applyLoginResult('email', result, email);
       recordConsents(result.userId, consentPayload()).catch(() => {});
       setLocationConsent(true);
     } catch {
@@ -330,6 +336,20 @@ export default function LoginScreen() {
     } finally {
       setAuthLoading(false);
     }
+  };
+  // 진입 직전 테스터 신원 선택(A/B). 기기마다 다른 슬롯을 고르면 서로 다른 동네 이웃으로
+  //   같은 region(GPS 미설정 시 양쪽 '마포구' 폴백)에서 매칭된다.
+  const promptTestIdentity = () => {
+    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    Alert.alert(
+      '테스트 진입',
+      '1:1 채팅 e2e 테스트용 — 기기별로 다른 테스터를 선택하세요.',
+      [
+        { text: '테스터 A', onPress: () => handleTestIdentity('A') },
+        { text: '테스터 B', onPress: () => handleTestIdentity('B') },
+        { text: '취소', style: 'cancel' },
+      ],
+    );
   };
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
@@ -613,7 +633,7 @@ export default function LoginScreen() {
                 onPress={() => {
                   if (!allAgreed) { Alert.alert(t('consent_need')); return; }
                   if (IDENTITY_LIVE) { setShowIdentity(true); return; }
-                  handleTestIdentity();   // 실연동 전 — 테스트 세션으로 진입
+                  promptTestIdentity();   // 실연동 전 — 테스터 A/B 선택 후 테스트 세션 진입
                 }}
                 activeOpacity={0.85}
                 disabled={authLoading || !allAgreed}
