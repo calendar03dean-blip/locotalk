@@ -471,12 +471,8 @@ app.patch('/users/:id/premium', async (req, res) => {
   }
 });
 
-/** [비활성·하드닝] 레거시 self-verify — 클라 gender/birth 로 is_verified·adult_verified·토큰을 부여하던
- *  P0급 우회 경로(임의 :id, 검증≠바인딩). 검증 권위는 오직 PortOne CI(/auth/portone-verify)로 일원화.
- *  → 어떤 신원 속성도 세팅하지 않고 거부. (클린 전환 플로우는 본 라우트를 사용하지 않음) */
-app.patch('/users/:id/verify', (_req, res) => {
-  return res.status(410).json({ error: 'deprecated_use_identity_login' });
-});
+// [제거] PATCH /users/:id/verify (레거시 self-verify) — caller 0 확인 후 라우트 삭제.
+//   검증 권위는 PortOne CI(/auth/portone-verify) 단일.
 
 // ─── 포트원 본인인증 검증 ──────────────────────────────────────
 // 본인인증 = 로그인 (P0 재설계). 신원-세션 바인딩: userId 는 '서버가' CI 로 결정.
@@ -537,75 +533,8 @@ app.post('/auth/portone-verify', async (req, res) => {
   }
 });
 
-// ─── 휴대폰 OTP 발송 ────────────────────────────────────────
-const phoneOtpStore = new Map(); // phone → { code, expiresAt }
-
-app.post('/auth/send-phone-otp', async (req, res) => {
-  const { phone, userId } = req.body;
-  if (!phone) return res.status(400).json({ error: 'phone required' });
-
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  phoneOtpStore.set(phone, { code, expiresAt: Date.now() + 3 * 60 * 1000 });
-
-  // 솔라피 SMS 발송
-  const solapiKey    = process.env.SOLAPI_API_KEY;
-  const solapiSecret = process.env.SOLAPI_API_SECRET;
-  const solapiFrom   = process.env.SOLAPI_FROM_NUMBER; // 발신번호 (등록된 번호)
-
-  if (!solapiKey || !solapiSecret || !solapiFrom) {
-    console.log(`[Phone OTP] 솔라피 미설정 — devCode=${code}`);
-    return res.json({ success: true, devCode: code }); // 환경변수 미설정 시 개발용
-  }
-
-  try {
-    const { SolapiMessageService } = require('solapi');
-    const service = new SolapiMessageService(solapiKey, solapiSecret);
-    const formattedPhone = phone.startsWith('0') ? phone : '0' + phone.replace(/^\+82/, '');
-    await service.send({
-      to: formattedPhone,
-      from: solapiFrom,
-      text: `[Locotalk] 본인인증 코드: ${code} (3분 내 입력)`,
-    });
-    console.log(`[Phone OTP] ✅ 솔라피 SMS 발송 → ${phone}`);
-  } catch (e) {
-    console.error(`[Phone OTP] SMS 발송 실패:`, e.message);
-    return res.status(500).json({ error: 'SMS 발송에 실패했습니다. 잠시 후 다시 시도해주세요.' });
-  }
-
-  res.json({ success: true });
-});
-
-app.post('/auth/verify-phone-otp', async (req, res) => {
-  const { phone, code, userId } = req.body;
-  if (!phone || !code) return res.status(400).json({ error: 'phone and code required' });
-
-  const stored = phoneOtpStore.get(phone);
-  if (!stored) return res.status(400).json({ error: '인증번호를 먼저 요청해주세요' });
-  if (Date.now() > stored.expiresAt) {
-    phoneOtpStore.delete(phone);
-    return res.status(400).json({ error: '인증번호가 만료되었습니다' });
-  }
-  if (stored.code !== String(code)) {
-    return res.status(400).json({ error: '인증번호가 맞지 않습니다' });
-  }
-
-  phoneOtpStore.delete(phone);
-
-  // DB 업데이트 (있는 경우) — [하드닝] is_verified 부여 제거.
-  //   검증 권위(is_verified/adult)는 PortOne CI(/auth/portone-verify)로만 세팅. 여기선 phone 만 기록.
-  //   (클라가 임의 userId 로 is_verified 를 켜던 IDOR 구멍 차단)
-  if (process.env.DATABASE_URL && userId) {
-    try {
-      await db.query(
-        `UPDATE users SET phone = $1, updated_at = NOW() WHERE id = $2`,
-        [phone, userId]
-      ).catch(() => {});
-    } catch {}
-  }
-
-  console.log(`[Phone OTP] ✅ 인증 완료 → ${phone}`);
-  res.json({ success: true });
-});
+// [제거] 휴대폰 OTP(send/verify-phone-otp + phoneOtpStore) — 유일 caller 였던 PhoneVerifyModal 死(트리거 0).
+//   검증 권위는 PortOne CI 단일. 휴대폰 본인인증이 다시 필요해지면 auth-kit/PortOne 경로로 재도입.
 
 // 개인정보처리방침 (위치기반서비스 약관 동의 모달 등에서 링크) — docs/ HTML 서빙
 app.get('/privacy', (_req, res) => {

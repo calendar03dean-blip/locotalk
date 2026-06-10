@@ -16,8 +16,7 @@ import InterestIcon from '../components/InterestIcon';
 import RegionIcon from '../components/RegionIcon';
 import UpgradeModal from '../components/UpgradeModal';
 import RegionPickerModal from '../components/RegionPickerModal';
-import IdentityVerifyModal from '../components/IdentityVerifyModal';
-import PhoneVerifyModal from '../components/PhoneVerifyModal';
+// [제거] IdentityVerifyModal / PhoneVerifyModal — 트리거 0(죽은 verify UI). PortOne 만 유지.
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
 import ConversationListModal, { type ConversationItem } from '../components/ConversationListModal';
 import { useNavigation } from '@react-navigation/native';
@@ -146,8 +145,6 @@ export default function MyInfoScreen() {
   const [notifOn,      setNotifOn]      = useState(true);
   const [showUpgrade,      setShowUpgrade]      = useState(false);
   const [showRegionPick,   setShowRegionPick]   = useState(false);
-  const [showVerify,       setShowVerify]       = useState(false);
-  const [showPhoneVerify,  setShowPhoneVerify]  = useState(false);
   const [showPortOne,      setShowPortOne]      = useState(false);
   const [contactsLoading,  setContactsLoading]  = useState(false);
   const [showConvList,     setShowConvList]     = useState(false);
@@ -552,21 +549,7 @@ export default function MyInfoScreen() {
         onOpen={openConversation}
       />
 
-      {/* ── 본인인증 모달 ─────────────────────────────────── */}
-      <IdentityVerifyModal visible={showVerify} onClose={() => setShowVerify(false)} />
-
-      {/* ── 휴대폰 본인인증 모달 ──────────────────────────── */}
-      <PhoneVerifyModal
-        visible={showPhoneVerify}
-        onClose={() => setShowPhoneVerify(false)}
-        userId={user?.id || ''}
-        onVerified={(phone, name, birthDate, gender) => {
-          const birthYear = parseInt(birthDate.slice(0, 4), 10);
-          setPhoneVerified(phone, name, birthYear, gender);
-          setShowPhoneVerify(false);
-          Alert.alert('인증 완료', `${name}님 본인인증이 완료되었습니다.`);
-        }}
-      />
+      {/* [제거] IdentityVerifyModal / PhoneVerifyModal — 트리거 0(죽은 verify UI). */}
 
       {/* ── 통신사 본인인증 모달 (포트원) ────────────────── */}
       <PortOneVerifyModal
