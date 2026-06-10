@@ -44,6 +44,7 @@ const authVerify     = require('./authVerify'); // 소셜 provider 토큰 서버
 const reports        = require('./reports');    // 신고 영속화(PostgreSQL — 사유 + 서버구성 스냅샷)
 const feeds          = require('./feeds');       // 동네 피드 영속화(PostgreSQL — 재시작 생존 + 부팅 워밍)
 const identity       = require('./identity');    // 본인인증=로그인(PortOne V2) + CI 바인딩 + IVID 1회소비
+const regionResolver = require('./regionResolver'); // 좌표→행정구역 오프라인 역산(매칭 region 서버권위, egress 0)
 
 // ─── 인증 강제 스위치 (JWT Stage A/B = OFF, Stage C 에서만 ON) ────────────────
 // OFF(기본): 검증 실패/토큰 없음도 로그인·매칭 허용(폴백). userVerified 만 기록.
@@ -613,6 +614,15 @@ if (DEBUG_DISABLED) {
   app.get('/debug/feeds', async (_req, res) => {
     if (!process.env.DATABASE_URL) return res.json({ db: false });
     res.json({ ...(await feeds.statsFeeds(db)), cacheRegions: regionFeeds.size });
+  });
+
+  // 매칭 region 서버산출 — 경계 적재 상태 + (선택) ?lat=&lng= 산출 테스트(좌표 미저장)
+  app.get('/debug/region', (req, res) => {
+    const out = regionResolver.stats();
+    if (req.query.lat && req.query.lng) {
+      out.resolved = regionResolver.resolveRegion(Number(req.query.lat), Number(req.query.lng));
+    }
+    res.json(out);
   });
 
   // 법령준수 로그 카운트 확인 (운영 점검용)
@@ -1328,12 +1338,22 @@ io.on('connection', (socket) => {
     // 매칭 시작 시 standby 풀에서 제거 (중복 상태 방지)
     standby.delete(socket.id);
 
+    // 매칭 region 서버 권위화(옵션 A): 좌표가 있으면 '서버가' 행정구역 산출 → 클라 region 문자열 미신뢰.
+    //   region↔좌표 일관성 강제(문자열 독립 스푸핑 제거). 좌표 자체 스푸핑은 범위 밖(attestation 별도).
+    //   프리미엄 customRegion 은 좌표=null 로 오므로 자연히 스킵(수동 선택값 유지).
+    //   데이터셋 미적재(isLoaded=false)거나 산출 실패면 클라 region 폴백(무회귀). 좌표는 산출에만 사용(영속 0).
+    let matchRegion = user.region.trim();
+    if (typeof user.lat === 'number' && typeof user.lng === 'number' && regionResolver.isLoaded()) {
+      const r = regionResolver.resolveRegion(user.lat, user.lng);
+      if (r && r.gu) matchRegion = r.gu;   // 매칭 판정은 구 단위(같은 구 +20 / region 폴백)
+    }
+
     const entry = {
       socketId    : socket.id,
       userId      : socket.userId || user.userId || null,   // 접속로그 연결용
       nick        : user.nick.trim(),
       interests   : user.interests,
-      region      : user.region.trim(),
+      region      : matchRegion,   // 서버 산출(좌표 있을 때) 또는 클라값 폴백
       lat         : typeof user.lat === 'number' ? user.lat : null,
       lng         : typeof user.lng === 'number' ? user.lng : null,
       isPremium   : user.isPremium === true,
