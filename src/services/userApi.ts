@@ -98,7 +98,9 @@ export async function deleteUserAccount(userId: string): Promise<boolean> {
 }
 
 /** 약관 동의 이력 영속 (개인정보처리방침·서비스이용약관·위치기반서비스이용약관)
- *  본인인증으로 userId 확정 후 호출. 동의 증빙(누가·버전·언제). 위치 약관 포함 시 서버가 location_consent 도 세팅. */
+ *  본인인증으로 userId 확정 후 호출. 동의 증빙(누가·버전·언제). 위치 약관 포함 시 서버가 location_consent 도 세팅.
+ *  반환: true=영속 성공 / false=서버 거부(res.ok=false) 또는 네트워크 실패. 호출부는 false 를
+ *        '실패'로 다뤄 재시도/큐 잔류시켜야 한다(증빙 유실 방지 — consentQueue 참조). */
 export async function recordConsents(
   userId: string,
   consents: { doc: string; version: string }[],
@@ -109,8 +111,26 @@ export async function recordConsents(
       headers: jsonAuthHeaders(),
       body: JSON.stringify({ consents }),
     });
-    return res.ok;
+    return res.ok === true; // 4xx/5xx = 명시적 실패(거부도 유실 아님 — 큐 잔류 후 재시도)
   } catch { return false; }
+}
+
+/** recordConsents 재시도 래퍼 — 성공(true)까지 지수백오프로 최대 attempts 회 시도.
+ *  res.ok=false(서버 거부)도 실패로 취급해 재시도한다. 모두 실패하면 false 반환(큐 잔류). */
+export async function recordConsentsWithRetry(
+  userId: string,
+  consents: { doc: string; version: string }[],
+  attempts = 3,
+): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    const ok = await recordConsents(userId, consents);
+    if (ok) return true;
+    if (i < attempts - 1) {
+      const backoff = 500 * Math.pow(2, i); // 500ms → 1000ms → 2000ms
+      await new Promise<void>(r => setTimeout(r, backoff));
+    }
+  }
+  return false;
 }
 
 /** 위치기반서비스 이용약관 동의/철회 저장 (위치정보법) */

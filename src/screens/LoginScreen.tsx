@@ -14,7 +14,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform,
-  Animated, Easing, Alert, Image, Linking,
+  Animated, Easing, Alert, Image, Linking, AppState,
 } from 'react-native';
 import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,7 +27,8 @@ import { useStore } from '../store';
 import { useT } from '../i18n';
 import { Colors, Typography, Radius } from '../constants/theme';
 import { LT } from '../constants/lt';
-import { serverLogin, recordConsents } from '../services/userApi';
+import { serverLogin } from '../services/userApi';
+import { recordConsentWithQueue, flushPendingConsents } from '../services/consentQueue';
 import { TERMS, consentPayload, type TermsDoc } from '../constants/terms';
 import { IDENTITY_LIVE } from '../constants/release';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
@@ -250,6 +251,18 @@ export default function LoginScreen() {
     return () => clearInterval(id);
   }, [timerOn, timer]);
 
+  // ── 동의 증빙 재동기화(flush) ───────────────────────────────────────
+  //   auth 상태는 영속되지 않아 모든 로그인은 이 화면을 거친다 → 이전 세션에서
+  //   서버 영속에 실패해 큐에 잔류한 동의 이력을 다음 로그인·앱 포그라운드·네트워크
+  //   복귀 시점에 재시도한다. 진입을 막지 않는 백그라운드 best-effort.
+  useEffect(() => {
+    flushPendingConsents(); // 화면 진입(앱 시작/로그아웃 복귀) 시 1회
+    const sub = AppState.addEventListener('change', s => {
+      if (s === 'active') flushPendingConsents(); // 포그라운드 복귀 시 재시도
+    });
+    return () => sub.remove();
+  }, []);
+
   // ── 서버 로그인 결과 적용 (성공 시에만 페이지 이동) ──────────────
   const applyLoginResult = (provider: string, result: any, email?: string): boolean => {
     if (!result?.userId) return false;
@@ -298,9 +311,9 @@ export default function LoginScreen() {
     // 소셜 applyLoginResult 재사용: setAuth(+신뢰토큰) / 복귀완성유저면 setLoggedIn(isVerified 포함)
     applyLoginResult('portone', info);
 
-    // 약관 동의 이력 영속(증빙) — userId 확정 후 best-effort. 위치 약관 포함 → 서버가 location_consent 세팅.
-    //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(증빙은 재동기화).
-    recordConsents(info.userId, consentPayload()).catch(() => {});
+    // 약관 동의 이력 영속(증빙) — userId 확정 후. 로컬 큐에 '먼저' 적재(1차 증빙) 후 서버 영속+재시도.
+    //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(큐 잔류→다음 flush).
+    recordConsentWithQueue(info.userId, consentPayload());
     setLocationConsent(true);
   };
 
@@ -329,7 +342,7 @@ export default function LoginScreen() {
       }
       // 소셜 applyLoginResult 재사용: 신규=온보딩 / 복귀완성=홈
       applyLoginResult('email', result, email);
-      recordConsents(result.userId, consentPayload()).catch(() => {});
+      recordConsentWithQueue(result.userId, consentPayload());
       setLocationConsent(true);
     } catch {
       Alert.alert(t('login_failed'));
