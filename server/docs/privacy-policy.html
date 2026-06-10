@@ -1,0 +1,194 @@
+<!-- 원본=docs/privacy-policy.html · 이 파일은 서버 서빙용 사본(빌드 컨텍스트=server/). 원본 갱신 시 반드시 동기화. -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Locotalk 개인정보처리방침</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f9fafb;
+      color: #1a1a1a;
+      line-height: 1.75;
+    }
+    .hero {
+      background: #40D3B6;
+      padding: 48px 24px 40px;
+      text-align: center;
+      color: #fff;
+    }
+    .hero h1 { font-size: 28px; font-weight: 800; margin-bottom: 6px; }
+    .hero p  { font-size: 14px; opacity: 0.85; }
+    .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+    h2 {
+      font-size: 18px; font-weight: 700;
+      color: #034A93;
+      margin: 36px 0 12px;
+      padding-left: 12px;
+      border-left: 4px solid #40D3B6;
+    }
+    h3 { font-size: 15px; font-weight: 600; margin: 20px 0 8px; color: #333; }
+    p, li { font-size: 14px; color: #444; margin-bottom: 8px; }
+    ul { padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    table {
+      width: 100%; border-collapse: collapse;
+      margin: 12px 0; font-size: 13px;
+    }
+    th {
+      background: #034A93; color: #fff;
+      padding: 10px 14px; text-align: left;
+    }
+    td { padding: 10px 14px; border-bottom: 1px solid #eee; }
+    tr:nth-child(even) td { background: #f6f8fb; }
+    .badge {
+      display: inline-block; background: #ECFDF5;
+      color: #034A93; font-size: 12px; font-weight: 600;
+      padding: 2px 10px; border-radius: 20px;
+      border: 1px solid #40D3B6; margin: 2px 2px 6px;
+    }
+    .notice {
+      background: #fff8e1; border-left: 4px solid #FFB300;
+      padding: 14px 16px; border-radius: 4px;
+      font-size: 13px; color: #555; margin: 12px 0;
+    }
+    .contact-box {
+      background: #fff; border: 1px solid #e5e7eb;
+      border-radius: 12px; padding: 24px;
+      margin-top: 40px;
+    }
+    .contact-box p { margin: 4px 0; }
+    footer { text-align: center; color: #999; font-size: 12px; margin-top: 48px; }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <h1>🔒 개인정보처리방침</h1>
+  <p>Locotalk · 최종 수정: 2026년 6월 6일</p>
+</div>
+
+<div class="container">
+
+  <p style="margin-top:0; color:#555;">
+    Locotalk(이하 "회사")은 이용자의 개인정보를 중요시하며, 「개인정보 보호법」 및 관련 법령을 준수합니다.
+    본 방침은 Locotalk 모바일 애플리케이션(이하 "앱")에 적용됩니다.
+  </p>
+
+  <!-- 1 -->
+  <h2>1. 수집하는 개인정보 항목</h2>
+
+  <h3>가. 회원가입 및 로그인 시</h3>
+  <table>
+    <tr><th>로그인 방법</th><th>수집 항목</th></tr>
+    <tr><td>Google</td><td>이메일 주소, OAuth 인증 토큰</td></tr>
+    <tr><td>카카오</td><td>카카오 계정 식별자, OAuth 인증 토큰</td></tr>
+    <tr><td>네이버</td><td>네이버 계정 식별자, OAuth 인증 토큰</td></tr>
+    <tr><td>이메일</td><td>이메일 주소 (인증 용도)</td></tr>
+  </table>
+
+  <h3>나. 앱 이용 중 수집</h3>
+  <ul>
+    <li><strong>닉네임</strong> — 매칭된 상대에게만 공개 (최대 6자)</li>
+    <li><strong>관심사</strong> — 최대 3개, 매칭 알고리즘에 활용</li>
+    <li><strong>위치정보</strong> — GPS로 행정구 단위(예: 마포구)만 사용, 정확한 좌표 미저장</li>
+    <li><strong>기기 식별자</strong> — 푸시 알림 발송용 FCM/APNs 토큰</li>
+    <li><strong>연락처(선택 · 프리미엄)</strong> — '지인 매칭 피하기' 기능을 켠 경우에만, 연락처의 전화번호를 <strong>단방향 암호화 해시(SHA-256)</strong>로 변환하여 사용합니다. 전화번호 원본·이름 등 연락처 정보는 <strong>저장하거나 전송하지 않으며</strong>, 해시값은 지인 매칭 제외 대조에만 사용됩니다.</li>
+  </ul>
+
+  <div class="notice">
+    💬 채팅 메시지는 서비스 제공을 위해 일정 기간(무료 7일 · 프리미엄 90일) 보관 후 자동 삭제되며, 회원 탈퇴 시 본인 식별정보는 즉시 파기됩니다.
+  </div>
+
+  <div class="notice">
+    📇 '지인 매칭 피하기'(프리미엄)는 연락처 전화번호를 <strong>암호화 해시로만</strong> 비교합니다. 전화번호·이름 등 연락처 원본 정보는 <strong>수집·저장·전송하지 않으며</strong>, 기능을 끄면 보관 중이던 해시값도 즉시 삭제됩니다.
+  </div>
+
+  <!-- 2 -->
+  <h2>2. 개인정보 수집 및 이용 목적</h2>
+  <ul>
+    <li>본인 확인 및 서비스 이용 자격 관리</li>
+    <li>주변 이웃 매칭 및 익명 채팅 서비스 제공</li>
+    <li>위치 기반 동네 피드 기능 제공</li>
+    <li>지인 매칭 피하기 — 연락처에 등록된 지인과의 매칭 제외 (프리미엄, 전화번호 해시 대조)</li>
+    <li>서비스 이용 관련 공지 및 푸시 알림 발송</li>
+    <li>불법·부적절한 이용 방지 및 제재</li>
+  </ul>
+
+  <!-- 3 -->
+  <h2>3. 개인정보 보유 및 이용 기간</h2>
+  <table>
+    <tr><th>항목</th><th>보유 기간</th></tr>
+    <tr><td>계정 정보 (이메일, OAuth 식별자)</td><td>회원 탈퇴 시 즉시 삭제</td></tr>
+    <tr><td>닉네임 / 관심사</td><td>회원 탈퇴 시 즉시 삭제</td></tr>
+    <tr><td>위치정보 (행정구)</td><td>세션 종료 시 삭제 (미저장)</td></tr>
+    <tr><td>채팅 메시지</td><td>무료 7일 / 프리미엄 90일 보관 후 자동 삭제 (회원 탈퇴 시 본인 식별정보 즉시 파기)</td></tr>
+    <tr><td>푸시 알림 토큰</td><td>회원 탈퇴 또는 토큰 갱신 시 삭제</td></tr>
+    <tr><td>연락처 전화번호 해시</td><td>'지인 매칭 피하기' 해제 또는 회원 탈퇴 시 즉시 삭제 (원본 번호 미저장)</td></tr>
+  </table>
+  <p>단, 관련 법령에 따라 보존이 필요한 경우 해당 기간 동안 보관합니다.</p>
+
+  <!-- 4 -->
+  <h2>4. 개인정보의 제3자 제공</h2>
+  <p>회사는 이용자의 개인정보를 원칙적으로 외부에 제공하지 않습니다. 단, 아래의 경우는 예외입니다.</p>
+  <ul>
+    <li>이용자가 사전에 동의한 경우</li>
+    <li>법령의 규정에 의거하거나 수사 목적으로 법령에 정해진 절차와 방법에 따라 수사기관의 요구가 있는 경우</li>
+  </ul>
+
+  <!-- 5 -->
+  <h2>5. 소셜 로그인 제공 사업자</h2>
+  <p>소셜 로그인 이용 시 각 제공 사업자의 개인정보처리방침이 함께 적용됩니다.</p>
+  <ul>
+    <li><strong>Google</strong> — <a href="https://policies.google.com/privacy" target="_blank">privacy.google.com</a></li>
+    <li><strong>카카오</strong> — <a href="https://www.kakao.com/policy/privacy" target="_blank">kakao.com/policy/privacy</a></li>
+    <li><strong>네이버</strong> — <a href="https://policy.naver.com/policy/privacy.html" target="_blank">policy.naver.com</a></li>
+  </ul>
+
+  <!-- 6 -->
+  <h2>6. 위치정보 처리</h2>
+  <ul>
+    <li>위치정보는 앱 사용 중에만 수집되며, 기기 설정에서 언제든지 거부할 수 있습니다.</li>
+    <li>수집된 GPS 좌표는 행정구 이름으로 변환 후 즉시 폐기됩니다.</li>
+    <li>정확한 위치(좌표)는 서버에 저장되지 않습니다.</li>
+  </ul>
+
+  <!-- 7 -->
+  <h2>7. 미성년자 보호</h2>
+  <p>본 서비스는 <strong>만 14세 이상</strong>을 대상으로 합니다. 만 14세 미만 아동의 개인정보는 수집하지 않으며, 해당 사실이 확인된 경우 관련 정보를 즉시 삭제합니다.</p>
+
+  <!-- 8 -->
+  <h2>8. 이용자의 권리</h2>
+  <p>이용자는 언제든지 다음의 권리를 행사할 수 있습니다.</p>
+  <ul>
+    <li>개인정보 열람, 정정, 삭제 요청</li>
+    <li>처리 정지 요청</li>
+    <li>회원 탈퇴 (앱 내 '내 정보 → 처음부터 다시 시작' 메뉴 이용)</li>
+  </ul>
+  <p>권리 행사는 아래 연락처로 요청하실 수 있습니다.</p>
+
+  <!-- 9 -->
+  <h2>9. 개인정보 보호책임자</h2>
+  <div class="contact-box">
+    <p><strong>회사명:</strong> Locotalk</p>
+    <p><strong>책임자:</strong> 김주강</p>
+    <p><strong>이메일:</strong> <a href="mailto:calendar03dean@gmail.com">calendar03dean@gmail.com</a></p>
+    <p style="margin-top:12px; color:#888; font-size:13px;">
+      개인정보 관련 문의, 불만, 피해 구제 등에 관한 사항은 위 이메일로 연락주시기 바랍니다.<br>
+      개인정보침해에 관한 신고나 상담이 필요한 경우 개인정보침해 신고센터(privacy.kisa.or.kr)에 문의하실 수 있습니다.
+    </p>
+  </div>
+
+  <!-- 10 -->
+  <h2>10. 개인정보처리방침 변경</h2>
+  <p>본 방침은 법령 또는 서비스 정책의 변경에 따라 수정될 수 있으며, 변경 시 앱 내 공지 또는 이메일을 통해 안내드립니다.</p>
+
+  <footer>
+    <p>시행일: 2026년 6월 6일 &nbsp;|&nbsp; Locotalk © 2026</p>
+  </footer>
+
+</div>
+</body>
+</html>

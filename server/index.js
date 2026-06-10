@@ -564,21 +564,22 @@ app.post('/auth/portone-verify', async (req, res) => {
 // [제거] 휴대폰 OTP(send/verify-phone-otp + phoneOtpStore) — 유일 caller 였던 PhoneVerifyModal 死(트리거 0).
 //   검증 권위는 PortOne CI 단일. 휴대폰 본인인증이 다시 필요해지면 auth-kit/PortOne 경로로 재도입.
 
-// 개인정보처리방침 (위치기반서비스 약관 동의 모달 등에서 링크) — docs/ HTML 서빙
+// 개인정보처리방침 (위치기반서비스 약관 동의 모달 등에서 링크) — server/docs/ HTML 서빙
+//   ⚠️ 빌드 컨텍스트(server/) 내 사본. 원본=레포루트 docs/. 갱신 시 양쪽 동기화.
 app.get('/privacy', (_req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'docs', 'privacy-policy.html'),
+  res.sendFile(path.join(__dirname, 'docs', 'privacy-policy.html'),
     (err) => { if (err) res.status(404).send('privacy policy not found'); });
 });
 app.get('/privacy/en', (_req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'docs', 'privacy-policy-en.html'),
+  res.sendFile(path.join(__dirname, 'docs', 'privacy-policy-en.html'),
     (err) => { if (err) res.status(404).send('not found'); });
 });
 
-// 서비스 이용약관 / 위치기반서비스 이용약관 — legal/ 마크다운(현행 초안)을 모바일 가독 HTML 로 서빙.
-//   ⚠️ 변호사 검토 전 초안. 최종본 확정 시 파일 교체(라우트 불변).
+// 서비스 이용약관 / 위치기반서비스 이용약관 — server/legal/ 마크다운(현행 초안)을 모바일 가독 HTML 로 서빙.
+//   ⚠️ 변호사 검토 전 초안. 최종본 확정 시 파일 교체(라우트 불변). 빌드 컨텍스트=server/ 이라 server/legal/ 에 위치.
 function serveMarkdown(res, file, title) {
   try {
-    const md = fs.readFileSync(path.join(__dirname, '..', 'legal', file), 'utf8');
+    const md = fs.readFileSync(path.join(__dirname, 'legal', file), 'utf8');
     const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     res.type('html').send(
       '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
