@@ -112,6 +112,14 @@ export const translations = {
     loc_consent_policy_link: '개인정보처리방침 전문 보기',
     loc_consent_agree: '동의하고 매칭 시작',
     loc_consent_cancel: '동의하지 않음',
+    // OS 위치 권한 필수 게이트(진입 차단 — 위치 기반 서비스 필수 관문)
+    locperm_title: '📍 위치 권한이 필요해요',
+    locperm_body: '로코톡은 내 주변 동네 이웃과 익명으로 연결되는 위치 기반 서비스예요. 정확한 위치는 절대 노출되지 않고, 500m 블러 처리되어 동네(구·동) 단위로만 안전하게 쓰여요. 그래서 위치 권한 없이는 서비스를 이용하실 수 없어요. 안심하고 동의해 주세요 🙏',
+    locperm_allow: '위치 권한 허용하기',
+    locperm_denied_title: '권한을 허용해야 로코톡을 시작할 수 있어요',
+    locperm_denied_body: '위치 권한이 거부되어 있어요. iOS 설정 > 로코톡 > 위치에서 "앱을 사용하는 동안"으로 허용한 뒤 돌아와 주세요.',
+    locperm_open_settings: 'iOS 설정 열기',
+    locperm_recheck: '권한 다시 확인',
     // 성인(본인)인증 필요 안내 (청소년보호법)
     adult_required_title: '본인인증이 필요해요',
     adult_required_msg: '안전한 익명 채팅을 위해 매칭 전 본인인증(성인 확인)이 필요합니다.',
@@ -323,6 +331,14 @@ export const translations = {
     loc_consent_policy_link: 'View full Privacy Policy',
     loc_consent_agree: 'Agree & Start Matching',
     loc_consent_cancel: 'Do not agree',
+    // OS location permission gate (mandatory — blocks entry for a location-based service)
+    locperm_title: '📍 Location permission needed',
+    locperm_body: 'Locotalk is a location-based service that anonymously connects you with neighbors nearby. Your exact location is never revealed — it’s blurred by 500m and used only at the neighborhood (district) level. So Locotalk can’t be used without location permission. Please allow it with confidence 🙏',
+    locperm_allow: 'Allow location access',
+    locperm_denied_title: 'Allow permission to start Locotalk',
+    locperm_denied_body: 'Location permission is denied. Go to iOS Settings > Locotalk > Location and choose “While Using the App,” then come back.',
+    locperm_open_settings: 'Open iOS Settings',
+    locperm_recheck: 'Check again',
     // Identity (adult) verification required (Youth Protection Act)
     adult_required_title: 'Identity verification required',
     adult_required_msg: 'For safe anonymous chat, identity (adult) verification is required before matching.',

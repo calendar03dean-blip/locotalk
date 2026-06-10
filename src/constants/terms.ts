@@ -19,9 +19,9 @@ export interface TermsDoc {
 
 /** 동의 필수 약관 3종 (개인정보처리방침 · 서비스이용약관 · 위치기반서비스이용약관) */
 export const TERMS: Record<TermsDoc['id'], TermsDoc> = {
-  privacy:  { id: 'privacy',  version: '2026-06-10-draft', url: `${BASE}/privacy` },
-  service:  { id: 'service',  version: '2026-06-10-draft', url: `${BASE}/terms` },
-  location: { id: 'location', version: '2026-06-10-draft', url: `${BASE}/location-terms` },
+  privacy:  { id: 'privacy',  version: '2026-06-11-draft', url: `${BASE}/privacy` },
+  service:  { id: 'service',  version: '2026-06-11-draft', url: `${BASE}/terms` },
+  location: { id: 'location', version: '2026-06-11-draft', url: `${BASE}/location-terms` },
 };
 
 /** 동의 필수 순서 목록 */

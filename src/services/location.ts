@@ -10,6 +10,10 @@
  *   iOS는 이미 허용된 권한을 재요청해도 추가 프롬프트 없이 현재 상태만 반환(중복 무해).
  *
  * 원칙: best-effort. 절대 throw/차단하지 않음 — 권한 거부·오류여도 진입은 막지 않는다.
+ *
+ * ⚠️ DEPRECATED(2026-06-11): 위치 권한이 '필수 게이트'로 승격되어 진입 경로는
+ *    components/LocationPermissionGate(차단형) 로 일원화됨. 본 best-effort 헬퍼는
+ *    더 이상 호출되지 않음(향후 백그라운드 권한 동기화 등 비차단 용도 재사용 대비 보존).
  */
 
 /** OS 위치 권한 요청 + store(locationPermission) 기록. 허용 여부 반환(실패 시 false). */

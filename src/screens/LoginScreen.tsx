@@ -30,10 +30,10 @@ import { LT } from '../constants/lt';
 import { serverLogin } from '../services/userApi';
 import { recordConsentWithQueue, flushPendingConsents } from '../services/consentQueue';
 import { flushPendingProfiles } from '../services/profileQueue';
-import { ensureLocationPermission } from '../services/location';
 import { TERMS, consentPayload, type TermsDoc } from '../constants/terms';
 import { IDENTITY_LIVE } from '../constants/release';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
+import LocationPermissionGate from '../components/LocationPermissionGate';
 
 // 본인인증 단일 진입으로 전환(프리런치 클린). 소셜/이메일 진입 UI 비활성 —
 // 핸들러·모듈 코드는 보존(차기 auth-kit 추출용). true 로 돌리면 즉시 복구.
@@ -204,6 +204,24 @@ export default function LoginScreen() {
   const [showIdentity, setShowIdentity] = useState(false); // 본인인증=로그인 모달
   const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
 
+  // ── OS 위치 권한 필수 게이트(진입 차단) ──────────────────────────────
+  //   위치 기반 서비스라 OS 위치 권한 없이는 진입 불가 → 모든 진입 경로는 setAuth/
+  //   applyLoginResult/setLoggedIn '전에' requestLocationGate() 를 await 한다.
+  //   허용 시에만 promise 가 resolve(=진입 진행). 거부 시 게이트가 닫히지 않아
+  //   promise 가 영영 resolve 되지 않으므로 진입 자체가 차단된다(안내+설정 이동만 제공).
+  const [showLocGate, setShowLocGate] = useState(false);
+  const locGateResolve = useRef<(() => void) | null>(null);
+  const requestLocationGate = () => new Promise<void>((resolve) => {
+    locGateResolve.current = resolve;
+    setShowLocGate(true);
+  });
+  const onLocGateGranted = () => {
+    setShowLocGate(false);
+    const resolve = locGateResolve.current;
+    locGateResolve.current = null;
+    resolve?.();
+  };
+
   // ── 약관 3종 동의 (본인인증 PII 수집 '전' — 출시 법적 필수) ──────────
   const [agreed, setAgreed] = useState<{ [K in TermsDoc['id']]: boolean }>({
     privacy: false, service: false, location: false,
@@ -306,9 +324,11 @@ export default function LoginScreen() {
   // ── 본인인증 = 로그인 (단일 진입) ─────────────────────────────
   // PortOne 모달이 서버 /auth/portone-verify(IVID만) 응답을 전달 → 서버가 CI로 결정한
   // 신원 userId + 신뢰 JWT 로 로그인. 신규는 온보딩(검증정보 stash), 복귀완성은 바로 홈.
-  const handleIdentityVerified = (info: any) => {
+  const handleIdentityVerified = async (info: any) => {
     setShowIdentity(false);
     if (!info?.userId || !info?.token) { Alert.alert(t('login_failed')); return; }
+    // 진입 통합: 본인인증 직후 OS 위치 권한 필수 게이트 — 허용 전에는 진입(아래) 진행 안 됨.
+    await requestLocationGate();
     // 신규/미완성 유저는 온보딩이 isVerified·성별·생년을 채우도록 stash
     if (info.isNew || !info.isComplete) {
       const yr = info.birth ? parseInt(String(info.birth).slice(0, 4), 10) : undefined;
@@ -321,8 +341,6 @@ export default function LoginScreen() {
     //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(큐 잔류→다음 flush).
     recordConsentWithQueue(info.userId, consentPayload());
     setLocationConsent(true);
-    // 진입 통합: 위치기반서비스 약관 동의 직후 OS 위치 권한도 함께 요청(동의→권한→진입 단일 흐름).
-    ensureLocationPermission();
   };
 
   // ── [테스트 우회] PortOne 실연동 전 본인인증 화면 잠금 해제 ──────────────
@@ -344,6 +362,8 @@ export default function LoginScreen() {
       const email = testIdentityEmail(slot);
       const result = await serverLogin('email', email, email);
       if (!result?.userId) { Alert.alert(t('login_failed')); return; }
+      // 위치 권한 필수 게이트 — 허용 전에는 진입(applyLoginResult) 진행 안 됨.
+      await requestLocationGate();
       // 신규/미완성이면 온보딩이 성별/생년을 채우도록 stash(테스트 더미값)
       if (result.isNew || !result.isComplete) {
         setPendingVerified({ gender: 'male', birthYear: 1995, phone: '01000000000', name: `테스터${slot}` });
@@ -352,7 +372,6 @@ export default function LoginScreen() {
       applyLoginResult('email', result, email);
       recordConsentWithQueue(result.userId, consentPayload());
       setLocationConsent(true);
-      ensureLocationPermission(); // 진입 통합: 약관 동의 직후 OS 위치 권한 요청
     } catch {
       Alert.alert(t('login_failed'));
     } finally {
@@ -387,6 +406,8 @@ export default function LoginScreen() {
       // 겹쳐 네이티브 NSException(turbomodule void) → terminate 가 발생한다(타이밍 레이스).
       // 인증 UI가 완전히 닫힐 시간을 준 뒤 전환하여 레이스를 제거한다.
       await new Promise<void>(r => setTimeout(r, 650));
+      // 위치 권한 필수 게이트 — 허용 전에는 진입(applyLoginResult) 진행 안 됨.
+      await requestLocationGate();
       return applyLoginResult(provider, result, email);
     } catch (e: any) {
       diagRef.current = '[서버 단계] serverLogin 예외:\n' + diag(e);
@@ -593,8 +614,10 @@ export default function LoginScreen() {
   };
 
   // ── 개발자 테스트 계정 ────────────────────────────────────────────
-  const enterTestAccount = (type: 'premium' | 'free') => {
+  const enterTestAccount = async (type: 'premium' | 'free') => {
     const isPrem = type === 'premium';
+    // 위치 권한 필수 게이트 — 허용 전에는 진입(setLoggedIn) 진행 안 됨.
+    await requestLocationGate();
     setAuth('email', `test-${type}@locotalk.dev`);
     setLoggedIn({
       id         : `test-${type}`,
@@ -819,6 +842,9 @@ export default function LoginScreen() {
         onVerified={handleIdentityVerified}
         userId=""
       />
+
+      {/* OS 위치 권한 필수 게이트(진입 차단) — 허용 시에만 onLocGateGranted 로 진입 진행 */}
+      <LocationPermissionGate visible={showLocGate} onGranted={onLocGateGranted} />
     </SafeAreaView>
   );
 }
