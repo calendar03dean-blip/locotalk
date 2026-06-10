@@ -153,14 +153,15 @@ export default function OnboardingScreen() {
       ...(pv?.birthYear ? { birthYear: pv.birthYear } : {}),
     };
 
-    // 코드네임 확정: 서버 검증/유일성 통과까지 충돌(409) 시 hex 재생성 후 재시도.
+    // 코드네임 확정: 서버 영속 성공을 '요구'(오프라인 침묵 진행 제거 — 클라/서버 코드네임 불일치 방지).
+    //   충돌(409) 시 hex 재생성 후 재시도. 네트워크 실패(status 0)·기타 오류는 진행 차단 → 재시도 유도.
     let finalCode = code;
     let saved = false;
     for (let attempt = 0; attempt < 5; attempt++) {
       const r = await saveUserProfile(userId, { ...baseProfile, nickname: finalCode });
-      if (r.ok || r.status === 0) { saved = true; break; }   // 성공 또는 네트워크 실패(오프라인 허용)
+      if (r.ok) { saved = true; break; }                     // 서버 영속 성공만 통과
       if (r.status === 409) { finalCode = rerollHex(finalCode); continue; }  // 중복 → 재생성
-      break;  // 400 등 그 외 — 더 시도하지 않음
+      break;  // 400(형식)·0(네트워크)·5xx 등 — 더 시도하지 않음
     }
     if (!saved) {
       setSaving(false);

@@ -97,6 +97,22 @@ export async function deleteUserAccount(userId: string): Promise<boolean> {
   }
 }
 
+/** 약관 동의 이력 영속 (개인정보처리방침·서비스이용약관·위치기반서비스이용약관)
+ *  본인인증으로 userId 확정 후 호출. 동의 증빙(누가·버전·언제). 위치 약관 포함 시 서버가 location_consent 도 세팅. */
+export async function recordConsents(
+  userId: string,
+  consents: { doc: string; version: string }[],
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/consents`, {
+      method: 'POST',
+      headers: jsonAuthHeaders(),
+      body: JSON.stringify({ consents }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
 /** 위치기반서비스 이용약관 동의/철회 저장 (위치정보법) */
 export async function setLocationConsent(userId: string, agreed: boolean): Promise<boolean> {
   try {

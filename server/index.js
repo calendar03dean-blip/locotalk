@@ -473,6 +473,20 @@ app.post('/users/:id/location-consent', async (req, res) => {
   res.json({ ok, locationConsent: agreed });
 });
 
+/** 약관 동의 이력 기록 (개인정보처리방침·서비스이용약관·위치기반서비스이용약관) — 동의 증빙.
+ *  본인인증으로 userId 확정 후 클라가 동의 문서+버전 전송. 화이트리스트 외 문서는 무시(legal.recordConsents). */
+app.post('/users/:id/consents', async (req, res) => {
+  if (!process.env.DATABASE_URL) return res.json({ ok: true, recorded: 0 });
+  const items = Array.isArray(req.body?.consents) ? req.body.consents : [];
+  try {
+    const r = await legal.recordConsents(db, req.params.id, items, { ip: legal.getClientIp(req) });
+    res.json({ ok: r.ok, recorded: r.recorded });
+  } catch (e) {
+    console.error('[consent] record error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /** 프리미엄 상태 업데이트 */
 app.patch('/users/:id/premium', async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ ok: true });
@@ -559,6 +573,25 @@ app.get('/privacy/en', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'docs', 'privacy-policy-en.html'),
     (err) => { if (err) res.status(404).send('not found'); });
 });
+
+// 서비스 이용약관 / 위치기반서비스 이용약관 — legal/ 마크다운(현행 초안)을 모바일 가독 HTML 로 서빙.
+//   ⚠️ 변호사 검토 전 초안. 최종본 확정 시 파일 교체(라우트 불변).
+function serveMarkdown(res, file, title) {
+  try {
+    const md = fs.readFileSync(path.join(__dirname, '..', 'legal', file), 'utf8');
+    const esc = md.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    res.type('html').send(
+      '<!doctype html><html lang="ko"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<title>' + title + '</title>' +
+      '<style>body{font:15px/1.7 -apple-system,system-ui,sans-serif;color:#1a1a1a;margin:0;padding:20px;max-width:760px}' +
+      'pre{white-space:pre-wrap;word-break:break-word;font:inherit;margin:0}</style></head>' +
+      '<body><pre>' + esc + '</pre></body></html>'
+    );
+  } catch (e) { res.status(404).send('not found'); }
+}
+app.get('/terms',          (_req, res) => serveMarkdown(res, '02_서비스이용약관.md', '서비스 이용약관'));
+app.get('/location-terms', (_req, res) => serveMarkdown(res, '03_위치기반서비스이용약관.md', '위치기반서비스 이용약관'));
 
 app.get('/health', (_req, res) => {
   res.json({

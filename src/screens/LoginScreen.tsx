@@ -14,7 +14,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform,
-  Animated, Easing, Alert, Image,
+  Animated, Easing, Alert, Image, Linking,
 } from 'react-native';
 import { useFonts } from 'expo-font';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,7 +27,8 @@ import { useStore } from '../store';
 import { useT } from '../i18n';
 import { Colors, Typography, Radius } from '../constants/theme';
 import { LT } from '../constants/lt';
-import { serverLogin } from '../services/userApi';
+import { serverLogin, recordConsents } from '../services/userApi';
+import { TERMS, consentPayload, type TermsDoc } from '../constants/terms';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
 
 // 본인인증 단일 진입으로 전환(프리런치 클린). 소셜/이메일 진입 UI 비활성 —
@@ -89,6 +90,23 @@ function IcoEmail({ size = 20, color = '#fff' }: { size?: number; color?: string
       <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
         stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
       <Path d="M22 6l-10 7L2 6" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/>
+    </Svg>
+  );
+}
+
+function IcoCheckbox({ on, size = 22 }: { on: boolean; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"
+        fill={on ? LT.brand : 'transparent'}
+        stroke={on ? LT.brand : LT.border}
+        strokeWidth={1.8}
+      />
+      {on && (
+        <Path d="M7.5 12.5l3 3 6-6.5" stroke="#fff" strokeWidth={2}
+          strokeLinecap="round" strokeLinejoin="round" />
+      )}
     </Svg>
   );
 }
@@ -177,6 +195,17 @@ export default function LoginScreen() {
 
   const [showIdentity, setShowIdentity] = useState(false); // 본인인증=로그인 모달
   const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
+
+  // ── 약관 3종 동의 (본인인증 PII 수집 '전' — 출시 법적 필수) ──────────
+  const [agreed, setAgreed] = useState<{ [K in TermsDoc['id']]: boolean }>({
+    privacy: false, service: false, location: false,
+  });
+  const allAgreed = agreed.privacy && agreed.service && agreed.location;
+  const toggleAll = () => {
+    const v = !allAgreed;
+    setAgreed({ privacy: v, service: v, location: v });
+  };
+  const toggleOne = (k: TermsDoc['id']) => setAgreed(p => ({ ...p, [k]: !p[k] }));
   const [step,     setStep]     = useState<Step>('main');
   const [email,    setEmail]    = useState('');
   const [otp,      setOtp]      = useState('');
@@ -263,6 +292,11 @@ export default function LoginScreen() {
     }
     // 소셜 applyLoginResult 재사용: setAuth(+신뢰토큰) / 복귀완성유저면 setLoggedIn(isVerified 포함)
     applyLoginResult('portone', info);
+
+    // 약관 동의 이력 영속(증빙) — userId 확정 후 best-effort. 위치 약관 포함 → 서버가 location_consent 세팅.
+    //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(증빙은 재동기화).
+    recordConsents(info.userId, consentPayload()).catch(() => {});
+    setLocationConsent(true);
   };
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
@@ -519,12 +553,36 @@ export default function LoginScreen() {
           {/* ── MAIN ────────────────────────────────── */}
           {step === 'main' && (
             <View style={s.btnGroup}>
-              {/* 본인인증 = 로그인 (단일 진입) */}
+              {/* ── 약관 3종 동의 (본인인증 PII 수집 전 — 출시 법적 필수) ── */}
+              <View style={s.consentBox}>
+                <TouchableOpacity style={s.consentAllRow} onPress={toggleAll} activeOpacity={0.7}>
+                  <IcoCheckbox on={allAgreed} />
+                  <Text style={s.consentAllTxt}>{t('consent_all')}</Text>
+                </TouchableOpacity>
+                <View style={s.consentDiv} />
+                {([['privacy','consent_privacy'],['service','consent_service'],['location','consent_location']] as const).map(([k, label]) => (
+                  <View key={k} style={s.consentRow}>
+                    <TouchableOpacity style={s.consentLeft} onPress={() => toggleOne(k)} activeOpacity={0.7}>
+                      <IcoCheckbox on={agreed[k]} size={20} />
+                      <Text style={s.consentReq}>{t('consent_required')}</Text>
+                      <Text style={s.consentLabel}>{t(label)}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => Linking.openURL(TERMS[k].url)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={s.consentView}>{t('consent_view')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+
+              {/* 본인인증 = 로그인 (단일 진입) — 약관 전체 동의 시에만 활성 */}
               <TouchableOpacity
-                style={[s.btn, s.btnEmail]}
-                onPress={() => setShowIdentity(true)}
+                style={[s.btn, s.btnEmail, !allAgreed && s.btnDisabled]}
+                onPress={() => {
+                  if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+                  setShowIdentity(true);
+                }}
                 activeOpacity={0.85}
-                disabled={authLoading}
+                disabled={authLoading || !allAgreed}
               >
                 <Text style={[s.btnTxt, { color: LT.brandStrong }]}>📱 본인인증으로 시작</Text>
               </TouchableOpacity>
@@ -567,8 +625,6 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </>
               )}
-
-              <Text style={s.terms}>{t('login_terms')}</Text>
 
               {/* ── 개발자 테스트 진입 (개발 빌드 전용 — 출시 빌드에선 숨김) ── */}
               {__DEV__ && (
@@ -711,6 +767,18 @@ const s = StyleSheet.create({
   btnKakao:  { backgroundColor: '#FEE500' },
   btnNaver:  { backgroundColor: '#03C75A' },
   btnEmail:  { backgroundColor: LT.brandTint },
+  btnDisabled: { opacity: 0.45 },
+
+  // ── 약관 동의 ──────────────────────────────────────────────
+  consentBox:    { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: LT.border, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
+  consentAllRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  consentAllTxt: { fontSize: 15, fontWeight: '800', color: '#1a1a1a', letterSpacing: -0.2 },
+  consentDiv:    { height: 1, backgroundColor: LT.border, marginVertical: 8 },
+  consentRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5 },
+  consentLeft:   { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  consentReq:    { fontSize: 12, fontWeight: '700', color: LT.brandStrong },
+  consentLabel:  { fontSize: 13, color: '#333', flexShrink: 1 },
+  consentView:   { fontSize: 12, color: LT.label3, textDecorationLine: 'underline', paddingLeft: 8 },
 
   btnTxt:      { fontSize: 15, fontWeight: '600', letterSpacing: -0.2 },
   btnTxtDark:  { color: '#1a1a1a' },

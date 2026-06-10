@@ -75,8 +75,19 @@ async function initLegalSchema(db) {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS adult_verified_at    TIMESTAMPTZ;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS adult_verify_provider VARCHAR(20);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS withdrawn_at         TIMESTAMPTZ;
+
+      -- 4) 약관 동의 이력 (동의 증빙 — 누가·어느 버전·언제). 출시 전 동의 = 법적 필수.
+      CREATE TABLE IF NOT EXISTS user_consents (
+        id        BIGSERIAL PRIMARY KEY,
+        user_id   VARCHAR(120) NOT NULL,                  -- 본인인증 CI 로 결정된 userId
+        doc       VARCHAR(40)  NOT NULL,                  -- privacy | service | location
+        version   VARCHAR(60)  NOT NULL,                  -- 약관 버전 태그(클라/서버 합의값)
+        agreed_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),    -- 동의 시각
+        ip        VARCHAR(60)
+      );
+      CREATE INDEX IF NOT EXISTS idx_consent_user ON user_consents (user_id);
     `);
-    console.log('[legal] ✅ 법령준수 스키마 준비 완료 (location_history_log / access_log / users 보강)');
+    console.log('[legal] ✅ 법령준수 스키마 준비 완료 (location_history_log / access_log / user_consents / users 보강)');
   } catch (e) {
     console.error('[legal] 스키마 초기화 실패:', e.message);
   }
@@ -124,6 +135,34 @@ async function hasLocationConsent(db, userId) {
     const { rows } = await db.query('SELECT location_consent FROM users WHERE id = $1', [userId]);
     return rows.length > 0 && rows[0].location_consent === true;
   } catch { return false; }
+}
+
+/** 동의 가능한 약관 문서(화이트리스트) */
+const ALLOWED_CONSENT_DOCS = new Set(['privacy', 'service', 'location']);
+
+/**
+ * 약관 동의 이력 영속 (동의 증빙). 허용 문서·버전만 수용, 그 외 무시.
+ *   위치 약관(location) 포함 시 users.location_consent 도 동기화(위치정보법).
+ * @param {Array<{doc, version}>} items
+ */
+async function recordConsents(db, userId, items = [], { ip = null } = {}) {
+  if (!db || !userId || !Array.isArray(items) || !items.length) return { ok: false, recorded: 0 };
+  let recorded = 0, location = false;
+  for (const it of items) {
+    const doc = String(it?.doc || '');
+    const version = String(it?.version || '').slice(0, 60);
+    if (!ALLOWED_CONSENT_DOCS.has(doc) || !version) continue;
+    try {
+      await db.query(
+        'INSERT INTO user_consents (user_id, doc, version, ip) VALUES ($1, $2, $3, $4)',
+        [userId, doc, version, ip]
+      );
+      recorded++;
+      if (doc === 'location') location = true;
+    } catch (e) { console.warn('[legal] recordConsents insert 실패:', e.message); }
+  }
+  if (location) { try { await setLocationConsent(db, userId, true); } catch {} }
+  return { ok: recorded > 0, recorded };
 }
 
 /**
@@ -387,6 +426,8 @@ module.exports = {
   getClientIp,
   // 1 위치정보법
   setLocationConsent, hasLocationConsent, logLocationUse,
+  // 약관 동의 이력
+  recordConsents,
   // 2 통신비밀보호법
   logAccess,
   // 3 청소년보호법

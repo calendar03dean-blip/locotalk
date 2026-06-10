@@ -90,6 +90,14 @@ export const translations = {
     login_divider: '또는',
     login_terms: '계속하면 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.',
     login_back: '뒤로',
+    // 약관 3종 동의 (진입 게이트)
+    consent_all: '약관 전체 동의',
+    consent_required: '[필수]',
+    consent_privacy: '개인정보처리방침',
+    consent_service: '서비스 이용약관',
+    consent_location: '위치기반서비스 이용약관',
+    consent_view: '보기',
+    consent_need: '서비스 이용을 위해 약관에 모두 동의해주세요.',
 
     login_failed: '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.',
     // 위치기반서비스 이용약관 동의 (위치정보법)
@@ -292,6 +300,14 @@ export const translations = {
     login_email: 'Continue with Email',
     login_divider: 'or',
     login_terms: 'By continuing, you agree to our Terms of Service and Privacy Policy.',
+    // Terms consent (entry gate)
+    consent_all: 'Agree to all',
+    consent_required: '[Required]',
+    consent_privacy: 'Privacy Policy',
+    consent_service: 'Terms of Service',
+    consent_location: 'Location-Based Service Terms',
+    consent_view: 'View',
+    consent_need: 'Please agree to all terms to continue.',
     login_back: 'Back',
 
     login_failed: 'Sign-in failed. Please try again in a moment.',
