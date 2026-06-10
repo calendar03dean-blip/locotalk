@@ -66,7 +66,8 @@ export async function flushPendingConsents(): Promise<void> {
     if (q.length === 0) return;
     const remaining: PendingConsent[] = [];
     for (const entry of q) {
-      const ok = await recordConsentsWithRetry(entry.userId, entry.consents);
+      // entry.ts(보존된 실제 동의 순간)를 함께 전달 → 서버 agreed_at 드리프트 봉합(오프라인 동의→flush)
+      const ok = await recordConsentsWithRetry(entry.userId, entry.consents, entry.ts);
       if (!ok) remaining.push(entry); // res.ok=false/네트워크 실패 → 잔류
     }
     await writeQueue(remaining);

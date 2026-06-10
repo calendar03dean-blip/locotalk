@@ -104,12 +104,15 @@ export async function deleteUserAccount(userId: string): Promise<boolean> {
 export async function recordConsents(
   userId: string,
   consents: { doc: string; version: string }[],
+  consentedAt?: number, // 실제 동의 순간(epoch ms). 오프라인 동의→재연결 flush 시 서버 agreed_at 드리프트 봉합용
 ): Promise<boolean> {
   try {
     const res = await fetch(`${BASE}/users/${encodeURIComponent(userId)}/consents`, {
       method: 'POST',
       headers: jsonAuthHeaders(),
-      body: JSON.stringify({ consents }),
+      body: JSON.stringify(
+        typeof consentedAt === 'number' ? { consents, consentedAt } : { consents },
+      ),
     });
     return res.ok === true; // 4xx/5xx = 명시적 실패(거부도 유실 아님 — 큐 잔류 후 재시도)
   } catch { return false; }
@@ -120,10 +123,11 @@ export async function recordConsents(
 export async function recordConsentsWithRetry(
   userId: string,
   consents: { doc: string; version: string }[],
+  consentedAt?: number,
   attempts = 3,
 ): Promise<boolean> {
   for (let i = 0; i < attempts; i++) {
-    const ok = await recordConsents(userId, consents);
+    const ok = await recordConsents(userId, consents, consentedAt);
     if (ok) return true;
     if (i < attempts - 1) {
       const backoff = 500 * Math.pow(2, i); // 500ms → 1000ms → 2000ms

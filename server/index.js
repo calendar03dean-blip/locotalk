@@ -478,8 +478,9 @@ app.post('/users/:id/location-consent', async (req, res) => {
 app.post('/users/:id/consents', async (req, res) => {
   if (!process.env.DATABASE_URL) return res.json({ ok: true, recorded: 0 });
   const items = Array.isArray(req.body?.consents) ? req.body.consents : [];
+  const consentedAt = typeof req.body?.consentedAt === 'number' ? req.body.consentedAt : null;
   try {
-    const r = await legal.recordConsents(db, req.params.id, items, { ip: legal.getClientIp(req) });
+    const r = await legal.recordConsents(db, req.params.id, items, { ip: legal.getClientIp(req), consentedAt });
     res.json({ ok: r.ok, recorded: r.recorded });
   } catch (e) {
     console.error('[consent] record error:', e.message);

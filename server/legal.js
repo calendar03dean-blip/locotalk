@@ -140,23 +140,49 @@ async function hasLocationConsent(db, userId) {
 /** 동의 가능한 약관 문서(화이트리스트) */
 const ALLOWED_CONSENT_DOCS = new Set(['privacy', 'service', 'location']);
 
+// 클라가 보낸 동의시각(epoch ms)은 신뢰경계 밖 → 검증 후에만 agreed_at 으로 채택.
+const CONSENT_FUTURE_SKEW_MS = 5 * 60 * 1000;        // 미래 허용 한계(클럭 스큐 5분)
+const CONSENT_MAX_AGE_MS     = 30 * 24 * 60 * 60 * 1000; // 과거 허용 한계(30일)
+
+/**
+ * 클라 제공 동의시각(epoch ms) 검증 → 유효하면 Date, 아니면 null(=DEFAULT NOW() 폴백).
+ *  미래(+5분 초과)거나 30일보다 과거면 위조 의심으로 폐기 — 위조 동의시각 주입 방지.
+ *  오프라인 동의 후 재연결 flush 경로에서 보존된 실제 동의 순간을 살리되, 비합리 값은 거른다.
+ */
+function resolveAgreedAt(consentedAt) {
+  if (typeof consentedAt !== 'number' || !isFinite(consentedAt)) return null;
+  const now = Date.now();
+  if (consentedAt > now + CONSENT_FUTURE_SKEW_MS) return null;
+  if (consentedAt < now - CONSENT_MAX_AGE_MS) return null;
+  return new Date(consentedAt);
+}
+
 /**
  * 약관 동의 이력 영속 (동의 증빙). 허용 문서·버전만 수용, 그 외 무시.
  *   위치 약관(location) 포함 시 users.location_consent 도 동기화(위치정보법).
+ *   consentedAt(epoch ms): 실제 동의 순간. 유효하면 agreed_at 으로 사용, 없거나 부적합하면 NOW().
  * @param {Array<{doc, version}>} items
  */
-async function recordConsents(db, userId, items = [], { ip = null } = {}) {
+async function recordConsents(db, userId, items = [], { ip = null, consentedAt = null } = {}) {
   if (!db || !userId || !Array.isArray(items) || !items.length) return { ok: false, recorded: 0 };
+  const agreedAt = resolveAgreedAt(consentedAt); // null 이면 컬럼 DEFAULT NOW() 폴백
   let recorded = 0, location = false;
   for (const it of items) {
     const doc = String(it?.doc || '');
     const version = String(it?.version || '').slice(0, 60);
     if (!ALLOWED_CONSENT_DOCS.has(doc) || !version) continue;
     try {
-      await db.query(
-        'INSERT INTO user_consents (user_id, doc, version, ip) VALUES ($1, $2, $3, $4)',
-        [userId, doc, version, ip]
-      );
+      if (agreedAt) {
+        await db.query(
+          'INSERT INTO user_consents (user_id, doc, version, agreed_at, ip) VALUES ($1, $2, $3, $4, $5)',
+          [userId, doc, version, agreedAt, ip]
+        );
+      } else {
+        await db.query(
+          'INSERT INTO user_consents (user_id, doc, version, ip) VALUES ($1, $2, $3, $4)',
+          [userId, doc, version, ip]
+        );
+      }
       recorded++;
       if (doc === 'location') location = true;
     } catch (e) { console.warn('[legal] recordConsents insert 실패:', e.message); }
