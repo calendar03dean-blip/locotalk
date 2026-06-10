@@ -148,6 +148,7 @@ export default function HomeScreen() {
     autoMatchTrigger,
     avoidContacts, contactHashes,
     authUserId, locationConsent, setLocationConsent, setPhoneVerified,
+    setLocationPermission,
   } = useStore();
 
   // 내 본인인증 번호 해시 (지인 매칭 피하기용 — 상대 연락처와 대조됨)
@@ -259,7 +260,11 @@ export default function HomeScreen() {
 
       // ── 권한 요청 ──────────────────────────────────────
       const { status } = await Location.requestForegroundPermissionsAsync();
+      // OS 런타임 권한 상태를 store에 분리 기록 (legal consent 와 무관)
+      setLocationPermission(status === 'granted');
       if (status !== 'granted') {
+        // 권한 거부 → 안내 후 재요청 유도(설정 이동). 강제 종료/완전 차단 없음.
+        // 홈 진입은 허용 — 위치 필요 기능에서만 권한 안내 노출.
         const { lang: curLang } = useStore.getState();
         Alert.alert(
           translate('alert_gps_denied_title', curLang),

@@ -158,6 +158,11 @@ interface AppState {
   // 위치기반서비스 이용약관 동의 (위치정보법) — 서버 location_consent 와 동기화
   locationConsent: boolean;
   setLocationConsent: (v: boolean) => void;
+
+  // OS 런타임 위치 권한 상태 (legal consent 와 분리) — null: 미확인, true: 허용, false: 거부
+  // ⚠️ locationConsent(법적 동의 이력)와 절대 한 플래그로 묶지 말 것
+  locationPermission: boolean | null;
+  setLocationPermission: (v: boolean | null) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -316,5 +321,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   locationConsent: false,
   setLocationConsent: (v) => set({ locationConsent: v }),
+
+  locationPermission: null,
+  setLocationPermission: (v) => set({ locationPermission: v }),
 
 }));
