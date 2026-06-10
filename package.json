@@ -17,7 +17,7 @@
     "build:preview": "npx eas build --platform ios --profile preview",
     "build:ios": "npx eas build --platform ios --profile production",
     "build:android": "npx eas build --platform android --profile production",
-    "submit:ios": "npx eas submit --platform ios",
+    "submit:ios": "EXPO_PUBLIC_RELEASE_STAGE=appstore node scripts/check-release-integrity.js && npx eas submit --platform ios",
     "build:appstore": "npx eas build --platform ios --profile appstore",
     "cards:collect": "node scripts/fss-card-collect.js",
     "check:release": "node scripts/check-release-integrity.js",

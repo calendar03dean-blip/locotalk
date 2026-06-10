@@ -18,6 +18,9 @@ const releasePath = path.join(__dirname, '..', 'src', 'constants', 'release.ts')
 let live = null;
 try {
   const src = fs.readFileSync(releasePath, 'utf8');
+  // ⚠️ release.ts 안에 IDENTITY_LIVE 선언은 정확히 1개여야 한다.
+  //    아래 정규식은 첫 매칭만 사용하므로, 선언이 2개 이상이면 가드가 엉뚱한 값을
+  //    읽어 우회될 수 있다. (현재 단일 라인 — src/constants/release.ts:15)
   const m = src.match(/export\s+const\s+IDENTITY_LIVE\s*=\s*(true|false)/);
   if (m) live = m[1] === 'true';
 } catch (e) {
