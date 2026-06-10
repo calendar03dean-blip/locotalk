@@ -29,19 +29,16 @@ import { Colors, Typography, Radius } from '../constants/theme';
 import { LT } from '../constants/lt';
 import { serverLogin, recordConsents } from '../services/userApi';
 import { TERMS, consentPayload, type TermsDoc } from '../constants/terms';
+import { IDENTITY_LIVE } from '../constants/release';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
 
 // 본인인증 단일 진입으로 전환(프리런치 클린). 소셜/이메일 진입 UI 비활성 —
 // 핸들러·모듈 코드는 보존(차기 auth-kit 추출용). true 로 돌리면 즉시 복구.
 const SOCIAL_LOGIN_ENABLED = false;
 
-// ⚠️ 본인인증(PortOne) 실연동 스위치.
-//   KCP/다날 정식계약 + 실채널 전환 전까지는 PortOne 위젯이 '완료'까지 못 가서
-//   본인인증 화면에서 막힌다(테스트 채널). 그 동안은 false 로 두어, "본인인증으로 시작"이
-//   실제 서버 세션(이메일 로그인 경로 재사용)으로 진입하는 테스트 우회를 쓴다(handleTestIdentity).
-//   → 실연동 준비되면 true 로 변경: 즉시 실 PortOne 모달 진입(우회 UI 자동 제거).
-//   🚫 App Store '제출'용 빌드는 반드시 true 여야 함(본인인증 게이트 = 청소년보호법 준수).
-const IDENTITY_LIVE = false;
+// ⚠️ 본인인증(PortOne) 실연동 스위치 IDENTITY_LIVE 는 src/constants/release.ts 단일 출처에서 import.
+//   false: 테스트 우회 진입(handleTestIdentity) / true: 실 PortOne 모달(우회 UI 자동 제거).
+//   release.ts 의 assertReleaseIntegrity() 가 appstore 빌드에서 false 면 부팅을 차단한다.
 
 WebBrowser.maybeCompleteAuthSession();
 

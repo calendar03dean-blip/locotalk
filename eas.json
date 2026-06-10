@@ -7,12 +7,18 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_RELEASE_STAGE": "dev"
+      },
       "ios": {
         "simulator": true
       }
     },
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_RELEASE_STAGE": "testflight"
+      },
       "ios": {
         "simulator": false
       },
@@ -22,11 +28,20 @@
     },
     "production": {
       "distribution": "store",
+      "env": {
+        "EXPO_PUBLIC_RELEASE_STAGE": "testflight"
+      },
       "ios": {
         "simulator": false
       },
       "android": {
         "buildType": "app-bundle"
+      }
+    },
+    "appstore": {
+      "extends": "production",
+      "env": {
+        "EXPO_PUBLIC_RELEASE_STAGE": "appstore"
       }
     }
   },

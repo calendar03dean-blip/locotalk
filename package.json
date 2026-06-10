@@ -17,7 +17,11 @@
     "build:preview": "npx eas build --platform ios --profile preview",
     "build:ios": "npx eas build --platform ios --profile production",
     "build:android": "npx eas build --platform android --profile production",
-    "submit:ios": "npx eas submit --platform ios"
+    "submit:ios": "npx eas submit --platform ios",
+    "build:appstore": "npx eas build --platform ios --profile appstore",
+    "cards:collect": "node scripts/fss-card-collect.js",
+    "check:release": "node scripts/check-release-integrity.js",
+    "eas-build-pre-install": "node scripts/check-release-integrity.js"
   },
   "dependencies": {
     "@expo/cli": "^56.1.13",
