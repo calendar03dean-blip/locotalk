@@ -35,6 +35,14 @@ import PortOneVerifyModal from '../components/PortOneVerifyModal';
 // 핸들러·모듈 코드는 보존(차기 auth-kit 추출용). true 로 돌리면 즉시 복구.
 const SOCIAL_LOGIN_ENABLED = false;
 
+// ⚠️ 본인인증(PortOne) 실연동 스위치.
+//   KCP/다날 정식계약 + 실채널 전환 전까지는 PortOne 위젯이 '완료'까지 못 가서
+//   본인인증 화면에서 막힌다(테스트 채널). 그 동안은 false 로 두어, "본인인증으로 시작"이
+//   실제 서버 세션(이메일 로그인 경로 재사용)으로 진입하는 테스트 우회를 쓴다(handleTestIdentity).
+//   → 실연동 준비되면 true 로 변경: 즉시 실 PortOne 모달 진입(우회 UI 자동 제거).
+//   🚫 App Store '제출'용 빌드는 반드시 true 여야 함(본인인증 게이트 = 청소년보호법 준수).
+const IDENTITY_LIVE = false;
+
 WebBrowser.maybeCompleteAuthSession();
 
 // Google Sign-In 초기화
@@ -297,6 +305,34 @@ export default function LoginScreen() {
     //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(증빙은 재동기화).
     recordConsents(info.userId, consentPayload()).catch(() => {});
     setLocationConsent(true);
+  };
+
+  // ── [테스트 우회] PortOne 실연동 전 본인인증 화면 잠금 해제 ──────────────
+  //   IDENTITY_LIVE=false 일 때만 사용. 실 PortOne 대신 기존 이메일 로그인 서버
+  //   경로를 재사용해 '실제 유저 행 + 실제 userId' 로 진입한다(온보딩 저장이 실제로
+  //   영속됨 → 다음 화면들 정상 테스트 가능). 신규면 온보딩, 복귀(닉네임 보유)면 바로 홈.
+  //   ⚠️ token=null(미검증) — 매칭 성인게이트는 ENFORCE_ADULT 기본 OFF 라 무방.
+  const TEST_IDENTITY_EMAIL = 'tester@locotalk.dev';
+  const handleTestIdentity = async () => {
+    if (authLoading) return;
+    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    setAuthLoading(true);
+    try {
+      const result = await serverLogin('email', TEST_IDENTITY_EMAIL, TEST_IDENTITY_EMAIL);
+      if (!result?.userId) { Alert.alert(t('login_failed')); return; }
+      // 신규/미완성이면 온보딩이 성별/생년을 채우도록 stash(테스트 더미값)
+      if (result.isNew || !result.isComplete) {
+        setPendingVerified({ gender: 'male', birthYear: 1995, phone: '01000000000', name: '테스터' });
+      }
+      // 소셜 applyLoginResult 재사용: 신규=온보딩 / 복귀완성=홈
+      applyLoginResult('email', result, TEST_IDENTITY_EMAIL);
+      recordConsents(result.userId, consentPayload()).catch(() => {});
+      setLocationConsent(true);
+    } catch {
+      Alert.alert(t('login_failed'));
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
@@ -579,12 +615,15 @@ export default function LoginScreen() {
                 style={[s.btn, s.btnEmail, !allAgreed && s.btnDisabled]}
                 onPress={() => {
                   if (!allAgreed) { Alert.alert(t('consent_need')); return; }
-                  setShowIdentity(true);
+                  if (IDENTITY_LIVE) { setShowIdentity(true); return; }
+                  handleTestIdentity();   // 실연동 전 — 테스트 세션으로 진입
                 }}
                 activeOpacity={0.85}
                 disabled={authLoading || !allAgreed}
               >
-                <Text style={[s.btnTxt, { color: LT.brandStrong }]}>📱 본인인증으로 시작</Text>
+                <Text style={[s.btnTxt, { color: LT.brandStrong }]}>
+                  {IDENTITY_LIVE ? '📱 본인인증으로 시작' : '🧪 테스트 진입 (본인인증 준비중)'}
+                </Text>
               </TouchableOpacity>
 
               {/* 소셜/이메일 진입 — 비활성(코드 보존, auth-kit 추출용). SOCIAL_LOGIN_ENABLED=true 시 즉시 복구 */}
