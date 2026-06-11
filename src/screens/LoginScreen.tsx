@@ -204,6 +204,13 @@ export default function LoginScreen() {
   const [showIdentity, setShowIdentity] = useState(false); // 본인인증=로그인 모달
   const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
 
+  // ── A안: 이메일+비밀번호 계정 + 본인인증 1회 ───────────────────────────
+  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup'); // 신규가입/로그인 토글
+  const [pw, setPw]       = useState('');
+  const [pwErr, setPwErr] = useState('');
+  // 본인인증 모달 완료(IVID 획득) 후 /auth/signup 에 함께 보낼 가입 자격증명 보관.
+  const pendingSignup = useRef<{ email: string; password: string } | null>(null);
+
   // ── OS 위치 권한 필수 게이트(진입 차단) ──────────────────────────────
   //   위치 기반 서비스라 OS 위치 권한 없이는 진입 불가 → 모든 진입 경로는 setAuth/
   //   applyLoginResult/setLoggedIn '전에' requestLocationGate() 를 await 한다.
@@ -341,6 +348,86 @@ export default function LoginScreen() {
     //   게이트는 위 체크박스(allAgreed)로 이미 강제됨. 서버 기록 실패는 진입을 막지 않음(큐 잔류→다음 flush).
     recordConsentWithQueue(info.userId, consentPayload());
     setLocationConsent(true);
+  };
+
+  // ── A안: 신규가입 — 이메일/비번 검증 → 본인인증 1회(IVID) → /auth/signup ────────
+  const submitSignup = () => {
+    if (authLoading) return;
+    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    const em = email.trim();
+    if (!isValidEmail(em)) { setEmailErr(t('auth_email_invalid')); return; }
+    if (pw.length < 8)     { setPwErr(t('auth_pw_short')); return; }
+    setEmailErr(''); setPwErr('');
+    // 실 PortOne 연동(IDENTITY_LIVE) 시에만 본인인증 모달. 미연동(테스트)이면 기존 테스트 진입으로 폴백.
+    if (!IDENTITY_LIVE) { handleTestIdentity('A'); return; }
+    pendingSignup.current = { email: em, password: pw };
+    setShowIdentity(true);
+  };
+
+  // 본인인증 모달이 IVID 만 넘겨주면(onIvidVerified) 가입 자격증명과 함께 서버 계정 생성.
+  const handleSignupIvid = async (ivid: string) => {
+    setShowIdentity(false);
+    const creds = pendingSignup.current;
+    pendingSignup.current = null;
+    if (!creds || !ivid) { Alert.alert(t('auth_signup_failed')); return; }
+    setAuthLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: creds.email, password: creds.password, identityVerificationId: ivid }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success || !result?.userId) {
+        Alert.alert(t('auth_signup_failed'), result?.error || t('login_failed'));
+        return;
+      }
+      // 위치 권한 필수 게이트 — 허용 전에는 진입(applyLoginResult) 진행 안 됨.
+      await requestLocationGate();
+      // 신규 → 온보딩이 isVerified·성별·생년을 채우도록 stash(서버 PortOne 결과)
+      const yr = result.birth ? parseInt(String(result.birth).slice(0, 4), 10) : undefined;
+      setPendingVerified({ gender: result.gender, birthYear: Number.isFinite(yr) ? yr : undefined, phone: result.phone, name: result.name });
+      // 소셜 applyLoginResult 재사용: setAuth(+신뢰토큰). 신규(isComplete=false)라 온보딩으로.
+      applyLoginResult('email', result, creds.email);
+      recordConsentWithQueue(result.userId, consentPayload());
+      setLocationConsent(true);
+    } catch {
+      Alert.alert(t('auth_signup_failed'), t('login_failed'));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // ── A안: 로그인 — 이메일/비번만(본인인증 없음). 기기 변경 시에도 재인증 강요 안 함. ──
+  const submitLogin = async () => {
+    if (authLoading) return;
+    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    const em = email.trim();
+    if (!isValidEmail(em)) { setEmailErr(t('auth_email_invalid')); return; }
+    if (!pw)               { setPwErr(t('auth_pw_required')); return; }
+    setEmailErr(''); setPwErr('');
+    setAuthLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/email-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: em, password: pw }),
+      });
+      const result = await res.json().catch(() => null);
+      if (!res.ok || !result?.success || !result?.userId) {
+        Alert.alert(t('login_failed'), result?.error || t('auth_login_failed_msg'));
+        return;
+      }
+      // 위치 권한 필수 게이트 — 허용 전에는 진입(applyLoginResult) 진행 안 됨.
+      await requestLocationGate();
+      // 기존 인증/동의 상태 복원(applyLoginResult). 완성유저=홈 / 미완성=온보딩.
+      applyLoginResult('email', result, em);
+      if (result.user?.location_consent === true) setLocationConsent(true);
+    } catch {
+      Alert.alert(t('login_failed'));
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   // ── [테스트 우회] PortOne 실연동 전 본인인증 화면 잠금 해제 ──────────────
@@ -664,17 +751,61 @@ export default function LoginScreen() {
                 ))}
               </View>
 
-              {/* 본인인증 = 로그인 (단일 진입) — 약관 전체 동의 시에만 활성 */}
+              {/* ── A안: 이메일+비밀번호 계정 + 본인인증 1회 ─────────────────── */}
+              {/* 신규가입 / 로그인 토글 */}
+              <View style={s.authTabRow}>
+                <TouchableOpacity
+                  style={[s.authTab, authMode === 'signup' && s.authTabOn]}
+                  onPress={() => { setAuthMode('signup'); setEmailErr(''); setPwErr(''); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.authTabTxt, authMode === 'signup' && s.authTabTxtOn]}>{t('auth_signup_tab')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[s.authTab, authMode === 'login' && s.authTabOn]}
+                  onPress={() => { setAuthMode('login'); setEmailErr(''); setPwErr(''); }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.authTabTxt, authMode === 'login' && s.authTabTxtOn]}>{t('auth_login_tab')}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 이메일 + 비밀번호 입력 */}
+              <TextInput
+                style={[s.authInput, emailErr ? s.inputErr : null]}
+                placeholder={t('auth_email_ph')}
+                placeholderTextColor="#aaa"
+                value={email}
+                onChangeText={v => { setEmail(v); setEmailErr(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+              />
+              {!!emailErr && <Text style={s.errTxtDark}>{emailErr}</Text>}
+              <TextInput
+                style={[s.authInput, pwErr ? s.inputErr : null]}
+                placeholder={t('auth_pw_ph')}
+                placeholderTextColor="#aaa"
+                value={pw}
+                onChangeText={v => { setPw(v); setPwErr(''); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType={authMode === 'signup' ? 'newPassword' : 'password'}
+                returnKeyType="done"
+                onSubmitEditing={authMode === 'signup' ? submitSignup : submitLogin}
+              />
+              {!!pwErr && <Text style={s.errTxtDark}>{pwErr}</Text>}
+              {authMode === 'signup' && <Text style={s.authHint}>{t('auth_signup_hint')}</Text>}
+
+              {/* 제출 — 약관 전체 동의 시에만 활성 */}
               <TouchableOpacity
-                style={[s.btn, s.btnEmail, !allAgreed && s.btnDisabled]}
-                onPress={() => {
-                  if (!allAgreed) { Alert.alert(t('consent_need')); return; }
-                  if (IDENTITY_LIVE) { setShowIdentity(true); return; }
-                  handleTestIdentity('A');   // 실연동 전 — A/B 선택창 없이 단일 테스트 신원(A)으로 바로 진입
-                }}
-                // [숨김 e2e 경로] 롱프레스 시에만 테스터 B 슬롯으로 진입(1:1 매칭 검증용 — 사용자 비노출).
+                style={[s.btn, s.btnEmail, (!allAgreed || authLoading) && s.btnDisabled]}
+                onPress={authMode === 'signup' ? submitSignup : submitLogin}
+                // [숨김 e2e 경로] 신규가입 탭 롱프레스 시 테스터 B 슬롯 진입(1:1 매칭 검증용 — 비노출, 실연동 전 한정).
                 onLongPress={() => {
-                  if (IDENTITY_LIVE) return;
+                  if (authMode !== 'signup' || IDENTITY_LIVE) return;
                   if (!allAgreed) { Alert.alert(t('consent_need')); return; }
                   handleTestIdentity('B');
                 }}
@@ -682,9 +813,12 @@ export default function LoginScreen() {
                 activeOpacity={0.85}
                 disabled={authLoading || !allAgreed}
               >
-                <Text style={[s.btnTxt, { color: LT.brandStrong }]}>
-                  {IDENTITY_LIVE ? '📱 본인인증으로 시작' : '🧪 테스트 진입 (본인인증 준비중)'}
-                </Text>
+                {authLoading
+                  ? <ActivityIndicator color={LT.brandStrong} size={18} />
+                  : <Text style={[s.btnTxt, { color: LT.brandStrong }]}>
+                      {authMode === 'signup' ? t('auth_signup_cta') : t('auth_login_cta')}
+                    </Text>
+                }
               </TouchableOpacity>
 
               {/* 소셜/이메일 진입 — 비활성(코드 보존, auth-kit 추출용). SOCIAL_LOGIN_ENABLED=true 시 즉시 복구 */}
@@ -834,10 +968,11 @@ export default function LoginScreen() {
         </Animated.View>
       </KeyboardAvoidingView>
 
-      {/* 본인인증 = 로그인 모달 (IVID만 전송, 서버가 CI로 신원 결정) */}
+      {/* A안 본인인증 모달 — IVID-only 모드. 인증 후 /auth/signup 로 이메일/비번 계정 생성. */}
       <PortOneVerifyModal
         visible={showIdentity}
-        onClose={() => setShowIdentity(false)}
+        onClose={() => { setShowIdentity(false); pendingSignup.current = null; }}
+        onIvidVerified={handleSignupIvid}
         onVerified={handleIdentityVerified}
         userId=""
       />
@@ -871,6 +1006,19 @@ const s = StyleSheet.create({
   btnNaver:  { backgroundColor: '#03C75A' },
   btnEmail:  { backgroundColor: LT.brandTint },
   btnDisabled: { opacity: 0.45 },
+
+  // ── A안: 이메일+비밀번호 가입/로그인 ──────────────────────────
+  authTabRow:    { flexDirection: 'row', backgroundColor: LT.brandTint, borderRadius: 12, padding: 4, marginBottom: 2 },
+  authTab:       { flex: 1, height: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  authTabOn:     { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+  authTabTxt:    { fontSize: 14, fontWeight: '600', color: LT.label3 },
+  authTabTxtOn:  { color: LT.brandStrong, fontWeight: '800' },
+  authInput: {
+    height: 50, borderWidth: 1, borderColor: LT.border, borderRadius: Radius.md,
+    paddingHorizontal: 14, fontSize: 15, color: '#1a1a1a', backgroundColor: '#fff',
+  },
+  errTxtDark: { fontSize: 12, color: '#E5484D', marginTop: -4, marginLeft: 4 },
+  authHint:   { fontSize: 11, color: LT.label3, lineHeight: 16, marginTop: 2, marginBottom: 2 },
 
   // ── 약관 동의 ──────────────────────────────────────────────
   consentBox:    { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: LT.border, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },

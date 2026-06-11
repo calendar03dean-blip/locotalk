@@ -44,6 +44,7 @@ const authVerify     = require('./authVerify'); // 소셜 provider 토큰 서버
 const reports        = require('./reports');    // 신고 영속화(PostgreSQL — 사유 + 서버구성 스냅샷)
 const feeds          = require('./feeds');       // 동네 피드 영속화(PostgreSQL — 재시작 생존 + 부팅 워밍)
 const identity       = require('./identity');    // 본인인증=로그인(PortOne V2) + CI 바인딩 + IVID 1회소비
+const passwords      = require('./password');     // 이메일+비밀번호 계정용 비밀번호 해시/검증(A안, scrypt)
 const regionResolver = require('./regionResolver'); // 좌표→행정구역 오프라인 역산(매칭 region 서버권위, egress 0)
 const codename       = require('./codename');    // 코드네임 표시명 검증(허용 단어셋+hex 패턴, 임의 문자열 거부)
 
@@ -93,6 +94,17 @@ async function initDB() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
     `);
     console.log('[db] ✅ users 테이블 준비 완료');
+    // A안(이메일+비밀번호 계정) 마이그레이션 — additive. 평문 미보관(scrypt 해시만 password_hash 에).
+    //   email 유니크는 partial(LOWER) — 레거시 NULL/소셜 계정 호환, 대소문자 무시 1이메일 1계정.
+    //   ⚠️ 프리런치 테스트데이터에 중복 이메일이 있으면 유니크 인덱스 생성이 실패할 수 있어
+    //      자체 try/catch 로 격리(초기화 무중단). 실패 시 앱계층 409 중복검사로 폴백(로그 경고).
+    try {
+      await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;`);
+      await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(LOWER(email)) WHERE email IS NOT NULL;`);
+      console.log('[db] ✅ A안 마이그레이션 완료 (users.password_hash + uq_users_email)');
+    } catch (e) {
+      console.error('[db] ⚠️ A안 마이그레이션 일부 실패(앱계층 폴백):', e.message);
+    }
     // 법령준수 스키마(위치/접속 로그 + users 보강) 준비 후 보관기간 자동파기 스케줄러 가동
     await legal.initLegalSchema(db);
     legal.startRetentionCron(db);
@@ -503,11 +515,114 @@ app.patch('/users/:id/premium', async (req, res) => {
 // [제거] PATCH /users/:id/verify (레거시 self-verify) — caller 0 확인 후 라우트 삭제.
 //   검증 권위는 PortOne CI(/auth/portone-verify) 단일.
 
-// ─── 포트원 본인인증 검증 ──────────────────────────────────────
-// 본인인증 = 로그인 (P0 재설계). 신원-세션 바인딩: userId 는 '서버가' CI 로 결정.
-//   ⚠️ req.body.userId 는 신뢰하지 않음(폐기) — 사칭 차단. IVID 만 입력.
+// ─── 계정 생성 단일 권위: POST /auth/signup ───────────────────────────────────
+// A안: 회원가입 = 이메일 + 비밀번호(영구 자격증명) + 본인인증 1회.
+//   본인인증(IVID)은 '가입 절차의 한 단계'(성인확인 + CI 1인1계정 게이트)일 뿐,
+//   단독으로 계정 생성·토큰 발급을 하지 않는다(그 권위는 이 엔드포인트로 단일화).
+//   ⚠️ gender/birth/adult/ci 는 PortOne 결과에서만 도출 — 클라가 보낸 값 신뢰 안 함.
+app.post('/auth/signup', async (req, res) => {
+  const { email, password, identityVerificationId } = req.body || {};
+  if (!process.env.DATABASE_URL)          return res.status(503).json({ error: '가입 저장소(DB)가 필요합니다.' });
+  if (!process.env.PORTONE_V2_API_SECRET) return res.status(500).json({ error: '서버 본인인증 설정이 필요합니다 (API Secret).' });
+  if (!identityVerificationId)            return res.status(400).json({ error: '본인인증이 필요합니다.' });
+  // 1) 이메일 형식 + 비밀번호 강도(서버권위)
+  if (!passwords.validateEmail(email))    return res.status(400).json({ error: '올바른 이메일 형식이 아닙니다.' });
+  const strength = passwords.validatePasswordStrength(password);
+  if (!strength.ok)                       return res.status(400).json({ error: strength.reason });
+  try {
+    // 2) IVID → PortOne 결과 서버검증(채널 무관). 미인증 400.
+    const v = await identity.verifyByIVID(identityVerificationId);
+    if (!v.ok) {
+      console.warn('[signup] 미인증:', v.reason);
+      return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
+    }
+    const ciHash = identity.hashId(v.ci);
+    const diHash = identity.hashId(v.di);
+    // 3) CI 중복 → 1인1계정 차단(409 + 마스킹 이메일 힌트). 비밀번호 검증 전에 신원 게이트.
+    const byCi = await db.query('SELECT email FROM users WHERE ci = $1', [ciHash]);
+    if (byCi.rows.length > 0) {
+      return res.status(409).json({
+        error: '이미 본인인증으로 가입된 계정이 있습니다. 기존 이메일로 로그인해 주세요.',
+        code: 'ci_exists', emailHint: passwords.maskEmail(byCi.rows[0].email),
+      });
+    }
+    // 4) 이메일 중복(대소문자 무시) → 409.
+    const byEmail = await db.query('SELECT 1 FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    if (byEmail.rows.length > 0) return res.status(409).json({ error: '이미 사용 중인 이메일입니다.', code: 'email_exists' });
+    // 5) IVID 1회 소비(리플레이 차단). 이미 사용된 IVID → 409.
+    const consumed = await identity.consumeIVID(db, identityVerificationId, null);
+    if (!consumed) {
+      console.warn('[signup] IVID 재사용 거부:', identityVerificationId);
+      return res.status(409).json({ error: '이미 사용된 인증입니다.' });
+    }
+    // 6) 계정 생성: id='idv:'+uuid, auth_provider='email', email, password_hash, ci/di/phone.
+    const userId = 'idv:' + uuidv4();
+    const passwordHash = await passwords.hashPassword(password);
+    try {
+      await db.query(
+        `INSERT INTO users (id, auth_provider, email, password_hash, ci, di, phone)
+         VALUES ($1, 'email', $2, $3, $4, $5, $6)`,
+        [userId, email, passwordHash, ciHash, diHash || null, v.phone || null]
+      );
+    } catch (e) {
+      // 동시성: 같은 이메일/CI 가 그 사이 생성됨(unique 위반 23505) → 가입 안내(폴백).
+      if (e && e.code === '23505') {
+        console.warn('[signup] 동시 가입 충돌(23505)');
+        return res.status(409).json({ error: '이미 가입된 계정입니다. 로그인해 주세요.', code: 'dup' });
+      }
+      throw e;
+    }
+    // 7) 성인여부 반영(서버가 PortOne birth 로 판정) + 신뢰 JWT 발급(sub=서버결정 userId).
+    const r = await legal.setAdultVerified(db, userId, { provider: 'portone', birth: v.birth, gender: v.gender });
+    const token = r.token || legal.issueSessionToken(userId, { adultVerified: r.adult });
+    console.log(`[signup] ✅ 이메일 계정 생성 userId=${userId} adult=${r.adult}`);
+    // 신규 → 온보딩(코드네임). name/birth 등은 온보딩 표시용(서버 신원 결정은 CI/이메일 기준).
+    return res.json({ success: true, userId, isNew: true, isComplete: false, token, adult: r.adult, name: v.name, birth: v.birth, gender: v.gender, phone: v.phone });
+  } catch (e) {
+    console.error('[signup] 오류:', e.message);
+    return res.status(500).json({ error: '가입 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// ─── 로그인 수단(본인인증 없음): POST /auth/email-login ────────────────────────
+// 기기를 바꿔도 같은 이메일/비번이면 본인인증 재요구 없이 로그인. 기존 인증·동의 상태 복원.
+app.post('/auth/email-login', async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!process.env.DATABASE_URL) return res.status(503).json({ error: '로그인 저장소(DB)가 필요합니다.' });
+  // 계정 존재 여부 노출 금지 — 형식 불량도 통합 401 로.
+  if (!passwords.validateEmail(email) || typeof password !== 'string' || !password) {
+    return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+  }
+  try {
+    const { rows } = await db.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    const u = rows[0];
+    // 미존재/비밀번호 미설정(소셜·레거시) → 동일 401(계정 존재 노출 금지).
+    if (!u || !u.password_hash) return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+    const ok = await passwords.verifyPassword(password, u.password_hash);
+    if (!ok) return res.status(401).json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' });
+    // interests 방어(배열/JSON문자열/null → 항상 배열)
+    if (typeof u.interests === 'string') { try { u.interests = JSON.parse(u.interests); } catch { u.interests = []; } }
+    if (!Array.isArray(u.interests)) u.interests = [];
+    const isComplete = !!u.nickname;
+    // 기존 인증/동의 상태 복원 — 재인증·재동의 강요 금지(adult 는 DB 권위).
+    const token = legal.issueSessionToken(u.id, { adultVerified: u.adult_verified === true });
+    delete u.password_hash;   // 비밀번호 해시는 응답에 절대 포함하지 않음
+    console.log(`[email-login] ✅ userId=${u.id} complete=${isComplete}`);
+    return res.json({ success: true, userId: u.id, isNew: false, isComplete, user: u, token, adult: u.adult_verified === true });
+  } catch (e) {
+    console.error('[email-login] 오류:', e.message);
+    return res.status(500).json({ error: '로그인 처리 중 오류가 발생했습니다.' });
+  }
+});
+
+// ─── 포트원 본인인증 검증(강등) ──────────────────────────────────────
+// A안: 본인인증은 '가입 절차의 한 단계'로 강등 — 단독 계정 생성·토큰 발급 안 함.
+//   계정 생성 권위는 /auth/signup 단일. 이 엔드포인트는 '검증 결과만' 반환.
+//   ⚠️ 하위호환: HomeScreen/MyInfoScreen 의 PortOneVerifyModal(이미 로그인된 유저의 성인인증 게이트)은
+//      이 응답의 name/birth/gender/phone 만 사용 → 그대로 유지. (userId/token 미사용)
+//   기존 CI 계정이 재인증하면 서버 adult_verified 만 갱신(IVID 1회소비 포함). 계정 신규생성은 하지 않음.
 app.post('/auth/portone-verify', async (req, res) => {
-  const { identityVerificationId } = req.body;   // userId 폐기(받더라도 무시)
+  const { identityVerificationId } = req.body || {};
   if (!identityVerificationId) return res.status(400).json({ error: 'identityVerificationId required' });
   if (!process.env.PORTONE_V2_API_SECRET) {
     console.error('[identity] PORTONE_V2_API_SECRET 미설정');
@@ -517,48 +632,30 @@ app.post('/auth/portone-verify', async (req, res) => {
     return res.status(503).json({ error: '본인인증 저장소(DB)가 필요합니다.' });
   }
   try {
-    // 1) IVID 로 PortOne 결과를 '서버'가 조회·검증 (채널 무관). 클라 신원값 신뢰 안 함.
+    // IVID 로 PortOne 결과를 '서버'가 조회·검증. 클라 신원값 신뢰 안 함.
     const v = await identity.verifyByIVID(identityVerificationId);
     if (!v.ok) {
       console.warn('[identity] 미인증:', v.reason);
       return res.status(400).json({ error: '인증되지 않은 요청입니다.' });
     }
-    // 2) CI 해시 기준 계정 조회/생성 (사전 userId 없음 = 신원이 곧 계정)
+    // 기존 CI 계정이면(이미 가입된 유저의 재인증) 서버 adult_verified 만 갱신 + IVID 1회소비.
+    //   미존재 CI 라도 계정은 생성하지 않는다(가입은 /auth/signup 단일). 검증 결과만 반환.
     const ciHash = identity.hashId(v.ci);
-    const diHash = identity.hashId(v.di);
-    const { userId, isNew } = await identity.resolveOrCreateUserByCI(db, { ciHash, diHash, phone: v.phone });
-
-    // 3) IVID 1회 소비 — 재사용(리플레이) 거부. (계정 resolve 후 userId 바인딩해 기록)
-    const consumed = await identity.consumeIVID(db, identityVerificationId, userId);
-    if (!consumed) {
-      console.warn('[identity] IVID 재사용 거부:', identityVerificationId);
-      return res.status(409).json({ error: '이미 사용된 인증입니다.' });
-    }
-
-    // 4) 성인여부 반영(서버가 PortOne birth 로 판정) + 신뢰 JWT 발급(sub=서버결정 userId)
-    const r = await legal.setAdultVerified(db, userId, { provider: 'portone', birth: v.birth, gender: v.gender });
-    const token = r.token || legal.issueSessionToken(userId, { adultVerified: r.adult });
-
-    // 복귀 유저(기존 CI)면 프로필 반환 → 클라가 온보딩 스킵하고 홈 진입 판단(소셜 applyLoginResult 패턴 동일)
-    let user = null, isComplete = false;
-    if (!isNew) {
-      try {
-        const { rows } = await db.query('SELECT * FROM users WHERE id = $1', [userId]);
-        if (rows[0]) {
-          user = rows[0];
-          if (typeof user.interests === 'string') { try { user.interests = JSON.parse(user.interests); } catch { user.interests = []; } }
-          if (!Array.isArray(user.interests)) user.interests = [];
-          isComplete = !!user.nickname;
-        }
-      } catch {}
-    }
-
-    console.log(`[identity] ✅ 본인인증=로그인 userId=${userId} isNew=${isNew} adult=${r.adult} complete=${isComplete}`);
-    // name/birth 등 PII 는 응답으로 돌려보내되(온보딩 표시용) 서버 신원 결정은 CI 기준.
-    res.json({ success: true, userId, isNew, isComplete, user, adult: r.adult, name: v.name, birth: v.birth, gender: v.gender, phone: v.phone, token });
+    try {
+      const byCi = await db.query('SELECT id FROM users WHERE ci = $1', [ciHash]);
+      if (byCi.rows.length > 0) {
+        const userId = byCi.rows[0].id;
+        await legal.setAdultVerified(db, userId, { provider: 'portone', birth: v.birth, gender: v.gender });
+        await identity.consumeIVID(db, identityVerificationId, userId);
+      }
+    } catch (e) { console.warn('[identity] 재인증 adult 갱신 실패(무시):', e.message); }
+    console.log('[identity] ✅ 본인인증 결과 반환(계정 미생성·토큰 미발급)');
+    // name/birth/gender/phone(+adult) 만 반환(온보딩/성인게이트 표시용). userId/token 발급 없음.
+    const adult = legal.isAdultByBirth(v.birth);
+    return res.json({ success: true, adult: adult === null ? true : adult, name: v.name, birth: v.birth, gender: v.gender, phone: v.phone });
   } catch (e) {
     console.error('[identity] 오류:', e.message);
-    res.status(500).json({ error: '인증 처리 중 오류가 발생했습니다.' });
+    return res.status(500).json({ error: '인증 처리 중 오류가 발생했습니다.' });
   }
 });
 

@@ -104,6 +104,19 @@ export const translations = {
     consent_need: '서비스 이용을 위해 약관에 모두 동의해주세요.',
 
     login_failed: '로그인에 실패했어요. 잠시 후 다시 시도해 주세요.',
+    // A안: 이메일+비밀번호 계정 + 본인인증 1회
+    auth_signup_tab: '신규 가입',
+    auth_login_tab: '로그인',
+    auth_email_ph: '이메일 주소',
+    auth_pw_ph: '비밀번호 (8자 이상)',
+    auth_signup_cta: '본인인증으로 가입 완료',
+    auth_login_cta: '로그인',
+    auth_email_invalid: '올바른 이메일 형식이 아니에요.',
+    auth_pw_short: '비밀번호는 8자 이상이어야 해요.',
+    auth_pw_required: '비밀번호를 입력해 주세요.',
+    auth_signup_failed: '가입에 실패했어요.',
+    auth_login_failed_msg: '이메일 또는 비밀번호가 올바르지 않아요.',
+    auth_signup_hint: '가입 시 본인인증 1회만 진행돼요. 기기를 바꿔도 이메일·비밀번호로 로그인돼요.',
     // 위치기반서비스 이용약관 동의 (위치정보법)
     loc_consent_title: '위치기반서비스 이용약관',
     loc_consent_sub: '내 주변 이웃 매칭을 위해 위치정보 이용에 동의가 필요해요.',
@@ -327,6 +340,19 @@ export const translations = {
     login_back: 'Back',
 
     login_failed: 'Sign-in failed. Please try again in a moment.',
+    // Plan A: email + password account + one-time identity verification
+    auth_signup_tab: 'Sign up',
+    auth_login_tab: 'Log in',
+    auth_email_ph: 'Email address',
+    auth_pw_ph: 'Password (8+ characters)',
+    auth_signup_cta: 'Verify identity to finish sign-up',
+    auth_login_cta: 'Log in',
+    auth_email_invalid: 'Please enter a valid email address.',
+    auth_pw_short: 'Password must be at least 8 characters.',
+    auth_pw_required: 'Please enter your password.',
+    auth_signup_failed: 'Sign-up failed.',
+    auth_login_failed_msg: 'Email or password is incorrect.',
+    auth_signup_hint: 'Identity is verified once at sign-up. Log in with email & password on any device.',
     // Location-based service terms consent (Location Information Act)
     loc_consent_title: 'Location-Based Service Terms',
     loc_consent_sub: 'We need your consent to use location data for matching nearby neighbors.',

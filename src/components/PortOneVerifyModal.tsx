@@ -41,9 +41,13 @@ interface Props {
   onClose: () => void;
   onVerified: (info: VerifiedInfo) => void;
   userId: string;
+  // A안(이메일+비밀번호 가입): 제공 시 서버 /auth/portone-verify 를 호출하지 않고
+  //   PortOne 인증만 마친 IVID 를 그대로 콜백한다(계정 생성은 호출부의 /auth/signup 가 담당).
+  //   미제공(HomeScreen/MyInfoScreen 의 성인인증 게이트) 시 기존 동작(검증결과 onVerified) 유지.
+  onIvidVerified?: (ivid: string) => void;
 }
 
-export default function PortOneVerifyModal({ visible, onClose, onVerified, userId }: Props) {
+export default function PortOneVerifyModal({ visible, onClose, onVerified, userId, onIvidVerified }: Props) {
   const [loading, setLoading] = useState(false);
 
   // 인증ID 는 모달이 열릴 때 한 번만 생성 (visible 토글마다 갱신)
@@ -63,6 +67,15 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
         Alert.alert('본인인증 실패', response.message || '잠시 후 다시 시도해주세요.');
       }
       onClose();
+      return;
+    }
+
+    const ivid = response?.identityVerificationId || identityVerificationId;
+
+    // A안: IVID-only 모드 — 서버 계정생성/토큰발급 호출 없이 IVID 만 호출부로 전달.
+    //   호출부(LoginScreen)가 이메일/비밀번호와 함께 /auth/signup 으로 계정 생성.
+    if (onIvidVerified) {
+      onIvidVerified(ivid);
       return;
     }
 
