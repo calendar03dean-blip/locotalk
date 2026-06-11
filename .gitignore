@@ -27,6 +27,23 @@ Thumbs.db
 tokens/
 .github/workflows/
 .env.notion
+.env.cards
+
+# 카드 수집 결과 (재생성 가능)
+data/cards/
 
 # 런타임 푸시토큰/피드 캐시 — 배포마다 스테일 토큰 덮어쓰기 방지(토큰은 DB 영속)
 server/data.json
+
+# EAS local build artifacts
+*.ipa
+build42.ipa
+
+# App Store Connect API key (SECRET — never commit)
+*.p8
+AuthKey_*.p8
+AuthKey_*
+
+# ad-hoc dist cert backup (개인키 포함, 커밋 금지)
+credentials-backup/
+build/adhoc/*.ipa
