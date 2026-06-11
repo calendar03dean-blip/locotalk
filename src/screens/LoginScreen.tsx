@@ -378,20 +378,10 @@ export default function LoginScreen() {
       setAuthLoading(false);
     }
   };
-  // 진입 직전 테스터 신원 선택(A/B). 기기마다 다른 슬롯을 고르면 서로 다른 동네 이웃으로
-  //   같은 region(GPS 미설정 시 양쪽 '마포구' 폴백)에서 매칭된다.
-  const promptTestIdentity = () => {
-    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
-    Alert.alert(
-      '테스트 진입',
-      '1:1 채팅 e2e 테스트용 — 기기별로 다른 테스터를 선택하세요.',
-      [
-        { text: '테스터 A', onPress: () => handleTestIdentity('A') },
-        { text: '테스터 B', onPress: () => handleTestIdentity('B') },
-        { text: '취소', style: 'cancel' },
-      ],
-    );
-  };
+  // [테스트 진입] 사용자에겐 A/B 선택창을 노출하지 않는다 — 탭하면 단일 신원(슬롯 'A')으로 바로 진입.
+  //   단, 1:1 채팅 e2e(서로 다른 두 사용자 필요) 능력은 보존: 슬롯 'B' 진입은 사용자 눈에 안 띄는
+  //   숨김 경로(진입 버튼 롱프레스)로만 남긴다. `handleTestIdentity('A'|'B')` / `tester+A·tester+B`
+  //   슬롯 분리 로직 자체는 그대로 유지(아래 버튼 onPress/onLongPress 에서 호출).
 
   // ── 소셜 로그인 후 DB 등록 공통 처리 ───────────────────────────
   const handleSocialLogin = async (provider: string, authId: string, email?: string, providerToken?: string): Promise<boolean> => {
@@ -680,8 +670,15 @@ export default function LoginScreen() {
                 onPress={() => {
                   if (!allAgreed) { Alert.alert(t('consent_need')); return; }
                   if (IDENTITY_LIVE) { setShowIdentity(true); return; }
-                  promptTestIdentity();   // 실연동 전 — 테스터 A/B 선택 후 테스트 세션 진입
+                  handleTestIdentity('A');   // 실연동 전 — A/B 선택창 없이 단일 테스트 신원(A)으로 바로 진입
                 }}
+                // [숨김 e2e 경로] 롱프레스 시에만 테스터 B 슬롯으로 진입(1:1 매칭 검증용 — 사용자 비노출).
+                onLongPress={() => {
+                  if (IDENTITY_LIVE) return;
+                  if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+                  handleTestIdentity('B');
+                }}
+                delayLongPress={800}
                 activeOpacity={0.85}
                 disabled={authLoading || !allAgreed}
               >

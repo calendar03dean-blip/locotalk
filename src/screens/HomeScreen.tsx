@@ -190,8 +190,8 @@ export default function HomeScreen() {
   useEffect(() => {
     if (autoMatchTrigger === lastAutoMatch.current) return;
     lastAutoMatch.current = autoMatchTrigger;
-    if (user?.regionLabel) startMatch();
-    else detectLocation();
+    if (!user?.regionLabel) detectLocation();
+    startMatch();                    // regionLabel 없어도 startMatch 내부 '마포구' 폴백으로 진행
   }, [autoMatchTrigger]);
 
   // ── 동네 피드 실시간 수신 ────────────────────────────────────
