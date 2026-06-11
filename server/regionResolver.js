@@ -59,7 +59,7 @@ function load(filePath) {
       if (!polys.length) continue;
       const pr = f.properties || {};
       _index.push({
-        gu: pr.gu || pr.SIG_KOR_NM || pr.adm_nm || null,
+        gu: pr.gu || pr.SIG_KOR_NM || pr.adm_nm || pr.name || null,
         dong: pr.dong || pr.EMD_KOR_NM || null,
         label: pr.label || [pr.gu, pr.dong].filter(Boolean).join(' · ') || null,
         bbox: _bboxOf(polys),

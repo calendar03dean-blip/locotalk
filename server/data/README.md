@@ -28,3 +28,13 @@
 
 ## 서비스 대상 지역(번들 크기 결정 — PO 확인)
 - 전국 vs 특정 시/도. 전국 행정동(~3,500개) simplify 시 수 MB. 구 단위면 더 작음.
+
+## 출처 / 라이선스 (운영 데이터 `admin-boundaries.geojson`)
+- **출처**: [southkorea/southkorea-maps](https://github.com/southkorea/southkorea-maps)
+  `kostat/2013/json/skorea_municipalities_geo_simple.json` (통계청 KOSTAT 기반, simplify 적용).
+- **단위**: 전국 시군구(구/시/군) **251 features**, ~370KB, GeoJSON `[lng, lat]` (WGS84/EPSG:4326).
+- **base_year**: 2013 (각 feature `properties.base_year`). 2013 기준이라 일부 후속 행정개편(예: 군위군 대구 편입)은 미반영
+  — 매칭 키가 **구 단위**라 도심 구 매칭에 실질 영향 없음.
+- **properties**: `name`(한글 구명, 매칭 키), `name_eng`, `code`, `base_year`.
+  regionResolver 의 gu 매핑은 `pr.gu || pr.SIG_KOR_NM || pr.adm_nm || pr.name` 로 `name` 을 인식.
+- **라이선스**: 상업적 이용 가능(출처 표기 조건). 앱 내 오픈소스 고지 위치는 후속 결정.
