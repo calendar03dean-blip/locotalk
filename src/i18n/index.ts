@@ -43,6 +43,10 @@ export const translations = {
     onboarding_nick_next: '다음으로',
     onboarding_back_btn: '코드네임',
     alert_codename_retry: '코드네임 배정에 실패했어요. 다시 생성 후 시도해주세요.',
+    codename_fail_title: '코드네임을 확정하지 못했어요',
+    codename_fail_msg: '코드네임을 서버에 저장하지 못했습니다. 다시 시도하거나, 본인인증부터 다시 진행할 수 있어요.',
+    codename_fail_retry: '다시 시도',
+    codename_fail_reverify: '본인인증부터 다시',
 
     // Onboarding — interest step
     onboarding_interest_title: '관심사를\n골라주세요',
@@ -262,6 +266,10 @@ export const translations = {
     onboarding_nick_next: 'Next',
     onboarding_back_btn: 'Codename',
     alert_codename_retry: 'Could not assign a codename. Please regenerate and try again.',
+    codename_fail_title: 'Could not confirm your codename',
+    codename_fail_msg: 'We could not save your codename to the server. You can try again, or restart from identity verification.',
+    codename_fail_retry: 'Try again',
+    codename_fail_reverify: 'Restart verification',
 
     // Onboarding — interest step
     onboarding_interest_title: 'Pick your\ninterests',

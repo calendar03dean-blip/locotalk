@@ -66,7 +66,7 @@ function IcoStar({ color }: { color: string }) {
 }
 
 export default function OnboardingScreen() {
-  const { setLoggedIn, authEmail, authUserId, pendingVerified, setPendingVerified } = useStore();
+  const { setLoggedIn, setLoggedOut, authEmail, authUserId, pendingVerified, setPendingVerified } = useStore();
   const t    = useT();
   const lang = useLang();
   const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
@@ -166,18 +166,29 @@ export default function OnboardingScreen() {
       break;  // 400(형식)·0(네트워크)·5xx — 루프 종료(아래서 분기)
     }
 
-    // 오프라인 봉합: 온라인 영속 실패 시 분기.
-    //   400(형식 위반 — 생성 코드네임에선 사실상 불가)은 진짜 오류 → 차단/재시도 유도.
-    //   0(네트워크)·5xx(서버 일시오류)는 로컬 큐에 적재하고 '진입 허용'(하드 차단 제거).
-    //   백그라운드 flush 가 재연결 시 서버 영속(+409 시 재배정→표시 닉 동기화)을 책임진다.
+    // 오프라인 봉합 + 회복불가 분기.
+    //   status 0(네트워크 일시실패)만 로컬 큐 적재 후 '진입 허용' — 다음 flush 가 서버 영속을 책임진다.
+    //   그 외(400 형식·409 반복충돌 소진·5xx 서버 거부)는 '회복 불가' → 확정의 침묵 진행 금지.
+    //     사용자에게 본인인증부터 다시 진행하는 역방향 경로를 제공한다(setLoggedOut → hasAuth=false →
+    //     RootNavigator 가 LoginScreen 재렌더 → 본인인증 재진입). 네비게이터 라우트 변경 없이 조건부 렌더 재사용.
     if (!saved) {
-      if (lastStatus === 400) {
+      if (lastStatus === 0) {
+        await recordProfileWithQueue(userId, { ...baseProfile, nickname: finalCode });
+        // 아래 공통 진입으로 진행(오프라인 봉합 — 기존 동작 유지)
+      } else {
         setSaving(false);
         setCode(finalCode);
-        Alert.alert(t('alert_codename_retry'));
-        return;
+        Alert.alert(
+          t('codename_fail_title'),
+          t('codename_fail_msg'),
+          [
+            { text: t('codename_fail_retry'), onPress: () => setCode(rerollHex(finalCode)) },
+            { text: t('codename_fail_reverify'), style: 'destructive', onPress: () => setLoggedOut() },
+          ],
+          { cancelable: false },
+        );
+        return; // 진입 차단 — 사용자가 재시도 또는 본인인증 재진입 선택
       }
-      await recordProfileWithQueue(userId, { ...baseProfile, nickname: finalCode });
     }
 
     setCode(finalCode);
