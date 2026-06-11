@@ -801,7 +801,10 @@ async function isUserPremium(userId) {
 
 function validate(user) {
   if (!user || typeof user !== 'object')               return '잘못된 데이터예요';
-  if (!user.nick || user.nick.length > 8)              return '닉네임이 올바르지 않아요';
+  // 표시명은 자동 생성 코드네임(9~14자, "<형용사><동물> #XXXX"). 구(舊) 자유닉 시절의
+  // length>8 컷은 모든 코드네임을 거부 → 매칭 시 "닉네임이 올바르지 않아요" 100% 발생.
+  // HTTP /user(409 라인)와 동일하게 isValidCodename 으로 일원화(검증 통일).
+  if (!user.nick || !codename.isValidCodename(user.nick)) return '닉네임이 올바르지 않아요';
   if (!Array.isArray(user.interests))                  return '관심사 형식이 잘못됐어요';
   if (!user.region || typeof user.region !== 'string') return '지역 정보가 없어요';
   return null;
