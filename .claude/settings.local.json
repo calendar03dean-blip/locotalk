@@ -29,7 +29,12 @@
       "Bash(osascript -e 'tell application \"Simulator\" to activate')",
       "Bash(cliclick c:205,835)",
       "Bash(swift -)",
-      "Bash(EXPO_APP=\"/Users/deank/Library/Developer/CoreSimulator/Devices/B7963F40-B51F-4BA0-B0B5-6ACBBA7DFF3A/data/Containers/Bundle/Application/91489244-9A19-4681-B10C-26813BD86127/Exponent-2.31.6.tar.app/Expo Go\" *)"
+      "Bash(EXPO_APP=\"/Users/deank/Library/Developer/CoreSimulator/Devices/B7963F40-B51F-4BA0-B0B5-6ACBBA7DFF3A/data/Containers/Bundle/Application/91489244-9A19-4681-B10C-26813BD86127/Exponent-2.31.6.tar.app/Expo Go\" *)",
+      "Read(//private/tmp/**)",
+      "Bash(grep -nA3 -iE \"xcodebuild|archive|exportArchive|Transporter|ExportOptions|altool|build41|build 41\" /Users/deank/Downloads/spota-fresh/SESSION_HANDOFF.md)",
+      "Bash(rm -rf /tmp/Locotalk.xcarchive /tmp/build)",
+      "Bash(xcodebuild -workspace Locotalk.xcworkspace -scheme Locotalk -configuration Release -destination generic/platform=iOS -archivePath /tmp/Locotalk.xcarchive archive CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM=CZ6F9378X9 'PROVISIONING_PROFILE_SPECIFIER=Locotalk AppStore' 'CODE_SIGN_IDENTITY=iPhone Distribution: Jukang Kim \\(CZ6F9378X9\\)')",
+      "Bash(echo \"archive 종료코드: $? / $\\(date '+%H:%M:%S'\\)\")"
     ]
   }
 }

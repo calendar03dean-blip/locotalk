@@ -6,6 +6,18 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "3399", "--directory", "/Users/deank/Downloads/spota-fresh"],
       "port": 3399
+    },
+    {
+      "name": "locotalk-landing",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5050", "--directory", "/Users/deank/Downloads/spota-fresh/locotalk-landing"],
+      "port": 5050
+    },
+    {
+      "name": "locotalk-landing-handoff",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "5060", "--directory", "/Users/deank/Downloads/spota-fresh/locotalk-landing"],
+      "port": 5060
     }
   ]
 }

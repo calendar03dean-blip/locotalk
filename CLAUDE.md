@@ -5,6 +5,14 @@
 
 ---
 
+## ⭐ 응답 규칙 (필수, 항상)
+
+> **모든 작업/보고 완료 후, 그 내용을 빠짐없이 "복붙 가능한 프롬프트" 형태로 정리해 마지막에 첨부할 것.**
+> (다른 세션/클로드 프로젝트로 정확히 전달하기 위함. 별도 요청 없어도 항상 자동으로.)
+> 프롬프트엔: 목적 · 변경/확인 내용 · 커밋 해시 · 검증 결과 · 다음 단계 · 주의사항 포함.
+
+---
+
 ## 프로젝트 개요
 
 **Locotalk** — 내 동네 이웃과 익명으로 대화하는 위치 기반 실시간 채팅 앱
@@ -150,7 +158,7 @@ ChatScreen (실시간 채팅)
   - 현재 위치 6km 이내만 매칭
   - 채팅 종료 시 대화 내역 삭제
 
-프리미엄 플랜 (₩5,900/월):
+프리미엄 플랜 (₩12,900/월):
   - 매칭 30회/시간
   - 원하는 지역 자유 설정
   - 채팅 이전 대화 저장/복원 (최대 200개)
@@ -158,7 +166,7 @@ ChatScreen (실시간 채팅)
   - 우선 매칭 (큐 상위 배치)
 
 IAP 상품 ID:
-  locotalk.premium.monthly  ← ₩5,900/월
+  locotalk.premium.monthly  ← ₩12,900/월
   locotalk.premium.yearly   ← ₩59,900/년
 ```
 
@@ -362,3 +370,31 @@ node -e "require('expo-apple-authentication')"
 # 누락 시 설치
 npm install react-native-iap @react-native-google-signin/google-signin @react-native-kakao/core @react-native-kakao/user expo-apple-authentication
 ```
+
+## [자동화] 핸드오프 프로토콜
+이 턴을 마치기 전, 마지막 행동으로 검수자에게 보낼 보고를 다음 파일에 작성한다:
+    /Users/deank/claude-orchestrator/handoff/to-pm.md
+포함: 무엇을 구현/변경했는지(파일 단위), 어떻게 검증했는지(테스트/빌드 결과), 검수 포인트, 미해결/위험/결정 필요 항목.
+이 파일을 쓰기 전에는 종료하지 마라.
+
+## [자동화] 핸드오프 프로토콜
+이 턴을 마치기 전, 마지막 행동으로 검수자에게 보낼 보고를 다음 파일에 작성한다:
+    /Users/deank/claude-orchestrator/handoff/to-pm.md
+포함: 무엇을 구현/변경했는지(파일 단위), 어떻게 검증했는지(테스트/빌드 결과), 검수 포인트, 미해결/위험/결정 필요 항목.
+이 파일을 쓰기 전에는 종료하지 마라.
+
+## [자동화 알림 규칙]
+- to-pm.md 첫 줄에 반드시 쉬운 한 줄 요약: `알림요약: <비개발자도 이해하는 한두 문장>`
+- 텔레그램 등 외부 알림을 직접 보내지 마라. 모든 알림은 워처가 보낸다.
+
+## [긴 작업(빌드/업로드/제출) 규칙 — 매우 중요, 멈춤 방지]
+- 1분 넘게 걸릴 수 있는 명령(빌드, eas submit, 업로드, 아카이브, 대량 설치 등)은
+  절대 직접 실행하거나 nohup 으로 직접 detach 하지 마라.
+- 반드시 이 래퍼로 실행하라:
+    bash ~/claude-handoff/run-long.sh "작업이름" <명령> [인자...]
+  예) bash ~/claude-handoff/run-long.sh "build43 서명" ./scripts/build43-resign.sh
+      bash ~/claude-handoff/run-long.sh "TestFlight 제출" eas submit -p ios --path build43.ipa
+- 래퍼는 백그라운드로 돌리고 끝나면 결과(종료코드+로그)를 자동으로 핸드오프에 써서 너를 다시 깨운다.
+- 래퍼로 긴 작업을 시작한 뒤에는 추가 핸드오프를 쓰지 말고 그 턴을 그냥 끝내라(완료되면 자동으로 이어진다).
+- '모니터/폴러를 만들어 sleep으로 기다린다'거나 '나중에 이어서 하겠다'는 방식 금지(턴이 끊겨 멈춘다).
+- 깨어난 뒤에는 to-dev.md 의 종료코드/로그를 보고 다음 단계를 진행하라.
