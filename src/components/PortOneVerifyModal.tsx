@@ -12,7 +12,7 @@ import {
   Modal, View, Text, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IdentityVerification } from '@portone/react-native-sdk';
 
 const BASE = 'https://locotalk-production.up.railway.app';
@@ -125,48 +125,73 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <SafeAreaView style={st.safe}>
-        <View style={st.header}>
-          <TouchableOpacity onPress={onClose} style={st.closeBtn}>
-            <Text style={st.close}>✕</Text>
-          </TouchableOpacity>
-          <Text style={st.title}>통신사 본인인증</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      {/* ⚠️ Modal 은 별도 네이티브 윈도우라 루트 SafeAreaProvider 의 inset 이 전달되지
+          않는다 → 내부에 SafeAreaProvider 를 한 번 더 둬야 SafeAreaView 가 top inset(상태바/
+          다이내믹아일랜드)을 적용한다. 이게 없으면 헤더 닫기버튼이 상태바 아래(y<59pt)에 깔려
+          시스템이 탭을 가로채 '닫기 미동작'이 된다. (z-order/WebView 문제가 아니었음) */}
+      <SafeAreaProvider>
+        <SafeAreaView style={st.safe} edges={['top', 'bottom']}>
+          <View style={st.header}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={st.closeBtn}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              accessibilityRole="button"
+              accessibilityLabel="닫기"
+            >
+              <Text style={st.close}>✕</Text>
+            </TouchableOpacity>
+            <Text style={st.title}>통신사 본인인증</Text>
+            {/* 오른쪽 텍스트 닫기 — 보조 경로 */}
+            <TouchableOpacity
+              onPress={onClose}
+              style={st.cancelBtn}
+              hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+              accessibilityRole="button"
+              accessibilityLabel="닫기"
+            >
+              <Text style={st.cancel}>닫기</Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={{ flex: 1 }}>
-          {visible && (
-            <IdentityVerification
-              request={{
-                storeId: PORTONE_STORE_ID,
-                identityVerificationId,
-                channelKey: PORTONE_CHANNEL_KEY,
-              }}
-              onComplete={handleComplete}
-              onError={handleError}
-              // WKWebView 기본 UA 는 "Safari" 표기가 없어 일부 PG/본인인증 서버가
-              // 모바일 채널을 못 찾는 경우가 있음 → 완전한 모바일 Safari UA 지정
-              userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-              style={{ flex: 1 }}
-            />
-          )}
-          {loading && (
-            <View style={st.loadingOverlay}>
-              <ActivityIndicator size="large" color="#40D3B6" />
-              <Text style={st.loadingTxt}>인증 확인 중...</Text>
-            </View>
-          )}
-        </View>
-      </SafeAreaView>
+          <View style={st.body}>
+            {visible && (
+              <IdentityVerification
+                request={{
+                  storeId: PORTONE_STORE_ID,
+                  identityVerificationId,
+                  channelKey: PORTONE_CHANNEL_KEY,
+                }}
+                onComplete={handleComplete}
+                onError={handleError}
+                // WKWebView 기본 UA 는 "Safari" 표기가 없어 일부 PG/본인인증 서버가
+                // 모바일 채널을 못 찾는 경우가 있음 → 완전한 모바일 Safari UA 지정
+                userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+                style={{ flex: 1 }}
+              />
+            )}
+            {loading && (
+              <View style={st.loadingOverlay}>
+                <ActivityIndicator size="large" color="#40D3B6" />
+                <Text style={st.loadingTxt}>인증 확인 중...</Text>
+              </View>
+            )}
+          </View>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
 
 const st = StyleSheet.create({
   safe:           { flex: 1, backgroundColor: '#fff' },
-  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderColor: '#f0f0f0' },
-  closeBtn:       { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  close:          { fontSize: 18, color: '#666' },
+  // SafeAreaProvider(상위)가 top inset 을 적용해 헤더가 상태바 아래에 놓인다 → 닫기 탭 가능.
+  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#f0f0f0', backgroundColor: '#fff' },
+  body:           { flex: 1 },
+  closeBtn:       { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  close:          { fontSize: 22, color: '#111', fontWeight: '600' },
+  cancelBtn:      { minWidth: 44, height: 44, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' },
+  cancel:         { fontSize: 16, color: '#034A93', fontWeight: '700' },
   title:          { fontSize: 17, fontWeight: '700', color: '#111' },
   loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', zIndex: 10, gap: 12 },
   loadingTxt:     { fontSize: 14, color: '#888' },
