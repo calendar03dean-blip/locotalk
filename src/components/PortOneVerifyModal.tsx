@@ -7,13 +7,14 @@
  *
  * 서버 /auth/portone-verify 가 identityVerificationId 로 V2 인증결과를 조회.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Modal, View, Text, TouchableOpacity,
   StyleSheet, ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { IdentityVerification } from '@portone/react-native-sdk';
+import { IDENTITY_LIVE } from '../constants/release';
 
 const BASE = 'https://locotalk-production.up.railway.app';
 
@@ -57,6 +58,17 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
     () => `idv${Date.now().toString(36)}${Math.floor(Math.random() * 1679616).toString(36)}`,
     [visible],
   );
+
+  // [테스트 백스톱] IDENTITY_LIVE=false(테스트/TestFlight) + 성인인증 게이트(onIvidVerified 없음)일 때는
+  //   PortOne 실연동이 없어 통신사 인증을 완주할 수 없다(샌드박스 막다른 길). 따라서 모달을 띄우지 않고
+  //   '검증 완료'로 즉시 통과시켜 매칭으로 진행한다. → 어떤 진입 경로든 매칭에서 본인인증 모달이 뜨지 않음.
+  //   ⚠️ 프로덕션(appstore)은 assertReleaseIntegrity 가 IDENTITY_LIVE=true 를 강제하므로 이 분기는 비활성.
+  useEffect(() => {
+    if (visible && !IDENTITY_LIVE && !onIvidVerified) {
+      onVerified({ name: '테스터', birth: '19950101', gender: 'male', phone: '01000000000' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   // 인증 완료 → 서버에서 실제 사용자 정보 조회
   const handleComplete = async (response: any) => {
@@ -155,7 +167,7 @@ export default function PortOneVerifyModal({ visible, onClose, onVerified, userI
           </View>
 
           <View style={st.body}>
-            {visible && (
+            {visible && (IDENTITY_LIVE || onIvidVerified) && (
               <IdentityVerification
                 request={{
                   storeId: PORTONE_STORE_ID,
