@@ -1,8 +1,8 @@
 /**
  * codename.ts — 자동 생성 코드네임 (온보딩 자유 닉네임 대체)
  *
- * 형식: <형용사|색><동물> " #" <4자리 hex 대문자>
- *   예) "조용한너구리 #7F3A"
+ * 형식: <형용사|색><동물>   예) "조용한너구리"
+ *   (구버전 " #XXXX" hex 접미사는 폐지 — 너무 길고 비서정적. 검증은 하위호환 유지.)
  *
  * 피벗 정합: 실명=본인인증(서버 CI) / 표시=익명 코드네임.
  *   userId(idv)=식별 키, 코드네임=표시용. 코드네임은 user.nickname 필드에 저장한다.
@@ -32,35 +32,26 @@ export const CODENAME_ANIMALS: string[] = [
   '살쾡이', '오소리', '청설모', '담비', '수리', '매', '왜가리', '물총새',
 ];
 
-/** 4자리 16진(대문자) */
-function randomHex4(): string {
-  let h = '';
-  for (let i = 0; i < 4; i++) {
-    h += Math.floor(Math.random() * 16).toString(16).toUpperCase();
-  }
-  return h;
-}
-
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/** 코드네임 1건 생성: "<형용사><동물> #XXXX" */
+/** 코드네임 1건 생성: "<형용사><동물>" (짧고 자연스러운 한국어 — hex 접미사 폐지) */
 export function generateCodename(): string {
-  return `${pick(CODENAME_ADJECTIVES)}${pick(CODENAME_ANIMALS)} #${randomHex4()}`;
+  return `${pick(CODENAME_ADJECTIVES)}${pick(CODENAME_ANIMALS)}`;
 }
 
-/** 충돌 시 hex만 재생성(형용사·동물 유지). 파싱 실패 시 전체 재생성. */
-export function rerollHex(codename: string): string {
-  const m = /^(.+) #[0-9A-F]{4}$/.exec(codename);
-  if (!m) return generateCodename();
-  return `${m[1]} #${randomHex4()}`;
+/** 충돌(409) 시 새 코드네임 생성 — 형용사·동물 전체 재추첨.
+ *  ※ 이름(rerollHex)은 호출부 호환용으로 유지(hex 접미사 폐지로 의미는 '전체 재생성'). */
+export function rerollHex(_codename?: string): string {
+  return generateCodename();
 }
 
 /** 단어셋 + hex 패턴 검증 정규식 (클라 사전검증용; 권위 검증은 서버) */
 const ADJ_ALT = CODENAME_ADJECTIVES.join('|');
 const ANI_ALT = CODENAME_ANIMALS.join('|');
-const CODENAME_RE = new RegExp(`^(?:${ADJ_ALT})(?:${ANI_ALT}) #[0-9A-F]{4}$`);
+// hex 접미사는 '선택'(신버전=없음, 구버전=" #XXXX" 호환) — 둘 다 유효.
+const CODENAME_RE = new RegExp(`^(?:${ADJ_ALT})(?:${ANI_ALT})( #[0-9A-F]{4})?$`);
 
 /** 허용 단어셋 + hex 패턴에 부합하는 코드네임인지 */
 export function isValidCodename(name: string): boolean {

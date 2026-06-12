@@ -1,9 +1,9 @@
 /**
  * codename.js — 코드네임 서버측 검증 (온보딩 자유 닉네임 대체)
  *
- * 형식: <형용사|색><동물> " #" <4자리 hex 대문자>  예) "조용한너구리 #7F3A"
+ * 형식: <형용사|색><동물>  예) "조용한너구리"  (구버전 " #XXXX" hex 접미사는 검증만 호환)
  *
- * 권위 검증: 허용 단어셋 + hex 패턴만 수용, 임의 문자열 거부.
+ * 권위 검증: 허용 단어셋만 수용(hex 접미사는 선택), 임의 문자열 거부.
  *   클라(src/constants/codename.ts)와 동일한 단어셋을 유지해야 한다(검증 일원화).
  *   ※ 검증파생 필드(isVerified/adult/gender/birth)는 별도로 여전히 미수용(56e78f5 권위 유지) — 여기선 표시명만.
  */
@@ -29,7 +29,8 @@ const CODENAME_ANIMALS = [
 
 const ADJ_ALT = CODENAME_ADJECTIVES.join('|');
 const ANI_ALT = CODENAME_ANIMALS.join('|');
-const CODENAME_RE = new RegExp(`^(?:${ADJ_ALT})(?:${ANI_ALT}) #[0-9A-F]{4}$`);
+// hex 접미사는 '선택'(신버전=없음, 구버전=" #XXXX" 호환) — 클라(codename.ts)와 동일.
+const CODENAME_RE = new RegExp(`^(?:${ADJ_ALT})(?:${ANI_ALT})( #[0-9A-F]{4})?$`);
 
 /** 허용 단어셋 + hex 패턴에 부합하는 코드네임인지 */
 function isValidCodename(name) {
