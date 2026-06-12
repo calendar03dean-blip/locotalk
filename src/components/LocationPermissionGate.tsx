@@ -92,6 +92,11 @@ export default function LocationPermissionGate({ visible, onGranted }: Props) {
     <Modal visible transparent animationType="fade" onRequestClose={() => { /* 닫기 차단 */ }}>
       <View style={s.backdrop}>
         <View style={[s.card, Shadow.glass]}>
+          {!denied && (
+            <View style={s.progressChip}>
+              <Text style={s.progressTxt}>{t('locperm_intro_extra')}</Text>
+            </View>
+          )}
           <Text style={s.title}>{denied ? t('locperm_denied_title') : t('locperm_title')}</Text>
           <Text style={s.body}>{denied ? t('locperm_denied_body') : t('locperm_body')}</Text>
 
@@ -118,6 +123,8 @@ export default function LocationPermissionGate({ visible, onGranted }: Props) {
 const s = StyleSheet.create({
   backdrop:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: Spacing.lg },
   card:         { width: '100%', maxWidth: 360, backgroundColor: Colors.sf, borderRadius: Radius.xxl, padding: Spacing.xl },
+  progressChip: { alignSelf: 'center', backgroundColor: Colors.primaryTint, borderRadius: Radius.pill, paddingHorizontal: 12, paddingVertical: 5, marginBottom: 12 },
+  progressTxt:  { fontSize: Typography.footnote, fontWeight: '700', color: Colors.primary },
   title:        { fontSize: Typography.title3, fontWeight: '800', color: Colors.dark, textAlign: 'center' },
   body:         { fontSize: Typography.subhead, color: Colors.g4, lineHeight: 22, textAlign: 'center', marginTop: 12, marginBottom: 20 },
   primaryBtn:   { backgroundColor: Colors.primary, borderRadius: Radius.lg, paddingVertical: 15, alignItems: 'center' },

@@ -254,6 +254,23 @@ export default function LoginScreen() {
   const fadeAnim  = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(24)).current;
 
+  // ── 미동의 넛지(Alert 대체) — 비활성 CTA 탭 시 동의 박스 흔들림 1회 + 헬퍼 강조 ──
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const [nudge, setNudge] = useState(false);
+  const triggerConsentNudge = () => {
+    setNudge(true);
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 7,  duration: 45, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -7, duration: 45, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 5,  duration: 45, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: -5, duration: 45, useNativeDriver: true }),
+      Animated.timing(shakeAnim, { toValue: 0,  duration: 45, useNativeDriver: true }),
+    ]).start();
+  };
+  // 전체 동의가 채워지면 넛지 강조 해제(꾸중 아닌 진행감으로 전환).
+  useEffect(() => { if (allAgreed) setNudge(false); }, [allAgreed]);
+
   // 입장 애니메이션
   useEffect(() => {
     Animated.parallel([
@@ -353,7 +370,7 @@ export default function LoginScreen() {
   // ── A안: 신규가입 — 이메일/비번 검증 → 본인인증 1회(IVID) → /auth/signup ────────
   const submitSignup = () => {
     if (authLoading) return;
-    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    if (!allAgreed) { triggerConsentNudge(); return; }
     const em = email.trim();
     if (!isValidEmail(em)) { setEmailErr(t('auth_email_invalid')); return; }
     if (pw.length < 8)     { setPwErr(t('auth_pw_short')); return; }
@@ -401,7 +418,7 @@ export default function LoginScreen() {
   // ── A안: 로그인 — 이메일/비번만(본인인증 없음). 기기 변경 시에도 재인증 강요 안 함. ──
   const submitLogin = async () => {
     if (authLoading) return;
-    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    if (!allAgreed) { triggerConsentNudge(); return; }
     const em = email.trim();
     if (!isValidEmail(em)) { setEmailErr(t('auth_email_invalid')); return; }
     if (!pw)               { setPwErr(t('auth_pw_required')); return; }
@@ -443,7 +460,7 @@ export default function LoginScreen() {
   const testIdentityEmail = (slot: TestSlot) => `tester+${slot}@locotalk.dev`;
   const handleTestIdentity = async (slot: TestSlot) => {
     if (authLoading) return;
-    if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+    if (!allAgreed) { triggerConsentNudge(); return; }
     setAuthLoading(true);
     try {
       const email = testIdentityEmail(slot);
@@ -730,18 +747,29 @@ export default function LoginScreen() {
           {/* ── MAIN ────────────────────────────────── */}
           {step === 'main' && (
             <View style={s.btnGroup}>
+              {/* ── 환영·안심 헤더 (가치 먼저, 벽은 나중) ── */}
+              <View style={s.welcomeBox}>
+                <Text style={s.welcomeTitle}>{t('entry_welcome_title')}</Text>
+                <Text style={s.welcomeSub}>{t('entry_welcome_sub')}</Text>
+              </View>
+
               {/* ── 약관 3종 동의 (본인인증 PII 수집 전 — 출시 법적 필수) ── */}
-              <View style={s.consentBox}>
+              <Animated.View style={[s.consentBox, { transform: [{ translateX: shakeAnim }] }]}>
+                {/* 전체 동의 — 친근한 메인 토글(시각적으로 가장 크게) */}
                 <TouchableOpacity style={s.consentAllRow} onPress={toggleAll} activeOpacity={0.7}>
                   <IcoCheckbox on={allAgreed} />
-                  <Text style={s.consentAllTxt}>{t('consent_all')}</Text>
+                  <View style={s.consentAllTextWrap}>
+                    <Text style={s.consentAllTxt}>{t('consent_all')}</Text>
+                    <Text style={s.consentAllHint}>{t('consent_all_hint')}</Text>
+                  </View>
                 </TouchableOpacity>
                 <View style={s.consentDiv} />
+                {/* 개별 [필수] 3종 — 법적 필수(개별 표시·동의·열람 유지), 시각 위계만 낮춤 */}
                 {([['privacy','consent_privacy'],['service','consent_service'],['location','consent_location']] as const).map(([k, label]) => (
                   <View key={k} style={s.consentRow}>
                     <TouchableOpacity style={s.consentLeft} onPress={() => toggleOne(k)} activeOpacity={0.7}>
-                      <IcoCheckbox on={agreed[k]} size={20} />
-                      <Text style={s.consentReq}>{t('consent_required')}</Text>
+                      <IcoCheckbox on={agreed[k]} size={18} />
+                      <View style={s.consentReqChip}><Text style={s.consentReqTxt}>{t('consent_required')}</Text></View>
                       <Text style={s.consentLabel}>{t(label)}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => Linking.openURL(TERMS[k].url)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -749,7 +777,12 @@ export default function LoginScreen() {
                     </TouchableOpacity>
                   </View>
                 ))}
-              </View>
+              </Animated.View>
+
+              {/* 미동의 넛지(인라인) — 꾸중 아닌 진행감. 동의 완료 시 안심 문구로 전환. */}
+              {allAgreed
+                ? <Text style={s.consentReady}>{t('consent_ready')}</Text>
+                : <Text style={[s.consentNudge, nudge && s.consentNudgeOn]}>{t('consent_need')}</Text>}
 
               {/* ── A안: 이메일+비밀번호 계정 + 본인인증 1회 ─────────────────── */}
               {/* 신규가입 / 로그인 토글 */}
@@ -799,19 +832,26 @@ export default function LoginScreen() {
               {!!pwErr && <Text style={s.errTxtDark}>{pwErr}</Text>}
               {authMode === 'signup' && <Text style={s.authHint}>{t('auth_signup_hint')}</Text>}
 
-              {/* 제출 — 약관 전체 동의 시에만 활성 */}
+              {/* 3스텝 미니 경로 — "금방 끝남"을 시각으로 안심(신규가입 한정) */}
+              {authMode === 'signup' && (
+                <View style={s.stepsRow}>
+                  <Text style={s.stepsTxt}>{t('entry_steps')}</Text>
+                </View>
+              )}
+
+              {/* 제출 — 미동의 시 비활성 톤이지만 탭은 받아 인라인 넛지(shake) 노출 */}
               <TouchableOpacity
                 style={[s.btn, s.btnEmail, (!allAgreed || authLoading) && s.btnDisabled]}
                 onPress={authMode === 'signup' ? submitSignup : submitLogin}
                 // [숨김 e2e 경로] 신규가입 탭 롱프레스 시 테스터 B 슬롯 진입(1:1 매칭 검증용 — 비노출, 실연동 전 한정).
                 onLongPress={() => {
                   if (authMode !== 'signup' || IDENTITY_LIVE) return;
-                  if (!allAgreed) { Alert.alert(t('consent_need')); return; }
+                  if (!allAgreed) { triggerConsentNudge(); return; }
                   handleTestIdentity('B');
                 }}
                 delayLongPress={800}
                 activeOpacity={0.85}
-                disabled={authLoading || !allAgreed}
+                disabled={authLoading}
               >
                 {authLoading
                   ? <ActivityIndicator color={LT.brandStrong} size={18} />
@@ -1020,16 +1060,33 @@ const s = StyleSheet.create({
   errTxtDark: { fontSize: 12, color: '#E5484D', marginTop: -4, marginLeft: 4 },
   authHint:   { fontSize: 11, color: LT.label3, lineHeight: 16, marginTop: 2, marginBottom: 2 },
 
+  // ── 환영·안심 헤더 ─────────────────────────────────────────
+  welcomeBox:    { backgroundColor: LT.brandTint, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, gap: 3 },
+  welcomeTitle:  { fontSize: 15, fontWeight: '800', color: LT.brandStrong, letterSpacing: -0.3 },
+  welcomeSub:    { fontSize: 12.5, color: LT.label3, lineHeight: 18 },
+
   // ── 약관 동의 ──────────────────────────────────────────────
-  consentBox:    { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: LT.border, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
-  consentAllRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
-  consentAllTxt: { fontSize: 15, fontWeight: '800', color: '#1a1a1a', letterSpacing: -0.2 },
-  consentDiv:    { height: 1, backgroundColor: LT.border, marginVertical: 8 },
-  consentRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 5 },
-  consentLeft:   { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  consentReq:    { fontSize: 12, fontWeight: '700', color: LT.brandStrong },
-  consentLabel:  { fontSize: 13, color: '#333', flexShrink: 1 },
-  consentView:   { fontSize: 12, color: LT.label3, textDecorationLine: 'underline', paddingLeft: 8 },
+  consentBox:        { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: LT.border, paddingHorizontal: 14, paddingVertical: 12, gap: 2 },
+  // 전체 동의 — 메인 토글: 가장 크고 눈에 띄게, 탭 영역 넉넉히
+  consentAllRow:     { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 6 },
+  consentAllTextWrap:{ flex: 1, gap: 1 },
+  consentAllTxt:     { fontSize: 16, fontWeight: '800', color: '#1a1a1a', letterSpacing: -0.3 },
+  consentAllHint:    { fontSize: 11.5, color: LT.label3 },
+  consentDiv:        { height: 1, backgroundColor: LT.border, marginVertical: 8 },
+  // 개별 [필수] 3종 — 시각 위계 낮춤(참고 목록 톤). 들여쓰기 + 회색.
+  consentRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4, paddingLeft: 4 },
+  consentLeft:       { flexDirection: 'row', alignItems: 'center', gap: 7, flex: 1 },
+  consentReqChip:    { backgroundColor: '#EFEFF2', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 },
+  consentReqTxt:     { fontSize: 10.5, fontWeight: '700', color: LT.label3 },
+  consentLabel:      { fontSize: 12.5, color: LT.label3, flexShrink: 1 },
+  consentView:       { fontSize: 12, color: LT.label3, textDecorationLine: 'underline', paddingLeft: 8 },
+  // 미동의 넛지(인라인) / 동의 완료 안심
+  consentNudge:      { fontSize: 12, color: LT.label3, textAlign: 'center', marginTop: 2, marginBottom: 2 },
+  consentNudgeOn:    { color: '#E5484D', fontWeight: '700' },
+  consentReady:      { fontSize: 12.5, color: LT.brandStrong, fontWeight: '700', textAlign: 'center', marginTop: 2, marginBottom: 2 },
+  // 3스텝 미니 경로
+  stepsRow:          { alignItems: 'center', marginTop: 1, marginBottom: 1 },
+  stepsTxt:          { fontSize: 11.5, color: LT.label3, fontWeight: '600', letterSpacing: -0.2 },
 
   btnTxt:      { fontSize: 15, fontWeight: '600', letterSpacing: -0.2 },
   btnTxtDark:  { color: '#1a1a1a' },
