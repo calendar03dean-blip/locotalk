@@ -469,6 +469,11 @@ export default function LoginScreen() {
       const email = testIdentityEmail(slot);
       const result = await serverLogin('email', email, email);
       if (!result?.userId) { Alert.alert(t('login_failed')); return; }
+      // [테스트] IDENTITY_LIVE=false 진입은 '본인인증 완료'를 시뮬레이션한다 → 검증됨으로 처리.
+      //   (서버 tester 행은 is_verified=false 라, 재로그인 복귀완성 경로에서 applyLoginResult 가
+      //    DB값을 읽어 isVerified=false 가 되고 → 매칭 성인게이트(HomeScreen)가 본인인증을
+      //    다시 띄운다. 실 PortOne 완료와 동일하게 검증됨 처리하여 그 재요구를 제거.)
+      if (result.user) { const ru = result.user as any; ru.is_verified = true; ru.adult_verified = true; }
       // 위치 권한 필수 게이트 — 허용 전에는 진입(applyLoginResult) 진행 안 됨.
       await requestLocationGate();
       // 신규/미완성이면 온보딩이 성별/생년을 채우도록 stash(테스트 더미값)
@@ -724,6 +729,7 @@ export default function LoginScreen() {
       interests  : ['coffee', 'run', 'book'],
       regionGu   : '마포구',
       regionLabel: '마포구 · 서교동',
+      isVerified : true,   // 개발자 테스트 계정은 본인인증 완료로 간주 → 매칭 성인게이트 미발동
     });
     setPremium(isPrem);
   };
