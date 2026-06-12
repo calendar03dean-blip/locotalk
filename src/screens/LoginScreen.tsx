@@ -190,7 +190,9 @@ function diag(e: any): string {
 }
 
 // ── 컴포넌트 ─────────────────────────────────────────────────────────
-type Step = 'main' | 'email_input' | 'email_otp';
+//   B안: 메인=본인인증 회원가입(主 CTA) / signup=이메일·비번 입력+본인인증 /
+//        login=숨김 로그인 레이어. email_input·email_otp 는 소셜/OTP 비활성 보존용.
+type Step = 'main' | 'signup' | 'login' | 'email_input' | 'email_otp';
 
 export default function LoginScreen() {
   const t       = useT();
@@ -204,8 +206,8 @@ export default function LoginScreen() {
   const [showIdentity, setShowIdentity] = useState(false); // 본인인증=로그인 모달
   const [authLoading, setAuthLoading] = useState(false); // 로그인 진행 중 중복 방지
 
-  // ── A안: 이메일+비밀번호 계정 + 본인인증 1회 ───────────────────────────
-  const [authMode, setAuthMode] = useState<'signup' | 'login'>('signup'); // 신규가입/로그인 토글
+  // ── A안 백엔드 + B안 진입 UX: 이메일+비밀번호 계정 + 본인인증 1회 ──────────
+  //   (authMode 토글 제거 — 회원가입은 'signup' step, 로그인은 'login' 숨김 레이어로 분리)
   const [pw, setPw]       = useState('');
   const [pwErr, setPwErr] = useState('');
   // 본인인증 모달 완료(IVID 획득) 후 /auth/signup 에 함께 보낼 가입 자격증명 보관.
@@ -418,7 +420,8 @@ export default function LoginScreen() {
   // ── A안: 로그인 — 이메일/비번만(본인인증 없음). 기기 변경 시에도 재인증 강요 안 함. ──
   const submitLogin = async () => {
     if (authLoading) return;
-    if (!allAgreed) { triggerConsentNudge(); return; }
+    // B안: 로그인 레이어엔 약관 동의 박스가 없다(기존 계정 = 가입 시 이미 동의·서버 기록 보유).
+    //   재로그인 시 재동의 강요 안 함(applyLoginResult 의 인증/동의 복원과 동일 취지). 가입 게이트는 submitSignup 에만 유지.
     const em = email.trim();
     if (!isValidEmail(em)) { setEmailErr(t('auth_email_invalid')); return; }
     if (!pw)               { setPwErr(t('auth_pw_required')); return; }
@@ -726,8 +729,9 @@ export default function LoginScreen() {
   };
 
   const goBack = () => {
+    // signup·login·email_input → main, email_otp → email_input. pw·에러 정리.
     setStep(step === 'email_otp' ? 'email_input' : 'main');
-    setOtp(''); setOtpErr(''); setEmailErr('');
+    setOtp(''); setOtpErr(''); setEmailErr(''); setPwErr('');
     animateIn();
   };
 
@@ -784,81 +788,33 @@ export default function LoginScreen() {
                 ? <Text style={s.consentReady}>{t('consent_ready')}</Text>
                 : <Text style={[s.consentNudge, nudge && s.consentNudgeOn]}>{t('consent_need')}</Text>}
 
-              {/* ── A안: 이메일+비밀번호 계정 + 본인인증 1회 ─────────────────── */}
-              {/* 신규가입 / 로그인 토글 */}
-              <View style={s.authTabRow}>
-                <TouchableOpacity
-                  style={[s.authTab, authMode === 'signup' && s.authTabOn]}
-                  onPress={() => { setAuthMode('signup'); setEmailErr(''); setPwErr(''); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[s.authTabTxt, authMode === 'signup' && s.authTabTxtOn]}>{t('auth_signup_tab')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.authTab, authMode === 'login' && s.authTabOn]}
-                  onPress={() => { setAuthMode('login'); setEmailErr(''); setPwErr(''); }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[s.authTabTxt, authMode === 'login' && s.authTabTxtOn]}>{t('auth_login_tab')}</Text>
-                </TouchableOpacity>
+              {/* 3스텝 미니 경로 — "금방 끝남"을 시각으로 안심 */}
+              <View style={s.stepsRow}>
+                <Text style={s.stepsTxt}>{t('entry_steps')}</Text>
               </View>
 
-              {/* 이메일 + 비밀번호 입력 */}
-              <TextInput
-                style={[s.authInput, emailErr ? s.inputErr : null]}
-                placeholder={t('auth_email_ph')}
-                placeholderTextColor="#aaa"
-                value={email}
-                onChangeText={v => { setEmail(v); setEmailErr(''); }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType="emailAddress"
-              />
-              {!!emailErr && <Text style={s.errTxtDark}>{emailErr}</Text>}
-              <TextInput
-                style={[s.authInput, pwErr ? s.inputErr : null]}
-                placeholder={t('auth_pw_ph')}
-                placeholderTextColor="#aaa"
-                value={pw}
-                onChangeText={v => { setPw(v); setPwErr(''); }}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                textContentType={authMode === 'signup' ? 'newPassword' : 'password'}
-                returnKeyType="done"
-                onSubmitEditing={authMode === 'signup' ? submitSignup : submitLogin}
-              />
-              {!!pwErr && <Text style={s.errTxtDark}>{pwErr}</Text>}
-              {authMode === 'signup' && <Text style={s.authHint}>{t('auth_signup_hint')}</Text>}
-
-              {/* 3스텝 미니 경로 — "금방 끝남"을 시각으로 안심(신규가입 한정) */}
-              {authMode === 'signup' && (
-                <View style={s.stepsRow}>
-                  <Text style={s.stepsTxt}>{t('entry_steps')}</Text>
-                </View>
-              )}
-
-              {/* 제출 — 미동의 시 비활성 톤이지만 탭은 받아 인라인 넛지(shake) 노출 */}
+              {/* ── B안 주(主) CTA = 회원가입 = 본인인증으로 시작하기 (가장 크고 지배적) ── */}
+              {/*   미동의 시 비활성 톤이지만 탭은 받아 인라인 넛지(shake) 노출 → 동의 시 signup step 진입 */}
               <TouchableOpacity
-                style={[s.btn, s.btnEmail, (!allAgreed || authLoading) && s.btnDisabled]}
-                onPress={authMode === 'signup' ? submitSignup : submitLogin}
-                // [숨김 e2e 경로] 신규가입 탭 롱프레스 시 테스터 B 슬롯 진입(1:1 매칭 검증용 — 비노출, 실연동 전 한정).
-                onLongPress={() => {
-                  if (authMode !== 'signup' || IDENTITY_LIVE) return;
+                style={[s.btn, s.btnPrimary, (!allAgreed || authLoading) && s.btnDisabled]}
+                onPress={() => {
                   if (!allAgreed) { triggerConsentNudge(); return; }
-                  handleTestIdentity('B');
+                  setEmailErr(''); setPwErr('');
+                  setStep('signup'); animateIn();
                 }}
-                delayLongPress={800}
                 activeOpacity={0.85}
                 disabled={authLoading}
               >
-                {authLoading
-                  ? <ActivityIndicator color={LT.brandStrong} size={18} />
-                  : <Text style={[s.btnTxt, { color: LT.brandStrong }]}>
-                      {authMode === 'signup' ? t('auth_signup_cta') : t('auth_login_cta')}
-                    </Text>
-                }
+                <Text style={[s.btnTxt, s.btnPrimaryTxt]}>{t('entry_start_cta')}</Text>
+              </TouchableOpacity>
+
+              {/* 작고 차분한 링크 — 이미 가입한 사용자 → 숨김 로그인 레이어 노출 */}
+              <TouchableOpacity
+                style={s.loginLink}
+                onPress={() => { setEmailErr(''); setPwErr(''); setStep('login'); animateIn(); }}
+                activeOpacity={0.7}
+              >
+                <Text style={s.loginLinkTxt}>{t('entry_login_link')}</Text>
               </TouchableOpacity>
 
               {/* 소셜/이메일 진입 — 비활성(코드 보존, auth-kit 추출용). SOCIAL_LOGIN_ENABLED=true 시 즉시 복구 */}
@@ -922,6 +878,123 @@ export default function LoginScreen() {
                   </View>
                 </View>
               )}
+            </View>
+          )}
+
+          {/* ── SIGNUP (본인인증 회원가입 입력) ────────── */}
+          {/*   이메일·비번 1차검증(서버 강도검증과 일치) → submitSignup → 본인인증(IVID) → /auth/signup */}
+          {step === 'signup' && (
+            <View style={s.btnGroup}>
+              <View style={s.welcomeBox}>
+                <Text style={s.welcomeTitle}>{t('signup_title')}</Text>
+                <Text style={s.welcomeSub}>{t('signup_sub')}</Text>
+              </View>
+
+              <TextInput
+                style={[s.authInput, emailErr ? s.inputErr : null]}
+                placeholder={t('auth_email_ph')}
+                placeholderTextColor="#aaa"
+                value={email}
+                onChangeText={v => { setEmail(v); setEmailErr(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+              />
+              {!!emailErr && <Text style={s.errTxtDark}>{emailErr}</Text>}
+              <TextInput
+                style={[s.authInput, pwErr ? s.inputErr : null]}
+                placeholder={t('auth_pw_ph')}
+                placeholderTextColor="#aaa"
+                value={pw}
+                onChangeText={v => { setPw(v); setPwErr(''); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="newPassword"
+                returnKeyType="done"
+                onSubmitEditing={submitSignup}
+              />
+              {!!pwErr && <Text style={s.errTxtDark}>{pwErr}</Text>}
+              <Text style={s.authHint}>{t('auth_signup_hint')}</Text>
+
+              {/* 본인인증하고 가입 — 미동의면 메인에서 막혀 여기 못 옴(allAgreed 유지). 안전상 재게이트는 submitSignup 내부. */}
+              {/*   [숨김 e2e 경로] 롱프레스 = 테스터 B 슬롯(1:1 매칭 검증용 — 비노출, 실연동 전 한정) */}
+              <TouchableOpacity
+                style={[s.btn, s.btnPrimary, authLoading && s.btnDisabled]}
+                onPress={submitSignup}
+                onLongPress={() => {
+                  if (IDENTITY_LIVE) return;
+                  if (!allAgreed) { triggerConsentNudge(); return; }
+                  handleTestIdentity('B');
+                }}
+                delayLongPress={800}
+                activeOpacity={0.85}
+                disabled={authLoading}
+              >
+                {authLoading
+                  ? <ActivityIndicator color="#fff" size={18} />
+                  : <Text style={[s.btnTxt, s.btnPrimaryTxt]}>{t('signup_submit_cta')}</Text>
+                }
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.backBtnDark} onPress={goBack} activeOpacity={0.7}>
+                <Text style={s.backTxtDark}>← {t('login_back')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── LOGIN (숨김 레이어 — 이미 가입한 사용자) ───── */}
+          {/*   평소 숨김. 메인 "이메일로 로그인" 링크로만 진입. submitLogin → /auth/email-login (본인인증 없음) */}
+          {step === 'login' && (
+            <View style={s.btnGroup}>
+              <View style={s.welcomeBox}>
+                <Text style={s.welcomeTitle}>{t('login_title')}</Text>
+                <Text style={s.welcomeSub}>{t('login_sub_layer')}</Text>
+              </View>
+
+              <TextInput
+                style={[s.authInput, emailErr ? s.inputErr : null]}
+                placeholder={t('auth_email_ph')}
+                placeholderTextColor="#aaa"
+                value={email}
+                onChangeText={v => { setEmail(v); setEmailErr(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+              />
+              {!!emailErr && <Text style={s.errTxtDark}>{emailErr}</Text>}
+              <TextInput
+                style={[s.authInput, pwErr ? s.inputErr : null]}
+                placeholder={t('auth_pw_ph')}
+                placeholderTextColor="#aaa"
+                value={pw}
+                onChangeText={v => { setPw(v); setPwErr(''); }}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="password"
+                returnKeyType="done"
+                onSubmitEditing={submitLogin}
+              />
+              {!!pwErr && <Text style={s.errTxtDark}>{pwErr}</Text>}
+
+              <TouchableOpacity
+                style={[s.btn, s.btnPrimary, authLoading && s.btnDisabled]}
+                onPress={submitLogin}
+                activeOpacity={0.85}
+                disabled={authLoading}
+              >
+                {authLoading
+                  ? <ActivityIndicator color="#fff" size={18} />
+                  : <Text style={[s.btnTxt, s.btnPrimaryTxt]}>{t('auth_login_cta')}</Text>
+                }
+              </TouchableOpacity>
+
+              <TouchableOpacity style={s.backBtnDark} onPress={goBack} activeOpacity={0.7}>
+                <Text style={s.backTxtDark}>← {t('login_back')}</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1046,6 +1119,16 @@ const s = StyleSheet.create({
   btnNaver:  { backgroundColor: '#03C75A' },
   btnEmail:  { backgroundColor: LT.brandTint },
   btnDisabled: { opacity: 0.45 },
+
+  // ── B안 주(主) CTA — 가장 크고 지배적(브랜드 채움 + 흰 글씨) ──
+  btnPrimary:    { backgroundColor: LT.brandStrong, height: 56 },
+  btnPrimaryTxt: { color: '#fff', fontSize: 16.5, fontWeight: '800', letterSpacing: -0.3 },
+  // 작고 차분한 "이미 가입하셨나요? 로그인" 링크
+  loginLink:     { alignItems: 'center', paddingVertical: 8, marginTop: 2 },
+  loginLinkTxt:  { fontSize: 13.5, color: LT.label3, fontWeight: '600', textDecorationLine: 'underline' },
+  // 흰 카드(btnGroup) 위 뒤로가기 — 어두운 톤
+  backBtnDark:   { alignItems: 'center', paddingVertical: 10, marginTop: 2 },
+  backTxtDark:   { fontSize: 14, color: LT.label3, fontWeight: '600' },
 
   // ── A안: 이메일+비밀번호 가입/로그인 ──────────────────────────
   authTabRow:    { flexDirection: 'row', backgroundColor: LT.brandTint, borderRadius: 12, padding: 4, marginBottom: 2 },

@@ -123,6 +123,14 @@ export const translations = {
     auth_signup_failed: '가입에 실패했어요.',
     auth_login_failed_msg: '이메일 또는 비밀번호가 올바르지 않아요.',
     auth_signup_hint: '본인인증은 딱 한 번, 1분이면 끝나요. 기기를 바꿔도 이메일·비밀번호로 다시 로그인돼요.',
+    // B안 진입 UX: 메인 主 CTA(회원가입=본인인증) + 숨김 로그인 레이어
+    entry_start_cta: '본인인증으로 시작하기',
+    entry_login_link: '이미 가입하셨나요? 이메일로 로그인',
+    signup_title: '본인인증으로 안전하게 가입',
+    signup_sub: '이메일·비밀번호만 정하면 끝! 이름·생년·성별은 본인인증(1회)에서 자동으로 채워져요.',
+    signup_submit_cta: '본인인증하고 가입',
+    login_title: '다시 오신 걸 환영해요',
+    login_sub_layer: '가입할 때 쓴 이메일·비밀번호로 로그인하세요.',
     // 위치기반서비스 이용약관 동의 (위치정보법)
     loc_consent_title: '위치기반서비스 이용약관',
     loc_consent_sub: '내 주변 이웃 매칭을 위해 위치정보 이용에 동의가 필요해요.',
@@ -366,6 +374,14 @@ export const translations = {
     auth_signup_failed: 'Sign-up failed.',
     auth_login_failed_msg: 'Email or password is incorrect.',
     auth_signup_hint: 'Identity check takes just one minute, once. Log in with email & password on any device.',
+    // B안 entry UX: main primary CTA (sign up = identity check) + hidden login layer
+    entry_start_cta: 'Start with identity check',
+    entry_login_link: 'Already have an account? Log in with email',
+    signup_title: 'Sign up safely with identity check',
+    signup_sub: 'Just pick an email & password — your name, birth year, and gender are filled in automatically during the one-time identity check.',
+    signup_submit_cta: 'Verify & sign up',
+    login_title: 'Welcome back',
+    login_sub_layer: 'Log in with the email & password you signed up with.',
     // Location-based service terms consent (Location Information Act)
     loc_consent_title: 'Location-Based Service Terms',
     loc_consent_sub: 'We need your consent to use location data for matching nearby neighbors.',
