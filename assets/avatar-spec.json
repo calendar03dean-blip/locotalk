@@ -1,0 +1,46 @@
+{
+  "_doc": "코드네임 아바타 단일 출처 스펙. 동물 40 × 변형(variant) 3 = 120종 한붓그리기 SVG. 색은 런타임 틴트. scripts/gen-avatars.js(생성)와 src/components/CodenameAvatar.tsx(렌더)가 공유.",
+  "_keyFormat": "{animal.en}_{variant.key}  예) rabbit_calm",
+  "defaultTint": "#1f2937",
+  "variants": [
+    { "key": "calm",   "mood": "curled up and resting peacefully, serene and gentle, soft relaxed pose" },
+    { "key": "steady", "mood": "sitting upright and calm, dignified and composed, looking forward" },
+    { "key": "lively", "mood": "in playful dynamic motion, mid-leap and energetic, joyful" }
+  ],
+  "animals": [
+    { "ko": "너구리", "en": "raccoon" }, { "ko": "다람쥐", "en": "chipmunk" },
+    { "ko": "고양이", "en": "cat" }, { "ko": "강아지", "en": "puppy" },
+    { "ko": "여우", "en": "fox" }, { "ko": "사슴", "en": "deer" },
+    { "ko": "토끼", "en": "rabbit" }, { "ko": "거북이", "en": "turtle" },
+    { "ko": "수달", "en": "otter" }, { "ko": "두더지", "en": "mole" },
+    { "ko": "햄스터", "en": "hamster" }, { "ko": "고슴도치", "en": "hedgehog" },
+    { "ko": "펭귄", "en": "penguin" }, { "ko": "부엉이", "en": "owl" },
+    { "ko": "올빼미", "en": "barn owl" }, { "ko": "참새", "en": "sparrow" },
+    { "ko": "제비", "en": "swallow bird" }, { "ko": "비둘기", "en": "dove" },
+    { "ko": "기러기", "en": "wild goose" }, { "ko": "두루미", "en": "crane bird" },
+    { "ko": "백조", "en": "swan" }, { "ko": "돌고래", "en": "dolphin" },
+    { "ko": "고래", "en": "whale" }, { "ko": "물개", "en": "seal" },
+    { "ko": "판다", "en": "panda" }, { "ko": "코알라", "en": "koala" },
+    { "ko": "개구리", "en": "frog" }, { "ko": "달팽이", "en": "snail" },
+    { "ko": "무당벌레", "en": "ladybug" }, { "ko": "잠자리", "en": "dragonfly" },
+    { "ko": "나비", "en": "butterfly" }, { "ko": "반딧불이", "en": "firefly" },
+    { "ko": "살쾡이", "en": "wildcat" }, { "ko": "오소리", "en": "badger" },
+    { "ko": "청설모", "en": "red squirrel" }, { "ko": "담비", "en": "marten" },
+    { "ko": "수리", "en": "eagle" }, { "ko": "매", "en": "falcon" },
+    { "ko": "왜가리", "en": "heron" }, { "ko": "물총새", "en": "kingfisher" }
+  ],
+  "colors": {
+    "푸른": "#2F6FB3", "파란": "#2F6FB3", "붉은": "#C0392B", "노란": "#E0A82E",
+    "초록": "#3F8F4A", "연두": "#7FB04A", "보라": "#7F77DD", "하얀": "#9AA3AD",
+    "까만": "#1f2937", "분홍": "#D4537E", "주황": "#E07B39", "청록": "#1D9E8F",
+    "황금": "#C79A2E", "은빛": "#8A929C", "새벽": "#8E7CC3", "쪽빛": "#2F5BA8"
+  },
+  "adjectiveVariant": {
+    "조용한": "calm", "느긋한": "calm", "잔잔한": "calm", "차분한": "calm", "고요한": "calm",
+    "포근한": "calm", "부드러운": "calm", "소담한": "calm", "우아한": "calm", "단정한": "calm",
+    "다정한": "steady", "따뜻한": "steady", "상냥한": "steady", "정다운": "steady", "든든한": "steady",
+    "너그러운": "steady", "슬기로운": "steady", "영리한": "steady", "의젓한": "steady", "늠름한": "steady",
+    "용감한": "lively", "빛나는": "lively", "씩씩한": "lively", "활발한": "lively", "명랑한": "lively",
+    "신나는": "lively", "재빠른": "lively", "깜찍한": "lively", "훤칠한": "lively", "다부진": "lively"
+  }
+}
