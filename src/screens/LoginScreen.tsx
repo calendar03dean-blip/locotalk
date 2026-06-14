@@ -199,7 +199,6 @@ export default function LoginScreen() {
   const [fontsLoaded] = useFonts({ 'JUA-Regular': require('../../assets/fonts/JUA-Regular.ttf') });
   const setAuth      = useStore(s => s.setAuth);
   const setLoggedIn  = useStore(s => s.setLoggedIn);
-  const setPremium   = useStore(s => s.setPremium);
   const setLocationConsent = useStore(s => s.setLocationConsent);
   const setPendingVerified = useStore(s => s.setPendingVerified);
 
@@ -720,24 +719,6 @@ export default function LoginScreen() {
     }
   };
 
-  // ── 개발자 테스트 계정 ────────────────────────────────────────────
-  const enterTestAccount = async (type: 'premium' | 'free') => {
-    const isPrem = type === 'premium';
-    // 위치 권한 필수 게이트 — 허용 전에는 진입(setLoggedIn) 진행 안 됨.
-    await requestLocationGate();
-    setAuth('email', `test-${type}@locotalk.dev`);
-    setLoggedIn({
-      id         : `test-${type}`,
-      nickname   : isPrem ? '프리미엄유저' : '일반유저',
-      interests  : ['coffee', 'run', 'book'],
-      regionGu   : '마포구',
-      regionLabel: '마포구 · 서교동',
-      isVerified : true,   // 개발자 테스트 계정은 본인인증 완료로 간주 → 매칭 성인게이트 미발동
-    });
-    setLocationConsent(true);  // 위치동의도 가입 동의에 포함 → 매칭 시 위치동의 모달 미발동
-    setPremium(isPrem);
-  };
-
   const goBack = () => {
     // signup·login·email_input → main, email_otp → email_input. pw·에러 정리.
     setStep(step === 'email_otp' ? 'email_input' : 'main');
@@ -866,29 +847,8 @@ export default function LoginScreen() {
                 </>
               )}
 
-              {/* ── 테스트 로그인 진입 — 본인인증 미연동(IDENTITY_LIVE=false) 테스트/TestFlight 빌드에서 노출.
-                   출시(appstore)는 IDENTITY_LIVE=true 강제 → 자동 숨김. 시드/DB 없이 즉시 로그인. ── */}
-              {!IDENTITY_LIVE && (
-                <View style={s.devSection}>
-                  <Text style={s.devLabel}>🛠 테스트 로그인</Text>
-                  <View style={s.devRow}>
-                    <TouchableOpacity
-                      style={[s.devBtn, s.devBtnPremium]}
-                      onPress={() => enterTestAccount('premium')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={s.devBtnTxt}>⭐ 프리미엄 계정</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[s.devBtn, s.devBtnFree]}
-                      onPress={() => enterTestAccount('free')}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={s.devBtnTxt}>👤 일반 계정</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
+              {/* 테스트 로그인 버튼(프리미엄/일반 즉시진입)은 제거.
+                  테스트는 "이메일로 로그인" 레이어 + 시드 계정(admin@locotalk.app)으로 일원화. */}
             </View>
           )}
 
@@ -1227,13 +1187,4 @@ const s = StyleSheet.create({
 
   backBtn: { alignItems: 'center', paddingVertical: 8 },
   backTxt: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '500' },
-
-  // 개발자 테스트
-  devSection: { marginTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: 14 },
-  devLabel:   { fontSize: 11, color: LT.label4, textAlign: 'center', marginBottom: 8 },
-  devRow:     { flexDirection: 'row', gap: 8 },
-  devBtn:     { flex: 1, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  devBtnPremium: { backgroundColor: 'rgba(255,215,0,0.25)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.5)' },
-  devBtnFree:    { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-  devBtnTxt:  { fontSize: 12, color: '#fff', fontWeight: '600' },
 });
