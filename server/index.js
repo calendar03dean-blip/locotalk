@@ -62,6 +62,49 @@ const db = new Pool({
   ssl: false,   // Railway 내부 네트워크는 SSL 불필요
 });
 
+// ─── 테스트 계정 자동 시드 (프리런치 전용) ───────────────────────────────────
+// 본인인증 미연동(IDENTITY_LIVE=false) 단계에서 본인인증 없이 이메일 로그인으로
+//   앱 전 플로우를 검증하기 위한 고정 테스트 계정. 부팅 시 서버 자기 DATABASE_URL 로 DB upsert.
+//   → 별도 시드 스크립트/외부 DATABASE_URL 없이 배포만으로 계정 존재 보장. 실제 row 라 매칭·프로필 정상.
+//   ⚠️ 출시(본인인증 실연동) 시 반드시 차단: env TEST_ACCOUNTS_DISABLE=1 (Railway 변수).
+//   닉네임은 codename.isValidCodename 통과값(매칭 join_queue 검증 통과), is_verified/adult_verified=TRUE.
+const TEST_ACCOUNTS_ENABLED = process.env.TEST_ACCOUNTS_DISABLE !== '1';
+const TEST_ACCOUNTS = [
+  { email: 'admin@locotalk.app',  password: '0909', nickname: '조용한너구리', interests: ['여행', '음악', '운동'] },
+  { email: 'tester@locotalk.app', password: '1234', nickname: '따뜻한고양이', interests: ['커피', '독서', '산책'] },
+];
+
+async function seedTestAccounts() {
+  if (!TEST_ACCOUNTS_ENABLED) { console.log('[seed] 테스트 계정 비활성(TEST_ACCOUNTS_DISABLE=1)'); return; }
+  for (const a of TEST_ACCOUNTS) {
+    try {
+      if (!codename.isValidCodename(a.nickname)) { console.warn('[seed] 닉네임 형식 오류 skip:', a.email); continue; }
+      const hash = await passwords.hashPassword(a.password);
+      const interests = JSON.stringify(a.interests);
+      const found = await db.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1', [a.email]);
+      let id;
+      if (found.rows.length) {
+        id = found.rows[0].id;
+        await db.query(
+          `UPDATE users SET auth_provider='email', password_hash=$2, nickname=$3,
+             interests=COALESCE(interests,$4), is_verified=TRUE WHERE id=$1`,
+          [id, hash, a.nickname, interests]);
+      } else {
+        id = 'idv:test-' + a.email.split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase();
+        await db.query(
+          `INSERT INTO users (id, auth_provider, email, password_hash, nickname, interests, is_verified)
+           VALUES ($1,'email',$2,$3,$4,$5,TRUE)`,
+          [id, a.email, hash, a.nickname, interests]);
+      }
+      // adult_verified 컬럼(legal 스키마)이 있으면 TRUE → 매칭 성인게이트 통과.
+      try { await db.query('UPDATE users SET adult_verified = TRUE WHERE id = $1', [id]); } catch (_) {}
+      console.log('[seed] ✅ 테스트 계정 준비:', a.email, '(' + a.nickname + ')');
+    } catch (e) {
+      console.error('[seed] 테스트 계정 실패:', a.email, e.message);
+    }
+  }
+}
+
 // DB 초기화 — 테이블 생성
 async function initDB() {
   if (!process.env.DATABASE_URL) {
@@ -126,6 +169,8 @@ async function initDB() {
       for (const [region, items] of warm) regionFeeds.set(region, items);
       if (warm.size) console.log(`[feed] ✅ DB 워밍 — ${warm.size} region 로드`);
     } catch (e) { console.warn('[feed] 워밍 실패(무시):', e.message); }
+    // 프리런치 테스트 계정 자동 시드(모든 스키마 준비 후 — is_verified/adult_verified 컬럼 보장).
+    await seedTestAccounts();
   } catch (e) {
     console.error('[db] 초기화 실패:', e.message);
   }
