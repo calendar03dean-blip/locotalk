@@ -19,6 +19,7 @@ import InterestIcon from '../components/InterestIcon';
 import UpgradeModal from '../components/UpgradeModal';
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
 import LocationConsentModal from '../components/LocationConsentModal';
+import { PREMIUM_ENABLED } from '../constants/release';
 import { connectSocket, getSocket } from '../services/socket';
 
 // Legacy pool kept for offline/error fallback only
@@ -324,8 +325,10 @@ export default function HomeScreen() {
     if (!locationConsent)  { setShowLocConsent(true);  return; }
 
     // 매칭 횟수 리셋 체크 후 한도 확인
+    //   프리미엄 숨김(PREMIUM_ENABLED=false) 시엔 한도(=프리미엄 유도 장치) 미적용 → 무제한 매칭
+    //   (업그레이드 모달이 비활성이라 한도에 막히면 조용한 데드엔드가 되는 것 방지).
     resetMatchCountIfNeeded();
-    if (!consumeMatchSlot()) {
+    if (PREMIUM_ENABLED && !consumeMatchSlot()) {
       setShowUpgrade(true);
       return;
     }
@@ -593,8 +596,8 @@ export default function HomeScreen() {
             </Text>
           </TouchableOpacity>
 
-          {/* 매칭 횟수 카운터 */}
-          {user?.regionLabel && (
+          {/* 매칭 횟수 카운터 (프리미엄 숨김 시 비표시 — 업그레이드 유도/티어 한도 노출 제거) */}
+          {user?.regionLabel && PREMIUM_ENABLED && (
             <TouchableOpacity onPress={() => setShowUpgrade(true)} style={s.matchCountRow}>
               {isPremium
                 ? <Text style={s.matchCountPremium}>◆ PREMIUM · 30회/시간</Text>

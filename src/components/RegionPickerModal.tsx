@@ -138,7 +138,8 @@ const s = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 14, color: Colors.dark, padding: 0 },
 
   cityRow:     { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
-  cityTab:     { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.g1 },
+  // 도시 탭은 글자 길이와 무관하게 동일 폭·가운데 정렬로 통일(틀어짐 방지).
+  cityTab:     { minWidth: 60, height: 34, paddingHorizontal: 12, borderRadius: 20, backgroundColor: Colors.g1, alignItems: 'center', justifyContent: 'center' },
   cityTabSel:  { backgroundColor: '#034A93' },
   cityTxt:     { fontSize: 13, color: Colors.g4, fontWeight: '500' },
   cityTxtSel:  { color: '#fff', fontWeight: '700' },

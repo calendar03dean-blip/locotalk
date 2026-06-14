@@ -12,6 +12,7 @@ import * as Notifications from 'expo-notifications';
 import { useStore } from '../store';
 import { setChatFocused } from '../services/notifications';
 import { Colors, Typography, Spacing, Radius } from '../constants/theme';
+import { PREMIUM_ENABLED } from '../constants/release';
 import { LT } from '../constants/lt';
 import { findInterest, interestLabel } from '../constants/data';
 import { useT, useLang, translate } from '../i18n';
@@ -626,8 +627,8 @@ export default function ChatScreen() {
                 {peer?.region || t('chat_region_unknown')}{peerInts.length > 0 ? ` · ${peerInts.map(i => interestLabel(i!, lang)).join(' · ')}` : ''}
               </Text>
             </View>
-            {/* 프리미엄 전용: 거리 + 성별/생년 */}
-            {isPremium && (
+            {/* 프리미엄 전용: 거리 + 성별/생년 (프리미엄 숨김 시 비표시) */}
+            {PREMIUM_ENABLED && isPremium && (
               <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
                 {peer?.distanceKm != null && (
                   <View style={s.distanceBadge}>
@@ -764,8 +765,8 @@ export default function ChatScreen() {
           <View style={s.menuSheet}>
             <View style={s.handle} />
 
-            {/* 프리미엄 채팅 내보내기 */}
-            {isPremium && (
+            {/* 프리미엄 채팅 내보내기 (프리미엄 숨김 시 비표시) */}
+            {PREMIUM_ENABLED && isPremium && (
               <TouchableOpacity style={s.menuItem} onPress={() => {
                 setMenuVisible(false);
                 const chatText = messages

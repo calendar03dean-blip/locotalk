@@ -14,6 +14,11 @@
 //      (본인인증 게이트 = 청소년보호법 연령확인 준수)
 export const IDENTITY_LIVE = false;
 
+// 프리미엄 기능 전체 노출 스위치(소프트런치 — 당분간 숨김, 나중에 오픈 시 true).
+//   false: 업그레이드/플랜/PREMIUM 배지/프리미엄 전용 기능(지역설정·지인매칭 등) UI 전부 숨김.
+//          내부 매칭 로직의 isPremium 분기는 그대로(프리미엄 유저 부재 시 무료 동작) — UI만 가린다.
+export const PREMIUM_ENABLED = false;
+
 export type ReleaseStage = 'dev' | 'testflight' | 'appstore';
 
 // EAS build profile(eas.json)의 env 로 주입(EXPO_PUBLIC_* 는 빌드 시 번들에 인라인).

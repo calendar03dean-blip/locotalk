@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getSocket } from '../services/socket';
 import NickAvatar from './NickAvatar';
 import { Colors, Typography, Spacing, Radius } from '../constants/theme';
+import { PREMIUM_ENABLED } from '../constants/release';
 
 export interface ConversationItem {
   id: string;            // roomId
@@ -74,7 +75,7 @@ export default function ConversationListModal({ visible, onClose, onOpen }: Prop
         ) : items.length === 0 ? (
           <View style={s.center}>
             <Text style={s.emptyTitle}>아직 대화 내역이 없어요</Text>
-            <Text style={s.emptyDesc}>대화는 무료 7일 · 프리미엄 90일 보관돼요</Text>
+            <Text style={s.emptyDesc}>{PREMIUM_ENABLED ? '대화는 무료 7일 · 프리미엄 90일 보관돼요' : '대화는 7일간 보관돼요'}</Text>
           </View>
         ) : (
           <FlatList

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Colors, Radius, Typography, Spacing } from '../constants/theme';
+import { PREMIUM_ENABLED } from '../constants/release';
 
 interface Props {
   visible: boolean;
@@ -46,6 +47,7 @@ const FEATURES = [
 ];
 
 export default function UpgradeModal({ visible, onClose, reason }: Props) {
+  if (!PREMIUM_ENABLED) return null;   // 프리미엄 숨김 — 업그레이드 모달 비활성(전 화면)
   const reasonMsg =
     reason === 'limit'  ? '이번 시간 매칭 횟수를 모두 사용했어요.' :
     reason === 'region' ? '커스텀 지역 설정은 프리미엄 전용이에요.' :

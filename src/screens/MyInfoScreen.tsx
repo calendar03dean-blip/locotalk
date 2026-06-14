@@ -19,6 +19,7 @@ import RegionPickerModal from '../components/RegionPickerModal';
 // [제거] IdentityVerifyModal / PhoneVerifyModal — 트리거 0(죽은 verify UI). PortOne 만 유지.
 import PortOneVerifyModal from '../components/PortOneVerifyModal';
 import ConversationListModal, { type ConversationItem } from '../components/ConversationListModal';
+import { PREMIUM_ENABLED } from '../constants/release';
 import { useNavigation } from '@react-navigation/native';
 import { loadContactPhoneHashes } from '../utils/contacts';
 
@@ -311,7 +312,8 @@ export default function MyInfoScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── 플랜 카드 ─────────────────────────────────── */}
+        {/* ── 플랜 카드 (프리미엄 숨김 시 비표시) ────────────── */}
+        {PREMIUM_ENABLED && (
         <TouchableOpacity
           style={[s.planCard, isPremium ? s.planCardPremium : s.planCardFree]}
           onPress={() => !isPremium && setShowUpgrade(true)}
@@ -334,8 +336,10 @@ export default function MyInfoScreen() {
             </View>
           )}
         </TouchableOpacity>
+        )}
 
-        {/* ── 지역 설정 (프리미엄 전용) ────────────────── */}
+        {/* ── 지역 설정 (프리미엄 전용 — 프리미엄 숨김 시 비표시) ────────────────── */}
+        {PREMIUM_ENABLED && (<>
         <Text style={s.sectionLabel}>{t('myinfo_region_setting')}</Text>
         <View style={s.card}>
           <TouchableOpacity
@@ -360,6 +364,7 @@ export default function MyInfoScreen() {
             </View>
           </TouchableOpacity>
         </View>
+        </>)}
 
         {/* ── 설정 ──────────────────────────────────────── */}
         <Text style={s.sectionLabel}>{t('myinfo_settings_section')}</Text>
@@ -435,7 +440,8 @@ export default function MyInfoScreen() {
             />
           </View>
 
-          {/* 지인 매칭 피하기 — 프리미엄 (연락처 기반) */}
+          {/* 지인 매칭 피하기 — 프리미엄 (프리미엄 숨김 시 비표시) */}
+          {PREMIUM_ENABLED && (
           <View style={s.row}>
             <View style={s.rowLeft}>
               <IcoShield color={Colors.g4} size={15} />
@@ -457,6 +463,7 @@ export default function MyInfoScreen() {
                   ios_backgroundColor={Colors.g2}
                 />}
           </View>
+          )}
 
           {/* 언어 — Language toggle */}
           <View style={s.row}>

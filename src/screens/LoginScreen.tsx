@@ -272,6 +272,9 @@ export default function LoginScreen() {
   };
   // 전체 동의가 채워지면 넛지 강조 해제(꾸중 아닌 진행감으로 전환).
   useEffect(() => { if (allAgreed) setNudge(false); }, [allAgreed]);
+  // 위치기반서비스 이용약관 동의 = 위치정보 이용 동의. 회원가입 동의(약관 3종)에 포함시켜
+  //   매칭 시 별도 위치동의 모달이 다시 뜨지 않게 한다(HomeScreen 위치게이트 통과).
+  useEffect(() => { if (agreed.location) setLocationConsent(true); }, [agreed.location]);
 
   // 입장 애니메이션
   useEffect(() => {
@@ -731,6 +734,7 @@ export default function LoginScreen() {
       regionLabel: '마포구 · 서교동',
       isVerified : true,   // 개발자 테스트 계정은 본인인증 완료로 간주 → 매칭 성인게이트 미발동
     });
+    setLocationConsent(true);  // 위치동의도 가입 동의에 포함 → 매칭 시 위치동의 모달 미발동
     setPremium(isPrem);
   };
 
