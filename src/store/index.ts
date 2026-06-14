@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeModules, Platform } from 'react-native';
 import { hashPhone } from '../utils/phonehash';
@@ -167,7 +168,7 @@ interface AppState {
   setLocationPermission: (v: boolean | null) => void;
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>()(persist((set, get) => ({
   lang: detectLang(),
   setLang: (lang) => set({ lang }),
 
@@ -329,4 +330,21 @@ export const useStore = create<AppState>((set, get) => ({
   locationPermission: null,
   setLocationPermission: (v) => set({ locationPermission: v }),
 
+}), {
+  // 자동 로그인 — 같은 기기에서 한 번 로그인하면 재실행 시 세션 복원.
+  //   인증/로그인/프리미엄/위치동의만 영속(전이 상태 peer/roomId/pendingVerified 등 제외).
+  //   ⚠️ 초기값(hasAuth/isLoggedIn=false)은 위 정의 그대로 — rehydrate 전엔 false, 저장된 세션 있으면 복원.
+  name: 'locotalk_auth_v1',
+  storage: createJSONStorage(() => AsyncStorage),
+  partialize: (s) => ({
+    hasAuth: s.hasAuth,
+    authProvider: s.authProvider,
+    authEmail: s.authEmail,
+    authUserId: s.authUserId,
+    authToken: s.authToken,
+    isLoggedIn: s.isLoggedIn,
+    user: s.user,
+    isPremium: s.isPremium,
+    locationConsent: s.locationConsent,
+  }),
 }));

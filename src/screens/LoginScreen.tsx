@@ -862,10 +862,11 @@ export default function LoginScreen() {
                 </>
               )}
 
-              {/* ── 개발자 테스트 진입 (개발 빌드 전용 — 출시 빌드에선 숨김) ── */}
-              {__DEV__ && (
+              {/* ── 테스트 로그인 진입 — 본인인증 미연동(IDENTITY_LIVE=false) 테스트/TestFlight 빌드에서 노출.
+                   출시(appstore)는 IDENTITY_LIVE=true 강제 → 자동 숨김. 시드/DB 없이 즉시 로그인. ── */}
+              {!IDENTITY_LIVE && (
                 <View style={s.devSection}>
-                  <Text style={s.devLabel}>🛠 개발자 테스트</Text>
+                  <Text style={s.devLabel}>🛠 테스트 로그인</Text>
                   <View style={s.devRow}>
                     <TouchableOpacity
                       style={[s.devBtn, s.devBtnPremium]}
